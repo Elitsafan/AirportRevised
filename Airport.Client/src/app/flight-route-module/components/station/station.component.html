@@ -1,0 +1,7 @@
+<div class="card border border-2 border-secondary" *ngIf="station">
+  <!--<i class="bi bi-airplane text-center" [style.background-color]="station.flight ? station.flight.color : ''" [style]="{'font-size': '2rem'}"></i>-->
+  <div class="card-body bg-secondary text-custom-light p-1 fw-bold">
+    <h6 class="card-title text-center">Station No: {{station.stationId[station.stationId.length - 1]}}</h6>
+  </div>
+  <flight *ngIf="flightType === station.flight?.flightType" [style.background-color]="station.flight?.color" [flight]="station.flight"></flight>
+</div>

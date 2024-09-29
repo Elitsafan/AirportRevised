@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Airport.Simulator": {
+      "commandName": "Project",
+      "commandLineArgs": "2 exit"
+    }
+  }
+}

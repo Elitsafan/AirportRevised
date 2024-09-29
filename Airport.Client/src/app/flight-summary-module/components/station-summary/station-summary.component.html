@@ -1,0 +1,5 @@
+<ng-container *ngIf="station">
+  <div class="fw-bold">St. {{station.stationId | slice:-1}}</div>
+  <div><span class="fw-bold">Entered At:</span> {{station.entrance | date: 'HH:mm:ss.SSS'}}</div>
+  <div><span class="fw-bold">Exited At:</span> {{station.exit | date: 'HH:mm:ss.SSS'}}</div>
+</ng-container>

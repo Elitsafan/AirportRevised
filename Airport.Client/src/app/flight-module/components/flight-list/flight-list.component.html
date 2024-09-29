@@ -1,0 +1,8 @@
+<div class="container">
+  <h2 class="text-center"># | {{title}}</h2>
+  <div class="container" *ngIf="flights">
+    <ng-container *ngFor="let flight of flights.filter(filter); index as i; trackBy: trackByFlightId">
+      <flight [hideFlightType]="hideFlightType" [index]="i + 1" [flight]="flight"></flight>
+    </ng-container>
+  </div>
+</div>

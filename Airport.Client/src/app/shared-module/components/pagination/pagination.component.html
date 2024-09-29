@@ -1,0 +1,34 @@
+<div class="d-flex justify-content-center align-items-center pagination">
+  <button [routerLink]="['/summary']"
+          [queryParams]="{ pageSize: pagination?.pageSize, pageNumber: 1 }"
+          [disabled]="!pagination?.totalCount || pagination?.currentPage === 1">
+    <<
+  </button>
+  <button [routerLink]="['/summary']"
+          [queryParams]="{ pageSize: pagination?.pageSize, pageNumber: pagination?.currentPage! - 1 }"
+          [disabled]="!pagination?.totalCount || pagination?.currentPage === 1">
+    <
+  </button>
+  <button [routerLink]="['/summary']"
+          [queryParams]="{ pageSize: pagination?.pageSize, pageNumber: page }"
+          [disabled]="!pagination?.totalCount"
+          *ngFor="let page of visiblePages"
+          [ngClass]="pagination?.currentPage === page ? 'selected' : ''">
+    {{ page }}
+  </button>
+  <button [routerLink]="['/summary']"
+          [queryParams]="{ pageSize: pagination?.pageSize, pageNumber: pagination?.currentPage! + 1 }"
+          [disabled]="pagination?.currentPage === pagination?.totalPages">
+    >
+  </button>
+  <button [routerLink]="['/summary']" [queryParams]="{ pageSize: pagination?.pageSize, pageNumber: pagination?.totalPages }" [disabled]="pagination?.currentPage === pagination?.totalPages">
+    >>
+  </button>
+
+  <select [disabled]="!pagination"
+          class="form-select form-select-md w-auto h-auto fw-bold"
+          [ngModel]="pagination?.pageSize"
+          (ngModelChange)="selectPageSize($event)">
+    <option *ngFor="let size of pageSizes" [value]="size">{{ size }}</option>
+  </select>
+</div>

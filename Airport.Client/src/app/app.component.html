@@ -1,0 +1,27 @@
+<header class="sticky-top">
+  <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-primary border-bottom box-shadow">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+              aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+        <ul class="navbar-nav flex-grow-1">
+          <li class="nav-item fw-bold fs-5">
+            <a class="nav-link text-custom-light"
+               routerLinkActive="active"
+               routerLink="/flights"
+               [routerLinkActiveOptions]="{exact:true}">Flights</a>
+          </li>
+          <li class="nav-item fw-bold fs-5">
+            <a class="nav-link text-custom-light" routerLinkActive="active" routerLink="/stations">Stations</a>
+          </li>
+          <li class="nav-item fw-bold fs-5">
+            <a class="nav-link text-custom-light" routerLinkActive="active" routerLink="/summary">Summary</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+</header>
+<router-outlet />
