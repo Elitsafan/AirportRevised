@@ -3,7 +3,7 @@
     <flight-list class="ms-2 me-2 bg-custom-gray" [flights]="flights" [hideFlightType]="true" [title]="'Landings'" [flightType]="landing"></flight-list>
     <flight-list class="ms-2 me-2 bg-success" [flights]="flights" [hideFlightType]="true" [title]="'Departures'" [flightType]="departure"></flight-list>
   </div>
-  <button class="sticky-top btn btn-primary mt-3 align-self-start" (click)="onRefresh($event)"><i class="bi bi-arrow-clockwise">Refresh</i></button>
+  <button class="sticky-top border border-body-bg btn btn-primary mt-3 align-self-start" (click)="onRefresh($event)"><i class="bi bi-arrow-clockwise">Refresh</i></button>
 </div>
 
 <div *ngIf="loading" class="d-flex justify-content-center align-items-center">
