@@ -1,7 +1,6 @@
 ﻿using Airport.Models.DTOs;
 using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Runtime.CompilerServices;
@@ -28,25 +27,25 @@ namespace Airport.Presentation.Controllers
         }
 
         // POST: api/Flights/Landing/...
-        [HttpPost("[action]/{id}", Name = "Landing")]
+        [HttpPost("[action]/{id}")]
         public async Task<IActionResult> LandingAsync(
             ObjectId id,
             [FromBody] LandingForCreationDTO flightForCreation,
             CancellationToken cancellationToken = default)
         {
             await _flightSvc.ProcessFlightAsync(id, flightForCreation, cancellationToken);
-            return CreatedAtRoute("Status", StatusCodes.Status201Created);
+            return CreatedAtRoute("GetAllFlights", new { id, flightForCreation.FlightType });
         }
 
         // POST: api/Flights/Departure/...
-        [HttpPost("[action]/{id}", Name = "Departure")]
+        [HttpPost("[action]/{id}")]
         public async Task<IActionResult> DepartureAsync(
             ObjectId id,
             [FromBody] DepartureForCreationDTO flightForCreation,
             CancellationToken cancellationToken = default)
         {
             await _flightSvc.ProcessFlightAsync(id, flightForCreation, cancellationToken);
-            return CreatedAtRoute("Status", StatusCodes.Status201Created);
+            return CreatedAtRoute("GetAllFlights", new { id, flightForCreation.FlightType });
         }
     }
 }

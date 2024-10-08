@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Airport.Domain.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using Airport.Contracts.Database;
-using Airport.Contracts.Repositories;
 
 namespace Airport.Persistence.Repositories
 {
@@ -19,7 +19,7 @@ namespace Airport.Persistence.Repositories
         {
             var flightRepositoryLogger = serviceProvider.GetRequiredService<ILogger<FlightRepository>>();
             var client = serviceProvider.GetRequiredService<IMongoClient>();
-            var dbConfiguration = serviceProvider.GetRequiredService<IAirportDbConfiguration>();
+            var dbConfiguration = serviceProvider.GetRequiredService<IOptions<AirportDbConfiguration>>();
 
             _lazyStationRepository = new Lazy<IStationRepository>(() => new StationRepository(client, dbConfiguration));
             _lazyRouteRepository = new Lazy<IRouteRepository>(() => new RouteRepository(client, dbConfiguration));

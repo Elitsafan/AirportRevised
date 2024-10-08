@@ -1,4 +1,5 @@
 ﻿using Airport.Domain.Helpers;
+using Airport.Domain.Repositories;
 using Airport.Models.Enums;
 
 namespace Airport.Domain.Providers

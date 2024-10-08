@@ -16,18 +16,18 @@ namespace Airport.Presentation.Controllers
         public AirportController(IAirportService airportservice) => _airportService = airportservice;
 
         // GET: api/Airport/Start
-        [HttpGet(Name = "Start")]
+        [HttpGet]
         public async Task<IActionResult> StartAsync(CancellationToken cancellationToken) =>
             Ok(await _airportService.StartAsync(cancellationToken));
 
         // GET: api/Airport/Status
-        [HttpGet(Name = "Status")]
+        [HttpGet]
         [TypeFilter(typeof(AirportNotStartedFilter))]
         public async Task<IActionResult> StatusAsync(CancellationToken cancellationToken) =>
             Ok(await _airportService.GetStatusAsync(cancellationToken));
 
         // GET: api/Airport/Summary
-        [HttpGet(Name = "Summary")]
+        [HttpGet]
         [TypeFilter(typeof(AirportNotStartedFilter))]
         public async Task<IActionResult> SummaryAsync(
             [FromQuery] GetSummaryParameters parameters,

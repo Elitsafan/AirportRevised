@@ -2,13 +2,12 @@
 using Airport.Contracts.EventArgs;
 using Airport.Contracts.Factories;
 using Airport.Contracts.Logics;
-using Airport.Contracts.Repositories;
+using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Services.Abstractions;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.Threading;
 using MongoDB.Bson;
 using System.Runtime.CompilerServices;
 
@@ -99,11 +98,10 @@ namespace Airport.Services
         {
             (sender as IFlightLogic)!.FlightRunStarted -= OnFlightRunStartedAsync;
             args.Flight.RouteId = args.RouteId;
-            _repositoryManager.FlightRepository.AddFlightAsync(args.Flight).Forget();
+            await _repositoryManager.FlightRepository.AddFlightAsync(args.Flight);
 #if TEST
             _logger.LogInformation($"{args.Flight.ConvertToFlightType()} ID: {args.Flight.FlightId} -----> Registered");
 #endif
-            await Task.CompletedTask;
         }
     }
 }

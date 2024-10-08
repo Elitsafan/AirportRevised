@@ -1,6 +1,6 @@
-﻿namespace Airport.Contracts.Repositories
+﻿namespace Airport.Domain.Repositories
 {
-    public interface IRepositoryManager : IAsyncDisposable
+    public interface IRepositoryManager : System.IAsyncDisposable
     {
         IStationRepository StationRepository { get; }
         IRouteRepository RouteRepository { get; }

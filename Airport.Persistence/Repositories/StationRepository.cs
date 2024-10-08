@@ -1,6 +1,6 @@
-﻿using Airport.Contracts.Database;
-using Airport.Contracts.Repositories;
+﻿using Airport.Domain.Repositories;
 using Airport.Models.Entities;
+using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -14,15 +14,15 @@ namespace Airport.Persistence.Repositories
         private readonly IMongoClient _client;
         #endregion
 
-        public StationRepository(IMongoClient client, IAirportDbConfiguration dbSettings)
+        public StationRepository(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
             _client = client;
             _stationsCollection = _client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<Station>(dbSettings.StationsCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Station>(dbConfiguration.Value.StationsCollectionName);
             _routesCollection = _client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<Route>(dbSettings.RoutesCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
         }
 
         public async Task<IEnumerable<Station>> GetAllAsync(CancellationToken cancellationToken = default) =>

@@ -1,8 +1,6 @@
-﻿using Airport.Contracts.Database;
-
-namespace Airport.Persistence
+﻿namespace Airport.Persistence
 {
-    public class AirportDbConfiguration : IAirportDbConfiguration
+    public class AirportDbConfiguration
     {
         public string DatabaseName { get; set; } = null!;
         public string ConnectionString { get; set; } = null!;

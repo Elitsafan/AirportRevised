@@ -1,6 +1,4 @@
-﻿using Airport.Models.Entities;
-
-namespace Airport.Contracts.Repositories
+﻿namespace Airport.Domain.Repositories
 {
     public interface IFlightRepository : IRepository<Flight>
     {

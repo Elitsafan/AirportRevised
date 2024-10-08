@@ -1,17 +1,17 @@
-﻿using MongoDB.Bson;
+﻿using Airport.Models.Entities;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
-using Airport.Contracts.Database;
-using Airport.Models.Entities;
 
 namespace Airport.Persistence.Configurations
 {
     internal class RouteConfiguration
     {
-        public async Task ConfigureAsync(IMongoClient client, IAirportDbConfiguration dbSettings)
+        public async Task ConfigureAsync(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
             var routesCollection = client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<Route>(dbSettings.RoutesCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
             var data = new List<Route>
             {
                 new Route

@@ -15,15 +15,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Airport.Domain\Airport.Domain.csproj" />
-    <ProjectReference Include="..\Airport.Services.Abstractions\Airport.Services.Abstractions.csproj" />
-    <ProjectReference Include="..\Airport.SignalR\Airport.SignalR.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>$(AssemblyName).Tests</_Parameter1>
     </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Airport.Persistence\Airport.Persistence.csproj" />
+    <ProjectReference Include="..\Airport.Services.Abstractions\Airport.Services.Abstractions.csproj" />
+    <ProjectReference Include="..\Airport.SignalR\Airport.SignalR.csproj" />
   </ItemGroup>
 
 </Project>

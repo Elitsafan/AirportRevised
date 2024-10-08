@@ -1,7 +1,4 @@
-﻿using Airport.Models.Entities;
-using MongoDB.Bson;
-
-namespace Airport.Contracts.Repositories
+﻿namespace Airport.Domain.Repositories
 {
     public interface ITrafficLightRepository : IRepository<TrafficLight>
     {

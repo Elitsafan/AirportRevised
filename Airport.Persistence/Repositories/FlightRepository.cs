@@ -1,7 +1,7 @@
-﻿using Airport.Contracts.Database;
-using Airport.Contracts.Repositories;
+﻿using Airport.Domain.Repositories;
 using Airport.Models.Entities;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace Airport.Persistence.Repositories
@@ -9,21 +9,21 @@ namespace Airport.Persistence.Repositories
     internal sealed class FlightRepository : IFlightRepository
     {
         #region Fields
-        private readonly ILogger<IFlightRepository> _logger;
+        private readonly ILogger<FlightRepository> _logger;
         private readonly IMongoCollection<Flight> _flightsCollection;
         private readonly IMongoClient _client;
         #endregion
 
         public FlightRepository(
-            ILogger<IFlightRepository> logger,
+            ILogger<FlightRepository> logger,
             IMongoClient client,
-            IAirportDbConfiguration dbSettings)
+            IOptions<AirportDbConfiguration> dbConfiguration)
         {
             _logger = logger;
             _client = client;
             _flightsCollection = _client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<Flight>(dbSettings.FlightsCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Flight>(dbConfiguration.Value.FlightsCollectionName);
         }
 
         public async Task AddFlightAsync(Flight flight, CancellationToken cancellationToken = default) =>
@@ -52,7 +52,10 @@ namespace Airport.Persistence.Repositories
             .SortBy(f => f.OccupationDetails[0].Entrance)
             .ToListAsync(cancellationToken);
 
-        public async Task<bool> UpdateFlightAsync(Flight flight, bool upsert = true, CancellationToken cancellationToken = default)
+        public async Task<bool> UpdateFlightAsync(
+            Flight flight,
+            bool upsert = false,
+            CancellationToken cancellationToken = default)
         {
             UpdateResult updateResult = await _flightsCollection.UpdateOneAsync(
                 f => f.FlightId == flight.FlightId,

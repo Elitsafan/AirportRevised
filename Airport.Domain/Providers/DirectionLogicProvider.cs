@@ -1,4 +1,6 @@
-﻿namespace Airport.Domain.Providers
+﻿using Airport.Domain.Repositories;
+
+namespace Airport.Domain.Providers
 {
     //TODO: Use repository and cache 
     public class DirectionLogicProvider : IDirectionLogicProvider

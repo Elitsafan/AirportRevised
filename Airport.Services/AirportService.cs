@@ -1,7 +1,6 @@
-﻿using Airport.Contracts.Database;
-using Airport.Contracts.Factories;
+﻿using Airport.Contracts.Factories;
 using Airport.Contracts.Providers;
-using Airport.Contracts.Repositories;
+using Airport.Domain.Repositories;
 using Airport.Models;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
@@ -66,7 +65,7 @@ namespace Airport.Services
 
         public async Task<IAirportStatus> GetStatusAsync(CancellationToken cancellationToken = default)
         {
-            List<StationDTO> stations = (await _stationLogicProvider.GetAllAsync())
+            List<StationDTO> stations = (await _stationLogicProvider.GetAllAsync(cancellationToken))
                 .Select(_mapper.Map<StationDTO>)
                 .ToList();
             List<RouteDTO> routes = (await _repositoryManager.RouteRepository.GetAllAsync(cancellationToken))
@@ -121,7 +120,6 @@ namespace Airport.Services
             _serviceProvider.GetRequiredService<IDirectionLogicProvider>();
             _serviceProvider.GetRequiredService<IStationLogicProvider>();
             _serviceProvider.GetRequiredService<IRouteLogicProvider>();
-            _serviceProvider.GetRequiredService<IAirportDbConfiguration>();
             _serviceProvider.GetRequiredService<IMongoClient>();
         }
 

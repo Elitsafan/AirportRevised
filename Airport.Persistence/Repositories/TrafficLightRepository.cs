@@ -1,27 +1,27 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
-using Airport.Contracts.Database;
-using Airport.Contracts.Repositories;
-using Airport.Domain.Exceptions;
+﻿using Airport.Domain.Exceptions;
+using Airport.Domain.Repositories;
 using Airport.Models.Entities;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace Airport.Persistence.Repositories
 {
     internal sealed class TrafficLightRepository : ITrafficLightRepository
     {
         #region Fields
-        private readonly IAirportDbConfiguration _dbSettings;
+        private readonly IOptions<AirportDbConfiguration> _dbConfiguration;
         private readonly IMongoCollection<TrafficLight> _trafficLightsCollection;
         private readonly IMongoClient _client;
         #endregion
 
-        public TrafficLightRepository(IMongoClient client, IAirportDbConfiguration dbSettings)
+        public TrafficLightRepository(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
             _client = client;
-            _dbSettings = dbSettings;
+            _dbConfiguration = dbConfiguration;
             _trafficLightsCollection = _client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<TrafficLight>(dbSettings.TrafficLightsCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<TrafficLight>(dbConfiguration.Value.TrafficLightsCollectionName);
         }
 
         public async Task<IEnumerable<TrafficLight>> GetAllAsync(CancellationToken cancellationToken = default) =>
@@ -34,8 +34,8 @@ namespace Airport.Persistence.Repositories
             CancellationToken cancellationToken = default)
         {
             var routesCollection = _client!
-                .GetDatabase(_dbSettings.DatabaseName)
-                .GetCollection<Route>(_dbSettings.RoutesCollectionName);
+                .GetDatabase(_dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(_dbConfiguration.Value.RoutesCollectionName);
             var stationIds = (await routesCollection
                 .Find(r => r.RouteId == routeId)
                 .SingleAsync(cancellationToken)).Directions
@@ -53,15 +53,15 @@ namespace Airport.Persistence.Repositories
             CancellationToken cancellationToken = default)
         {
             var routesCollection = _client
-                .GetDatabase(_dbSettings.DatabaseName)
-                .GetCollection<Route>(_dbSettings.RoutesCollectionName);
+                .GetDatabase(_dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(_dbConfiguration.Value.RoutesCollectionName);
             var route = await routesCollection
                 .Find(r => r.RouteId == routeId)
                 .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new EntityNotFoundException($"Route Id: {routeId} not found");
             var trafficLightCollection = _client
-                .GetDatabase(_dbSettings.DatabaseName)
-                .GetCollection<TrafficLight>(_dbSettings.TrafficLightsCollectionName);
+                .GetDatabase(_dbConfiguration.Value.DatabaseName)
+                .GetCollection<TrafficLight>(_dbConfiguration.Value.TrafficLightsCollectionName);
             var tls = await GetTrafficLightsByRouteIdAsync(routeId, cancellationToken);
             var trafficLight = await (await trafficLightCollection
                 .FindAsync(tl => tl.TrafficLightId == id, cancellationToken: cancellationToken))

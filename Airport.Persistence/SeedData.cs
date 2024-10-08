@@ -1,6 +1,6 @@
-﻿using MongoDB.Driver;
-using Airport.Contracts.Database;
-using Airport.Persistence.Configurations;
+﻿using Airport.Persistence.Configurations;
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 
 namespace Airport.Persistence
 {
@@ -8,11 +8,12 @@ namespace Airport.Persistence
     {
         public static async Task InitializeAsync(
             IMongoClient client,
-            IAirportDbConfiguration configuration)
+            IOptions<AirportDbConfiguration> configuration,
+            CancellationToken cancellationToken = default)
         {
-            if ((await (await client.ListDatabaseNamesAsync())
-                .ToListAsync())
-                .Any(name => configuration.DatabaseName == name))
+            if ((await (await client.ListDatabaseNamesAsync(cancellationToken))
+                .ToListAsync(cancellationToken: cancellationToken))
+                .Any(name => configuration.Value.DatabaseName == name))
                 return;
             await new DepartureConfiguration()
                 .ConfigureAsync(client, configuration);
@@ -30,12 +31,13 @@ namespace Airport.Persistence
 
         public static async Task DeleteAsync(
             IMongoClient client,
-            IAirportDbConfiguration configuration)
+            IOptions<AirportDbConfiguration> configuration,
+            CancellationToken cancellationToken = default)
         {
-            if ((await (await client.ListDatabaseNamesAsync())
-                .ToListAsync())
-                .Any(name => configuration.DatabaseName == name))
-                await client.DropDatabaseAsync(configuration.DatabaseName);
+            if ((await (await client.ListDatabaseNamesAsync(cancellationToken))
+                .ToListAsync(cancellationToken: cancellationToken))
+                .Any(name => configuration.Value.DatabaseName == name))
+                await client.DropDatabaseAsync(configuration.Value.DatabaseName, cancellationToken);
         }
     }
 }

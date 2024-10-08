@@ -1,9 +1,8 @@
-using Airport.Contracts.Database;
 using Airport.Contracts.Factories;
 using Airport.Contracts.Providers;
-using Airport.Contracts.Repositories;
 using Airport.Domain.Factories;
 using Airport.Domain.Providers;
+using Airport.Domain.Repositories;
 using Airport.Persistence;
 using Airport.Persistence.Repositories;
 using Airport.Services;
@@ -53,7 +52,6 @@ namespace Airport.Web
             builder.Services.AddControllers()
                 .AddNewtonsoftJson()
                 .AddApplicationPart(typeof(Presentation.AssemblyReference).Assembly);
-            //builder.Services.AddProblemDetails();
             builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
             builder.Services.AddScoped<IFlightService, FlightService>();
             builder.Services.AddScoped<IAirportService, AirportService>();
@@ -74,8 +72,6 @@ namespace Airport.Web
                 serviceProvider => DirectionLogicProvider.CreateAsync(serviceProvider).Result);
             builder.Services.AddSingleton<IRouteLogicProvider, RouteLogicProvider>(
                 serviceProvider => RouteLogicProvider.CreateAsync(serviceProvider).Result);
-            builder.Services.AddSingleton<IAirportDbConfiguration>(
-                provider => provider.GetRequiredService<IOptions<AirportDbConfiguration>>().Value);
             builder.Services.AddSingleton<IMongoClient>(
                 provider =>
                 {
@@ -103,7 +99,7 @@ namespace Airport.Web
             if (app.Environment.IsDevelopment())
             {
                 await SeedDatabaseAsync(app);
-                app.UseDeveloperExceptionPage();
+                //app.UseDeveloperExceptionPage();
             }
             else
                 app.UseHsts();
@@ -122,7 +118,7 @@ namespace Airport.Web
         private static async Task SeedDatabaseAsync(WebApplication app)
         {
             var client = app.Services.GetRequiredService<IMongoClient>();
-            var dbConfiguration = app.Services.GetRequiredService<IAirportDbConfiguration>();
+            var dbConfiguration = app.Services.GetRequiredService<IOptions<AirportDbConfiguration>>();
             try
             {
                 await SeedData.DeleteAsync(client, dbConfiguration);

@@ -1,8 +1,8 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
-using Airport.Contracts.Database;
-using Airport.Contracts.Repositories;
+﻿using Airport.Domain.Repositories;
 using Airport.Models.Entities;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace Airport.Persistence.Repositories
 {
@@ -10,17 +10,17 @@ namespace Airport.Persistence.Repositories
     {
         #region Fields
         private readonly IMongoCollection<Route> _routesCollection;
-        private readonly IAirportDbConfiguration _dbSettings;
+        private readonly IOptions<AirportDbConfiguration> _dbConfiguration;
         private readonly IMongoClient _client;
         #endregion
 
-        public RouteRepository(IMongoClient client, IAirportDbConfiguration dbSettings)
+        public RouteRepository(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
             _client = client;
-            _dbSettings = dbSettings;
+            _dbConfiguration = dbConfiguration;
             _routesCollection = _client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<Route>(dbSettings.RoutesCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
         }
 
         public async Task<Route> GetByIdAsync(ObjectId id, CancellationToken cancellationToken = default) =>
@@ -59,8 +59,8 @@ namespace Airport.Persistence.Repositories
             if (!await GetStationIdsBetweenAsync(route.Directions, directions, to, stationIds, cancellationToken))
                 return await Task.FromResult(Enumerable.Empty<Station>());
             var stationsCollection = _client!
-                .GetDatabase(_dbSettings.DatabaseName)
-                .GetCollection<Station>(_dbSettings.StationsCollectionName);
+                .GetDatabase(_dbConfiguration.Value.DatabaseName)
+                .GetCollection<Station>(_dbConfiguration.Value.StationsCollectionName);
             return (await stationsCollection
                 .FindAsync(s => stationIds.Contains(s.StationId), cancellationToken: cancellationToken))
                 .ToList(cancellationToken);

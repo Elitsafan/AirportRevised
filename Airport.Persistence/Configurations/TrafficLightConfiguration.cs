@@ -1,17 +1,17 @@
-﻿using MongoDB.Bson;
+﻿using Airport.Models.Entities;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
-using Airport.Contracts.Database;
-using Airport.Models.Entities;
 
 namespace Airport.Persistence.Configurations
 {
     internal class TrafficLightConfiguration
     {
-        public async Task ConfigureAsync(IMongoClient client, IAirportDbConfiguration dbSettings)
+        public async Task ConfigureAsync(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
             var trafficLightsCollection = client
-                .GetDatabase(dbSettings.DatabaseName)
-                .GetCollection<TrafficLight>(dbSettings.TrafficLightsCollectionName);
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<TrafficLight>(dbConfiguration.Value.TrafficLightsCollectionName);
             var data = new List<TrafficLight>
             {
                 new TrafficLight

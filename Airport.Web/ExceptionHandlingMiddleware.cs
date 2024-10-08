@@ -1,5 +1,4 @@
-﻿using Airport.Domain.Exceptions;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Airport.Web
 {
