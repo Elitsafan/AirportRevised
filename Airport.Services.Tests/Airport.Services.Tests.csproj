@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Airport.Contracts\Airport.Contracts.csproj" />
+    <ProjectReference Include="..\Airport.Persistence\Airport.Persistence.csproj" />
     <ProjectReference Include="..\Airport.Services\Airport.Services.csproj" />
   </ItemGroup>
 

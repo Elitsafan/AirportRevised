@@ -1,4 +1,4 @@
-using Airport.Contracts.Database;
+using Airport.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Moq;
@@ -22,7 +22,7 @@ namespace Airport.Services.Tests
         private Mock<IDirectionLogicProvider> _mockDirectionLogicProvider;
         private Mock<IStationLogicProvider> _mockStationLogicProvider;
         private Mock<IRouteLogicProvider> _mockRouteLogicProvider;
-        private Mock<IAirportDbConfiguration> _mockAirportDbConfiguration;
+        private Mock<IOptions<AirportDbConfiguration>> _mockAirportDbConfiguration;
         private Mock<IMongoClient> _mockMongoClient;
         private Mock<IMemoryCache> _mockCache;
         private Mock<ICacheEntry> _mockCacheEntry;
@@ -44,7 +44,7 @@ namespace Airport.Services.Tests
             _mockDirectionLogicProvider = new Mock<IDirectionLogicProvider>();
             _mockStationLogicProvider = new Mock<IStationLogicProvider>();
             _mockRouteLogicProvider = new Mock<IRouteLogicProvider>();
-            _mockAirportDbConfiguration = new Mock<IAirportDbConfiguration>();
+            _mockAirportDbConfiguration = new Mock<IOptions<AirportDbConfiguration>>();
             _mockMongoClient = new Mock<IMongoClient>();
             _mockCache = new Mock<IMemoryCache>();
             _mockCacheEntry = new Mock<ICacheEntry>();
@@ -61,7 +61,7 @@ namespace Airport.Services.Tests
             serviceCollection.AddSingleton<IDirectionLogicProvider>(_mockDirectionLogicProvider.Object);
             serviceCollection.AddSingleton<IStationLogicProvider>(_mockStationLogicProvider.Object);
             serviceCollection.AddSingleton<IRouteLogicProvider>(_mockRouteLogicProvider.Object);
-            serviceCollection.AddSingleton<IAirportDbConfiguration>(_mockAirportDbConfiguration.Object);
+            serviceCollection.AddSingleton<IOptions<AirportDbConfiguration>>(_mockAirportDbConfiguration.Object);
             serviceCollection.AddSingleton<IMongoClient>(_mockMongoClient.Object);
             serviceCollection.AddSingleton<ILogger<AirportService>>(_mockLogger);
             _serviceProvider = serviceCollection.BuildServiceProvider();
