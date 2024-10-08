@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { Observable, Subject, Subscription, map } from 'rxjs';
+import { Observable, Subject, Subscription, last, map } from 'rxjs';
 import { AirportService } from './airport.service';
 import { IRoute } from '../interfaces/iroute.interface';
 import { StationService } from './station.service';
@@ -13,8 +13,8 @@ import { Leg } from '../flight-route-module/models/leg.model';
 
 export class FlightRouteService implements OnDestroy {
   private flightRoutes: FlightRoute[];
-  private flightRoutesSubject = new Subject<FlightRoute[]>();
-  private flightRoutesErrorSubject = new Subject<any>();
+  private flightRoutesSubject: Subject<FlightRoute[]>;
+  private flightRoutesErrorSubject: Subject<any>;
   private stationSvcSubscription?: Subscription;
   private stations: Station[];
   flightRoutes$: Observable<FlightRoute[]>;
@@ -22,6 +22,8 @@ export class FlightRouteService implements OnDestroy {
   constructor(
     private airportSvc: AirportService,
     private stationSvc: StationService) {
+    this.flightRoutesSubject = new Subject<FlightRoute[]>();
+    this.flightRoutesErrorSubject = new Subject<any>();
     this.flightRoutes = [];
     this.stations = [];
     this.flightRoutes$ = this.flightRoutesSubject.asObservable();
@@ -47,9 +49,13 @@ export class FlightRouteService implements OnDestroy {
     return this.flightRoutesErrorSubject.asObservable();
   }
 
+  ngOnDestroy(): void {
+    this.stationSvcSubscription?.unsubscribe();
+  }
+
   private fetch(): void {
     this.airportSvc.getStatus()
-      .pipe(map(status => status.routes))
+      .pipe(map(status => status.routes), last())
       .subscribe({
         next: (routes: IRoute[]) => {
           //console.log(airport)
@@ -70,10 +76,6 @@ export class FlightRouteService implements OnDestroy {
         },
         error: err => console.error(err)
       })
-  }
-
-  ngOnDestroy(): void {
-    this.stationSvcSubscription?.unsubscribe();
   }
 
   private getNextLeg(route: IRoute, stations: Station[], station?: Station): Leg {
