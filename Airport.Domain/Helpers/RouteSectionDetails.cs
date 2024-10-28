@@ -51,13 +51,12 @@ namespace Airport.Domain.Helpers
             var releaser = await _synchronizer.EnterSectionAsync(cancellationToken);
             try
             {
-                _flightsTrace.TryAdd(flightId, releaser);
                 await _synchronizer.GetSourceRightOfWayAsync(RouteSection.RouteId, cancellationToken)
-                    .NoThrowAwaitable();
+                    .AppendAction(() => _flightsTrace.TryAdd(flightId, releaser));
             }
             catch (OperationCanceledException)
             {
-                await _synchronizer.RollBackSourceEntranceAsync(RouteSection.RouteId);
+                _synchronizer.RollBackSourceEntrance(RouteSection.RouteId);
                 _flightsTrace.Remove(flightId, out _);
                 releaser.Dispose();
                 throw;
@@ -66,7 +65,7 @@ namespace Airport.Domain.Helpers
 
         private struct TracePair
         {
-            public AsyncSemaphore.Releaser? DestinationReleaser { get; init; }
+            public AsyncSemaphore.Releaser? DestinationReleaser { get; }
             public AsyncSemaphore.Releaser SourceReleaser { get; set; }
         }
     }

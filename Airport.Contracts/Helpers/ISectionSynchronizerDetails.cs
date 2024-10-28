@@ -14,6 +14,7 @@ namespace Airport.Contracts.Helpers
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task GetSourceRightOfWayAsync(ObjectId routeId, CancellationToken cancellationToken = default);
-        Task RollBackSourceEntranceAsync(ObjectId routeId);
+        void RollBackSourceEntrance(ObjectId routeId);
+        //Task RollBackSourceEntranceAsync(ObjectId routeId);
     }
 }

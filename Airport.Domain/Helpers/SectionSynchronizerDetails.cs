@@ -5,7 +5,7 @@ namespace Airport.Domain.Helpers
     internal class SectionSynchronizerDetails : ISectionSynchronizerDetails
     {
         #region Fields
-        private readonly AsyncSemaphore _syncCounters;
+        private readonly AsyncSemaphore _syncRightOfWay;
         private readonly AsyncSemaphore _syncWaiters;
         private readonly AsyncSemaphore _syncReleasers;
         private readonly AsyncSemaphore _sourceSynchronizer;
@@ -24,7 +24,7 @@ namespace Airport.Domain.Helpers
             int capacity)
         {
             _routeSynchronizer = new AsyncAutoResetEvent(true);
-            _syncCounters = new AsyncSemaphore(1);
+            _syncRightOfWay = new AsyncSemaphore(1);
             _syncWaiters = new AsyncSemaphore(1);
             _syncReleasers = new AsyncSemaphore(1);
             _sourceSynchronizer = new AsyncSemaphore(capacity);
@@ -52,7 +52,7 @@ namespace Airport.Domain.Helpers
             var releaser = await _syncWaiters.EnterAsync(cancellationToken);
             try
             {
-                await IncrementOccupiedAsync(routeId);
+                IncrementOccupied(routeId);
                 if (WaitForRightOfWay(routeId))
                 {
                     _lastWaiter = _routeSynchronizer.WaitAsync(cancellationToken);
@@ -63,11 +63,11 @@ namespace Airport.Domain.Helpers
             finally { releaser.Dispose(); }
         }
 
-        public async Task RollBackSourceEntranceAsync(ObjectId routeId)
+        public void RollBackSourceEntrance(ObjectId routeId)
         {
             try
             {
-                await DecrementOccupiedAsync(routeId);
+                DecrementOccupied(routeId);
             }
             catch (KeyNotFoundException) { throw new InvalidOperationException("Route id not found."); }
         }
@@ -79,48 +79,59 @@ namespace Airport.Domain.Helpers
             {
                 if (!WaitForRightOfWay(routeId) && !_lastWaiter.IsCompleted)
                     _routeSynchronizer.Set();
-                await DecrementOccupiedAsync(routeId);
+                DecrementOccupied(routeId);
             }
             catch (KeyNotFoundException) { throw new InvalidOperationException("Route id not found."); }
             finally { releaser.Dispose(); }
         }
 
-        private async Task IncrementOccupiedAsync(ObjectId routeId)
+        private void IncrementOccupied(ObjectId routeId)
         {
-            var releaser = await _syncCounters.EnterAsync();
-            try
+            lock (_syncObject)
             {
                 _countOccupiedDic[routeId].CountOccupied++;
-                lock (_syncObject)
-                    _sectionCount++;
+                _sectionCount++;
             }
-            finally { releaser.Dispose(); }
         }
 
-        private async Task DecrementOccupiedAsync(ObjectId routeId)
+        private void DecrementOccupied(ObjectId routeId)
         {
-            var releaser = await _syncCounters.EnterAsync();
-            try
+            lock (_syncObject)
             {
                 _countOccupiedDic[routeId].CountOccupied--;
-                lock (_syncObject)
-                    _sectionCount--;
+                _sectionCount--;
             }
-            finally { releaser.Dispose(); }
         }
 
         private bool WaitForRightOfWay(ObjectId routeId)
         {
             lock (_syncObject)
-                return _countOccupiedDic[routeId].IsStatusCritical && _sectionCount == _capacity;
+            {
+                return _sectionCount == _capacity &&
+                    _countOccupiedDic[routeId].CriticalOccupation == _countOccupiedDic[routeId].CountOccupied - 1;
+            }
         }
 
         private class OccupationPair
         {
+            private int _countOccupied;
+            private readonly object _syncObject = new();
+
             public int CriticalOccupation { get; init; }
-            public int CountOccupied { get; set; }
+            public int CountOccupied
+            {
+                get
+                {
+                    lock (_syncObject)
+                        return _countOccupied;
+                }
+                set
+                {
+                    lock (_syncObject)
+                        _countOccupied = value;
+                }
+            }
             //public int AllStationsCount { get; init; }
-            public bool IsStatusCritical => CriticalOccupation == CountOccupied;
         }
     }
 }
