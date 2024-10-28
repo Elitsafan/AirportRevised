@@ -96,7 +96,7 @@ namespace Airport.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error while sending message to clients", ex);
+                _logger.LogError(ex, "Error while sending message to clients");
                 throw;
             }
             finally { e.Flight.FlightRunDone -= OnFlightRunDoneAsync; }
@@ -123,7 +123,7 @@ namespace Airport.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error while sending message to clients", ex);
+                _logger.LogError(ex, "Error while sending message to clients");
                 throw;
             }
         }

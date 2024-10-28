@@ -20,32 +20,32 @@ namespace Airport.Persistence.Configurations
                     RouteName = "Landing",
                     Directions = new List<Direction>
                     {
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000001"),
                             To = new ObjectId("000000000000000000000002"),
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000002"),
                             To = new ObjectId("000000000000000000000003"),
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000003"),
                             To = new ObjectId("000000000000000000000004"),
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000004"),
                             To = new ObjectId("000000000000000000000005"),
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000005"),
                             To = new ObjectId("000000000000000000000006"),
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000005"),
                             To = new ObjectId("000000000000000000000007"),
@@ -58,22 +58,22 @@ namespace Airport.Persistence.Configurations
                     RouteName = "Departure",
                     Directions = new List<Direction>
                     {
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000006"),
                             To = new ObjectId("000000000000000000000008")
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000007"),
                             To = new ObjectId("000000000000000000000008")
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000008"),
                             To = new ObjectId("000000000000000000000004")
                         },
-                        new Direction
+                        new()
                         {
                             From = new ObjectId("000000000000000000000004"),
                             To = new ObjectId("000000000000000000000009"),

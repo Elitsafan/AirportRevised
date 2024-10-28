@@ -14,17 +14,17 @@ namespace Airport.Persistence.Configurations
                 .GetCollection<TrafficLight>(dbConfiguration.Value.TrafficLightsCollectionName);
             var data = new List<TrafficLight>
             {
-                new TrafficLight
+                new()
                 {
                     TrafficLightId = ObjectId.GenerateNewId(),
                     StationId = new ObjectId("000000000000000000000004"),
                 },
-                new TrafficLight
+                new()
                 {
                     TrafficLightId = ObjectId.GenerateNewId(),
                     StationId = new ObjectId("000000000000000000000006"),
                 },
-                new TrafficLight
+                new()
                 {
                     TrafficLightId = ObjectId.GenerateNewId(),
                     StationId = new ObjectId("000000000000000000000007"),

@@ -58,7 +58,7 @@ export class FlightRouteService implements OnDestroy {
       .pipe(map(status => status.routes), last())
       .subscribe({
         next: (routes: IRoute[]) => {
-          //console.log(airport)
+          //console.log(routes)
           this.flightRoutes = routes.map(route => {
             const routeStations = [...new Set(route.directions.flatMap(d => [d.from, d.to]))]
               .map(stationId => this.stations.find(s => s.stationId === stationId)!);

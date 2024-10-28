@@ -60,9 +60,7 @@ namespace Airport.Domain.Providers
                 .ServiceProvider
                 .GetRequiredService<IRepositoryManager>()
                 .RouteRepository;
-            var routes = await routeRepository.GetAllAsync();
-            if (!routes.Any())
-                throw new EntityNotFoundException("No routes found.");
+            var routes = await GetRoutesWithValidationAsync(routeRepository);
             foreach (Route route in routes)
             {
                 try
@@ -140,6 +138,14 @@ namespace Airport.Domain.Providers
             if (_landingRoutes.Count == 0 && _departureRoutes.Count == 0)
                 throw new InvalidOperationException("Must have at least one route logic.");
             return this;
+        }
+
+        private async Task<IEnumerable<Route>> GetRoutesWithValidationAsync(IRouteRepository routeRepository)
+        {
+            var routes = await routeRepository.GetAllAsync();
+            if (!routes.Any())
+                throw new EntityNotFoundException("No routes found.");
+            return routes;
         }
 
         private static Dictionary<ISet<IStationLogic>, List<ObjectId>> CreateHelperForCommonTrafficLights(
