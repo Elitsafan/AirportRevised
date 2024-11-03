@@ -62,11 +62,5 @@ namespace Airport.Domain.Helpers
                 throw;
             }
         }
-
-        private struct TracePair
-        {
-            public AsyncSemaphore.Releaser? DestinationReleaser { get; }
-            public AsyncSemaphore.Releaser SourceReleaser { get; set; }
-        }
     }
 }
