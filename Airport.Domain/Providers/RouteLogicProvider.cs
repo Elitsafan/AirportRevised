@@ -103,29 +103,7 @@ namespace Airport.Domain.Providers
                 catch (InvalidRouteStructureException e) { _logger.LogError(e, null); }
             }
 
-            List<IRouteSectionDetails>? sectionDetailsList = null;
-            if (sections.Count > 0)
-            {
-                Dictionary<ISet<IStationLogic>, AsyncSemaphore?> destinationSynchronizerDic = new(
-                    sections.GroupBy(
-                        rs => rs.Destination,
-                        (key, collection) => new KeyValuePair<ISet<IStationLogic>, AsyncSemaphore?>(
-                            key,
-                            collection.Count() > 1
-                                ? new AsyncSemaphore(key.Count)
-                                : null),
-                        new StationLogicSetComparer()),
-                    new StationLogicSetComparer());
-
-                Dictionary<ISet<IStationLogic>, List<ObjectId>> trafficLightsToRouteIds =
-                    CreateHelperForCommonTrafficLights(sections);
-
-                CreateSectionsDetails(
-                    sections,
-                    ref sectionDetailsList,
-                    destinationSynchronizerDic,
-                    trafficLightsToRouteIds);
-            }
+            var sectionDetailsList = CreateSectionsDetails(sections);
 
             // Creates route logics
             IRouteLogic[] routeLogics = await CreateRoutesLogicAsync(routeLogicFactory, routes, sectionDetailsList);
@@ -148,7 +126,7 @@ namespace Airport.Domain.Providers
             return routes;
         }
 
-        private static Dictionary<ISet<IStationLogic>, List<ObjectId>> CreateHelperForCommonTrafficLights(
+        private static Dictionary<ISet<IStationLogic>, List<ObjectId>> GetHelperForCommonTrafficLights(
             HashSet<IRouteSection> sections)
         {
             Dictionary<ISet<IStationLogic>, List<ObjectId>> trafficLightsToRouteIds = new(
@@ -192,13 +170,13 @@ namespace Airport.Domain.Providers
                     "\nProceed on processing routes.");
         }
 
-        private void CreateSectionsDetails(
-            HashSet<IRouteSection> sections,
-            ref List<IRouteSectionDetails>? sectionDetailsList,
-            Dictionary<ISet<IStationLogic>, AsyncSemaphore?> destinationSynchronizerDic,
-            Dictionary<ISet<IStationLogic>, List<ObjectId>> trafficLightsToRouteIds)
+        private List<IRouteSectionDetails>? CreateSectionsDetails(HashSet<IRouteSection> sections)
         {
-            sectionDetailsList = new();
+            if (sections.Count == 0)
+                return null;
+            var destSynchronizerDic = CreateDestSynchronizerDic(sections);
+            var trafficLightsToRouteIds = GetHelperForCommonTrafficLights(sections);
+            List<IRouteSectionDetails> sectionDetailsList = new();
             foreach (var kvp in trafficLightsToRouteIds)
             {
                 // Calculates possible occupation:
@@ -208,11 +186,11 @@ namespace Airport.Domain.Providers
                 var commonSections = sections.IntersectBy(kvp.Value, section => section.RouteId);
                 IEnumerable<ISet<IStationLogic>> commonKeys = commonSections
                     .Select(sec => sec.Destination)
-                    .Intersect(destinationSynchronizerDic.Keys)
-                    .Where(sec => destinationSynchronizerDic[sec] is not null);
+                    .Intersect(destSynchronizerDic.Keys)
+                    .Where(sec => destSynchronizerDic[sec] is not null);
                 Dictionary<ISet<IStationLogic>, AsyncSemaphore> commonDestToSem = new();
                 foreach (ISet<IStationLogic> key in commonKeys)
-                    commonDestToSem.Add(key, destinationSynchronizerDic[key]!);
+                    commonDestToSem.Add(key, destSynchronizerDic[key]!);
                 ISectionSynchronizerDetails synchronizer = new SectionSynchronizerDetails(
                     commonSections,
                     commonDestToSem,
@@ -225,7 +203,20 @@ namespace Airport.Domain.Providers
                     sectionDetailsList.Add(new RouteSectionDetails(section, synchronizer));
                 }
             }
+            return sectionDetailsList;
         }
+
+        private Dictionary<ISet<IStationLogic>, AsyncSemaphore?> CreateDestSynchronizerDic(
+            HashSet<IRouteSection> sections) => new(
+                sections.GroupBy(
+                    rs => rs.Destination,
+                    (key, collection) => new KeyValuePair<ISet<IStationLogic>, AsyncSemaphore?>(
+                        key,
+                        collection.Count() > 1
+                            ? new AsyncSemaphore(key.Count)
+                            : null),
+                    new StationLogicSetComparer()),
+                new StationLogicSetComparer());
 
         private async Task<IRouteLogic[]> CreateRoutesLogicAsync(
             IRouteLogicFactory routeLogicFactory,
