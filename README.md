@@ -50,7 +50,11 @@ Dockerfile.client      # Frontend Docker build
 
 ---
 
-## Local Installation
+## Quick Start
+
+---
+
+### Local Installation
 
 - Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [MongoDB](https://www.mongodb.com/try/download/community)
 - Clone the repository:
@@ -72,7 +76,7 @@ npm start
 ```
 - Access the app at [http://localhost:4200](http://localhost:4200)
 
-## Docker Installation
+### Docker Installation
 
 - Ensure [Docker](https://www.docker.com/) is installed.
 - Run:
@@ -82,7 +86,7 @@ docker-compose up --build
 - Frontend: [http://localhost:4200](http://localhost:4200)
 - Backend API: [http://localhost:5000](http://localhost:5000)
 
-## Cloud Deployment
+### Cloud Deployment
 
 - Deploy backend to Azure App Service or AWS Elastic Beanstalk.
 - Deploy frontend to Azure Static Web Apps, AWS S3, or Netlify.
