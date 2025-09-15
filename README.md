@@ -52,8 +52,6 @@ Dockerfile.client      # Frontend Docker build
 
 ## Quick Start
 
----
-
 ### Local Installation
 
 - Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [MongoDB](https://www.mongodb.com/try/download/community)
