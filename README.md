@@ -10,8 +10,8 @@ An interactive airport management system demonstrating real-time flight control 
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
   - [Local Installation](#local-installation)
-	  - [Automated Script](#automated-script)
-	  - [Manual Commands](#manual-commands)
+  	- [Automated Script](#automated-script)
+    - [Manual Commands](#manual-commands)
   - [Docker Installation](#docker-installation)
   - [Cloud Deployment](#cloud-deployment)
 - [Usage](#usage)
@@ -56,7 +56,9 @@ Dockerfile.client      # Frontend Docker build
 
 ### Local Installation
 
-#### Option 1: Automated Script
+For local installation you can either run the automated script or manually:
+
+#### Automated Script
 
 - Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [Docker](https://www.docker.com/)
 - Open PowerShell and run:
@@ -69,7 +71,7 @@ Dockerfile.client      # Frontend Docker build
   - Build and run the backend
   - Start the Angular client
 
-#### Option 2: Manual Commands
+#### Manual Commands
 
 - Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [MongoDB](https://www.mongodb.com/try/download/community)
 - Clone the repository:
