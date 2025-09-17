@@ -27,7 +27,7 @@ An interactive airport management system demonstrating real-time flight control 
 - SignalR-powered live updates between backend and frontend
 - MongoDB-based persistence
 - Angular frontend (v16+)
-- .NET 7 backend with clean, layered architecture
+- .NET 8 backend with clean, layered architecture
 - Comprehensive unit and integration tests
 - Simulator for generating demo flight data
 
@@ -60,7 +60,7 @@ For local installation you can either run the automated script or manually:
 
 #### Automated Script
 
-- Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [Docker](https://www.docker.com/)
+- Prerequisites: [.NET 8 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [Docker](https://www.docker.com/)
 - Open PowerShell and run:
 ```sh
 .\local-setup.ps1
@@ -73,7 +73,7 @@ For local installation you can either run the automated script or manually:
 
 #### Manual Commands
 
-- Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [MongoDB](https://www.mongodb.com/try/download/community)
+- Prerequisites: [.NET 8 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [MongoDB](https://www.mongodb.com/try/download/community)
 - Clone the repository:
 ```sh
 git clone https://github.com/Elitsafan/AirportRevised.git
@@ -92,14 +92,15 @@ docker run -d -p 27017:27017 --name airport-mongo mongo:latest
 - Build and run backend:
 ```sh
 dotnet build
-dotnet run --project Airport.Web
+dotnet run --project Airport.Web --launch-profile https
 ```
 - Start the frontend:
 ```sh
 cd Airport.Client
 npm start
 ```
-- Access the app at [http://localhost:4200](http://localhost:4200)
+- Access the frontend at [http://localhost:4200](http://localhost:4200)
+- Access the backend API at [https://localhost:7029](https://localhost:7029)
 
 ### Docker Installation
 
@@ -109,7 +110,7 @@ npm start
 docker-compose up --build
 ```
 - Frontend: [http://localhost:4200](http://localhost:4200)
-- Backend API: [http://localhost:5000](http://localhost:5000)
+- Backend API: [https://localhost:7029](https://localhost:7029)
 
 ### Cloud Deployment
 

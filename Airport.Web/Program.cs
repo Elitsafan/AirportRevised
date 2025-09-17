@@ -81,11 +81,15 @@ namespace Airport.Web
                     settings.MinConnectionPoolSize = 5;
                     return new MongoClient(settings);
                 });
-            builder.Services.AddAutoMapper(
-                typeof(FlightProfile),
-                typeof(StationProfile),
-                typeof(RouteProfile),
-                typeof(DirectionProfile));
+            builder.Services.AddAutoMapper(cfg =>
+                {
+                    var autoMapperKey = Configuration.GetSection("AutoMapper")["Key"];
+                    cfg.LicenseKey = autoMapperKey;
+                    cfg.AddProfile<FlightProfile>();
+                    cfg.AddProfile<StationProfile>();
+                    cfg.AddProfile<RouteProfile>();
+                    cfg.AddProfile<DirectionProfile>();
+                });
             builder.Services.AddTransient<ExceptionHandlingMiddleware>();
             builder.Services.AddMemoryCache(options =>
             {

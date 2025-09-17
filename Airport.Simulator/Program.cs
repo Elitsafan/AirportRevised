@@ -26,7 +26,7 @@ namespace Airport.Simulator
                 .CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
-                    config.SetBasePath(Environment.CurrentDirectory).AddJsonFile(
+                    config.SetBasePath(AppContext.BaseDirectory).AddJsonFile(
                         "appsettings.json",
                         optional: false,
                         reloadOnChange: true);
