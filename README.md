@@ -9,9 +9,11 @@ An interactive airport management system demonstrating real-time flight control 
 - [Features](#features)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
-	- [Local Installation](#local-installation)
-	- [Docker Installation](#docker-installation)
-	- [Cloud Deployment](#cloud-deployment)
+  - [Local Installation](#local-installation)
+	  - [Automated Script](#automated-script)
+	  - [Manual Commands](#manual-commands)
+  - [Docker Installation](#docker-installation)
+  - [Cloud Deployment](#cloud-deployment)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Testing](#testing)
@@ -54,22 +56,45 @@ Dockerfile.client      # Frontend Docker build
 
 ### Local Installation
 
+#### Option 1: Automated Script
+
+- Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [Docker](https://www.docker.com/)
+- Open PowerShell and run:
+```sh
+.\local-setup.ps1
+```
+- The script will:
+  - Install frontend dependencies
+  - Start a MongoDB container
+  - Build and run the backend
+  - Start the Angular client
+
+#### Option 2: Manual Commands
+
 - Prerequisites: [.NET 7 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [MongoDB](https://www.mongodb.com/try/download/community)
 - Clone the repository:
 ```sh
-git clone https://github.com/yourusername/airport-solution.git
-cd airport-solution
+git clone https://github.com/Elitsafan/AirportRevised.git
+cd AirportRevised
 ```
-- Start MongoDB (if not using Docker)
+- Install frontend dependencies:
+```sh
+cd Airport.Client
+npm install
+cd ..
+```
+- Start MongoDB (if not already running):
+```sh
+docker run -d -p 27017:27017 --name airport-mongo mongo:latest
+```
 - Build and run backend:
 ```sh
 dotnet build
 dotnet run --project Airport.Web
 ```
-- Build and run frontend:
+- Start the frontend:
 ```sh
 cd Airport.Client
-npm install
 npm start
 ```
 - Access the app at [http://localhost:4200](http://localhost:4200)

@@ -23,4 +23,4 @@ docker run -d -p 27017:27017 --name airport-mongo mongo:latest
 dotnet build
 Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Web"
 Set-Location ./Airport.Client
-Start-Process -FilePath "npm" -ArgumentList "start"
+Start-Process -FilePath "$env:APPDATA\npm\npm.cmd" -ArgumentList "start"
