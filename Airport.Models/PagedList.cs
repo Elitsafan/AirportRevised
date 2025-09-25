@@ -7,7 +7,9 @@
             TotalCount = count;
             PageSize = pageSize;
             CurrentPage = pageNumber;
-            TotalPages = (int)Math.Ceiling(count / (double)pageSize);
+            TotalPages = pageSize == 0
+                ? 0
+                : (int)Math.Ceiling(count / (double)pageSize);
 
             AddRange(items);
         }

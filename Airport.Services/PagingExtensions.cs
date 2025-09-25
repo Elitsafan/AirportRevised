@@ -9,7 +9,9 @@ namespace Airport.Services
             var count = source.TryGetNonEnumeratedCount(out int value)
                 ? value
                 : source.Count();
-            if (pageSize * pageNumber > count && (count == 0 || pageNumber != Math.Ceiling((double)count / pageSize)))
+            if (count == 0)
+                return new PagedList<T>([], 0, 0, 0);
+            if (pageSize * pageNumber > count && (pageNumber != Math.Ceiling((double)count / pageSize)))
                 throw new InvalidOperationException("No such a page number for a such page size.");
             var items = source
                 .Skip((pageNumber - 1) * pageSize)
