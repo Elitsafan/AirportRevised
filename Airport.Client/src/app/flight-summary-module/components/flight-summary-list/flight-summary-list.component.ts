@@ -76,7 +76,9 @@ export class FlightSummaryListComponent implements OnInit, OnDestroy {
   private updateDisplayCurrentFlights() {
     let lowerBound = 1;
     let upperBound = 1;
-    if (this.pagination!.currentPage === 1)
+    if (this.pagination!.currentPage === 0)
+      lowerBound = upperBound = 0;
+    else if (this.pagination!.currentPage === 1)
       upperBound = Math.min(this.pagination!.totalCount, this.pagination!.pageSize);
     else {
       lowerBound += (this.pagination!.currentPage - 1) * this.pagination!.pageSize;
