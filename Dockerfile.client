@@ -4,7 +4,7 @@ WORKDIR /app
 COPY Airport.Client/package*.json ./
 RUN npm install
 COPY Airport.Client/ .
-RUN npm run build --prod
+RUN npm run build --omit=dev
 
 FROM nginx:alpine
 COPY --from=build /app/dist/airport-client /usr/share/nginx/html
