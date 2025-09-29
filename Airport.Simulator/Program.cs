@@ -1,4 +1,4 @@
-﻿#define TEST
+﻿//#define TEST
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -51,8 +51,10 @@ namespace Airport.Simulator
 
             _logger = host.Services.GetRequiredService<ILogger<Program>>();
             IFlightLauncherService flightLauncherService = host.Services.GetRequiredService<IFlightLauncherService>();
+            _logger.LogInformation("Starting Airport Simulator...");
             var startResponse = await flightLauncherService.StartAsync();
-#if !TEST
+            _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
+#if TEST
             await Console.Out.WriteLineAsync(startResponse.StatusCode.ToString());
             await flightLauncherService
                 .LaunchManyAsync(args)
@@ -67,7 +69,12 @@ namespace Airport.Simulator
         private static AsyncRetryPolicy<HttpResponseMessage> GetRetryPolicy() => HttpPolicyExtensions
             .HandleTransientHttpError()
             .OrResult(msg => !msg.IsSuccessStatusCode)
-            .WaitAndRetryAsync(6, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+            .WaitAndRetryAsync(6, retryAttempt =>
+            {
+                var delay = TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+                Console.WriteLine($"Retry attempt {retryAttempt}, waiting {delay.TotalSeconds} seconds");
+                return delay;
+            });
 
         // Exception handler
         private static void GlobalUnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs e)

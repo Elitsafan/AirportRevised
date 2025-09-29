@@ -69,11 +69,10 @@ namespace Airport.Simulator.Services
         // Accepts args[0] is a number and args[1](optional) is "exit"
         public async IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(params string[]? args)
         {
-            int numOfFlights = 0;
             // Input validation
             if (args is null || args.Length == 0)
                 yield break;
-            if (!int.TryParse(args[0], out numOfFlights) ||
+            if (!int.TryParse(args[0], out int numOfFlights) ||
                 numOfFlights <= 0)
                 throw new ArgumentException("First argument is invalid. Only non-negative numbers are allowed.");
 
@@ -88,7 +87,7 @@ namespace Airport.Simulator.Services
                 Environment.Exit(0);
             yield break;
         }
-        // Send a request to Start ep
+        // Send a request to Start endpoint
         public async Task<HttpResponseMessage> StartAsync(CancellationToken cancellationToken = default) =>
             await _client.GetAsync(_flightsConfig.Start, cancellationToken);
 
