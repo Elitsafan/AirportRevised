@@ -39,13 +39,14 @@ namespace Airport.Web
                 options.AddDefaultPolicy(
                     builder =>
                     {
-                        builder.WithOrigins(Configuration
+                        var clientOrigins = Configuration
                             .GetSection("ClientOrigins")
                             .GetChildren()
                             .Select(cs => cs.Value)!
-                            .ToArray()!)
+                            .ToArray()!;
+                        builder.WithOrigins(clientOrigins!)
                             .AllowAnyHeader()
-                            .WithMethods("GET")
+                            .WithMethods("GET", "POST")
                             .AllowCredentials();
                     });
             });
@@ -72,24 +73,23 @@ namespace Airport.Web
                 serviceProvider => DirectionLogicProvider.CreateAsync(serviceProvider).Result);
             builder.Services.AddSingleton<IRouteLogicProvider, RouteLogicProvider>(
                 serviceProvider => RouteLogicProvider.CreateAsync(serviceProvider).Result);
-            builder.Services.AddSingleton<IMongoClient>(
-                provider =>
-                {
-                    var settings = MongoClientSettings.FromConnectionString(Configuration.GetConnectionString("Default"));
-                    settings.ConnectTimeout = TimeSpan.FromMinutes(1);
-                    settings.MaxConnectionPoolSize = 25;
-                    settings.MinConnectionPoolSize = 5;
-                    return new MongoClient(settings);
-                });
+            builder.Services.AddSingleton<IMongoClient>(provider =>
+            {
+                var settings = MongoClientSettings.FromConnectionString(Configuration.GetConnectionString("Default"));
+                settings.ConnectTimeout = TimeSpan.FromMinutes(1);
+                settings.MaxConnectionPoolSize = 25;
+                settings.MinConnectionPoolSize = 5;
+                return new MongoClient(settings);
+            });
             builder.Services.AddAutoMapper(cfg =>
-                {
-                    var autoMapperKey = Configuration.GetSection("AutoMapper")["Key"];
-                    cfg.LicenseKey = autoMapperKey;
-                    cfg.AddProfile<FlightProfile>();
-                    cfg.AddProfile<StationProfile>();
-                    cfg.AddProfile<RouteProfile>();
-                    cfg.AddProfile<DirectionProfile>();
-                });
+            {
+                var autoMapperKey = Configuration.GetSection("AutoMapper")["Key"];
+                cfg.LicenseKey = autoMapperKey;
+                cfg.AddProfile<FlightProfile>();
+                cfg.AddProfile<StationProfile>();
+                cfg.AddProfile<RouteProfile>();
+                cfg.AddProfile<DirectionProfile>();
+            });
             builder.Services.AddTransient<ExceptionHandlingMiddleware>();
             builder.Services.AddMemoryCache(options =>
             {
@@ -99,7 +99,6 @@ namespace Airport.Web
             using var app = builder.Build();
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();
-
             if (app.Environment.IsDevelopment())
             {
                 await SeedDatabaseAsync(app);
@@ -108,7 +107,7 @@ namespace Airport.Web
             else
                 app.UseHsts();
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
             app.UseCors();
             app.UseAuthorization();
             app.MapHub<AirportHub>("/airporthub");
