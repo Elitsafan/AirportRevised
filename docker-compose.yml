@@ -11,10 +11,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5005:80"
+      - "5005:8080"
       - "7029:443"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Default=mongodb://mongodb:27017
     depends_on:
       - mongodb
@@ -25,6 +25,18 @@ services:
       dockerfile: Dockerfile.client
     ports:
       - "4200:80"
+    depends_on:
+      - backend
+
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+    ports:
+      - "5006:8081"
+      - "7030:441"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
     depends_on:
       - backend
 

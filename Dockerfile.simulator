@@ -1,0 +1,26 @@
+# Simulator
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 8081
+EXPOSE 441
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["Airport.Simulator/Airport.Simulator.csproj", "Airport.Simulator/"]
+COPY ["Airport.Models/Airport.Models.csproj", "Airport.Models/"]
+COPY ["Airport.Contracts/Airport.Contracts.csproj", "Airport.Contracts/"]
+RUN dotnet restore "Airport.Simulator/Airport.Simulator.csproj"
+
+COPY Airport.Simulator/ Airport.Simulator/
+COPY Airport.Models/ Airport.Models/
+COPY Airport.Contracts/ Airport.Contracts/
+WORKDIR "/src/Airport.Simulator"
+RUN dotnet build "Airport.Simulator.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "Airport.Simulator.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "Airport.Simulator.dll"]

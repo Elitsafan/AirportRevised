@@ -1,5 +1,5 @@
 export const environment = {
-  remoteUrl: 'https://localhost:7029',
+  remoteUrl: 'http://localhost:5005',
   airportHubEP: '/airporthub',
   startEP: '/api/Airport/Start',
   statusEP: '/api/Airport/Status',

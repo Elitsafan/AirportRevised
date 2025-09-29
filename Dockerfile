@@ -1,7 +1,7 @@
 # Backend
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-EXPOSE 80
+EXPOSE 8080
 EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -12,10 +12,20 @@ COPY ["Airport.Contracts/Airport.Contracts.csproj", "Airport.Contracts/"]
 COPY ["Airport.Domain/Airport.Domain.csproj", "Airport.Domain/"]
 COPY ["Airport.Persistence/Airport.Persistence.csproj", "Airport.Persistence/"]
 COPY ["Airport.Services.Abstractions/Airport.Services.Abstractions.csproj", "Airport.Services.Abstractions/"]
+COPY ["Airport.SignalR/Airport.SignalR.csproj", "Airport.SignalR/"]
 COPY ["Airport.Services/Airport.Services.csproj", "Airport.Services/"]
 COPY ["Airport.Presentation/Airport.Presentation.csproj", "Airport.Presentation/"]
 RUN dotnet restore "Airport.Web/Airport.Web.csproj"
-COPY . .
+
+COPY Airport.Web/ Airport.Web/
+COPY Airport.Models/ Airport.Models/
+COPY Airport.Contracts/ Airport.Contracts/
+COPY Airport.Domain/ Airport.Domain/
+COPY Airport.Persistence/ Airport.Persistence/
+COPY Airport.Services.Abstractions/ Airport.Services.Abstractions/
+COPY Airport.SignalR/ Airport.SignalR/
+COPY Airport.Services/ Airport.Services/
+COPY Airport.Presentation/ Airport.Presentation/
 WORKDIR "/src/Airport.Web"
 RUN dotnet build "Airport.Web.csproj" -c Release -o /app/build
 
