@@ -10,6 +10,7 @@ using Airport.Services.Abstractions;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -56,8 +57,12 @@ namespace Airport.Web
             builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
             builder.Services.AddScoped<IFlightService, FlightService>();
             builder.Services.AddScoped<IAirportService, AirportService>();
-            builder.Services.AddSingleton<IStationLogicProvider, StationLogicProvider>(
-                serviceProvider => StationLogicProvider.CreateAsync(serviceProvider).Result);
+            builder.Services.AddSingleton<IStationLogicProvider>(serviceProvider =>
+            {
+                var cache = serviceProvider.GetRequiredService<IMemoryCache>();
+                var logger = serviceProvider.GetRequiredService<ILogger<StationLogicProvider>>();
+                return StationLogicProvider.CreateAsync(serviceProvider, cache, logger).Result;
+            });
             builder.Services.AddSingleton<IAirportHubService, AirportHubService>(serviceProvider =>
             {
                 var stationLogicProvider = serviceProvider.GetRequiredService<IStationLogicProvider>();
