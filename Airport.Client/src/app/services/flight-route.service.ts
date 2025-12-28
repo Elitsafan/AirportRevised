@@ -58,20 +58,24 @@ export class FlightRouteService implements OnDestroy {
       .pipe(map(status => status.routes), last())
       .subscribe({
         next: (routes: IRoute[]) => {
-          //console.log(routes)
-          this.flightRoutes = routes.map(route => {
-            const routeStations = [...new Set(route.directions.flatMap(d => [d.from, d.to]))]
-              .map(stationId => this.stations.find(s => s.stationId === stationId)!);
-            const legs = [this.getNextLeg(route, routeStations)];
-            routeStations.forEach((station, i, arr) => {
-              const result = this.getNextLeg(route, arr, station);
-              if (result.stations.length && legs
-                .flatMap(leg => leg.stations)
-                .every(station => !result.stations.includes(station)))
-                legs.push(result)
+          if (!routes || routes.length === 0 || this.stations.length === 0)
+            this.flightRoutes = [];
+          else {
+            //console.log(routes)
+            this.flightRoutes = routes.map(route => {
+              const routeStations = [...new Set(route.directions.flatMap(d => [d.from, d.to]))]
+                .map(stationId => this.stations.find(s => s.stationId === stationId)!);
+              const legs = [this.getNextLeg(route, routeStations)];
+              routeStations.forEach((station, i, arr) => {
+                const result = this.getNextLeg(route, arr, station);
+                if (result.stations.length && legs
+                  .flatMap(leg => leg.stations)
+                  .every(station => !result.stations.includes(station)))
+                  legs.push(result)
+              });
+              return new FlightRoute(route.routeId, route.routeName, legs);
             });
-            return new FlightRoute(route.routeId, route.routeName, legs);
-          });
+          }
           this.flightRoutesSubject.next(this.flightRoutes);
         },
         error: err => console.error(err)
