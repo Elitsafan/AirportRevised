@@ -32,6 +32,9 @@ jobs:
         working-directory: ./Airport.Client
         run: npm run build
 
+      - name: Copy staticwebapp.config.json
+        run: cp Airport.Client/staticwebapp.config.json Airport.Client/dist/airport-client/
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
