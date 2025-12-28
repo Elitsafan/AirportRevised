@@ -25,11 +25,11 @@ dotnet build
 
 # Run backend API
 Write-Host "Starting backend API..."
-Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Web --launch-profile https"
+Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Web --launch-profile localScript"
 
 # Run simulator
 Write-Host "Starting simulator..."
-Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Simulator"
+Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Simulator --launch-profile localScript"
 
 # Start Angular client
 Write-Host "Starting Angular client..."
