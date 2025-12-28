@@ -61,7 +61,8 @@ For local installation you can either run the automated script or manually:
 #### Automated Script
 
 - Prerequisites: [.NET 8 SDK](https://dotnet.microsoft.com/download), [Node.js 16+](https://nodejs.org/), [npm](https://www.npmjs.com/), [Docker](https://www.docker.com/)
-- Open PowerShell and run:
+- Open PowerShell and navigate to the cloned directoey.
+- Run:
 ```sh
 .\local-setup.ps1
 ```
@@ -92,7 +93,11 @@ docker run -d -p 27017:27017 --name airport-mongo mongo:latest
 - Build and run backend:
 ```sh
 dotnet build
-dotnet run --project Airport.Web --launch-profile https
+dotnet run --project Airport.Web --launch-profile localScript
+```
+- Run simulator:
+```sh
+dotnet run --project Airport.Simulator --launch-profile localScript
 ```
 - Start the frontend:
 ```sh
@@ -100,7 +105,7 @@ cd Airport.Client
 npm start
 ```
 - Access the frontend at [http://localhost:4200](http://localhost:4200)
-- Access the backend API at [https://localhost:7029](https://localhost:7029)
+- Access the backend API at [https://localhost:7029](https://localhost:7029), [http://localhost:5005](http://localhost:5005)
 
 ### Docker Installation
 
@@ -110,7 +115,7 @@ npm start
 docker-compose up --build
 ```
 - Frontend: [http://localhost:4200](http://localhost:4200)
-- Backend API: [https://localhost:7029](https://localhost:7029)
+- Backend API: [https://localhost:7029](https://localhost:7029), [http://localhost:5005](http://localhost:5005)
 
 ### Cloud Deployment
 
@@ -168,7 +173,7 @@ dotnet test
 ```sh
 npm test
 ```
-- E2E tests (if implemented):
+- E2E tests (not implemented):
 ```sh
 npm run e2e
 ```
