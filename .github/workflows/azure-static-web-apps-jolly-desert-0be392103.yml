@@ -6,7 +6,7 @@ on:
       - development
     paths:
       - 'Airport.Client/**'
-      - '.github/workflows/azure-deploy.yml'
+      - '.github/workflows/azure-static-web-apps-jolly-desert-0be392103.yml'
   workflow_dispatch:
 
 jobs:
@@ -41,3 +41,4 @@ jobs:
           app_location: "Airport.Client/dist/airport-client"
           output_location: ""
           skip_app_build: true
+
