@@ -1,5 +1,5 @@
 export const environment = {
-  remoteUrl: 'http://151.145.86.93',
+  remoteUrl: 'https://151.145.86.93:443',
   airportHubEP: '/airporthub',
   startEP: '/api/Airport/Start',
   statusEP: '/api/Airport/Status',
