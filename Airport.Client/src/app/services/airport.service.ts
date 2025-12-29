@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { environment } from '../../environments/environment.development';
+import { environment } from '../../environments/environment';
 import { catchError, last, map, retry, tap } from 'rxjs';
 import { IAirportSummaryResponse } from '../interfaces/iairport-summary-response.interface';
 import { IPagination } from '../interfaces/ipagination-interface';
