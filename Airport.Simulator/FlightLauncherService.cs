@@ -120,7 +120,12 @@ namespace Airport.Simulator.Services
                 //_logger.LogInformation(result.ToString());
             }
         }
-        public void Dispose() => _client?.Dispose();
+
+        public async ValueTask DisposeAsync()
+        {
+            _client?.Dispose();
+            await ValueTask.CompletedTask;
+        }
 
         private void ValidateFlightsConfiguration()
         {
