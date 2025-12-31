@@ -87,8 +87,10 @@ namespace Airport.Domain.Providers
 
                 try
                 {
-                    using var scope = _serviceProvider.CreateAsyncScope();
-                    var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
+                    await using var repositoryManager = _serviceProvider
+                        .CreateAsyncScope()
+                        .ServiceProvider
+                        .GetRequiredService<IRepositoryManager>();
 
                     var route = await repositoryManager.RouteRepository.GetByIdAsync(routeId, cancellationToken);
                     var stations = await repositoryManager.StationRepository.GetStationsByRouteAsync(route, cancellationToken);
@@ -123,8 +125,10 @@ namespace Airport.Domain.Providers
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
                 entry.Size = 1;
 
-                using var scope = _serviceProvider.CreateAsyncScope();
-                var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
+                await using var repositoryManager = _serviceProvider
+                    .CreateAsyncScope()
+                    .ServiceProvider
+                    .GetRequiredService<IRepositoryManager>();
 
                 var trafficLights = await repositoryManager.TrafficLightRepository
                     .GetTrafficLightsByRouteIdAsync(routeId, cancellationToken);
@@ -156,8 +160,10 @@ namespace Airport.Domain.Providers
 
                 try
                 {
-                    using var scope = _serviceProvider.CreateAsyncScope();
-                    var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
+                    await using var repositoryManager = _serviceProvider
+                        .CreateAsyncScope()
+                        .ServiceProvider
+                        .GetRequiredService<IRepositoryManager>();
 
                     var nextTrafficLights = await repositoryManager.TrafficLightRepository
                         .GetNextTrafficLightsAsync(routeId, trafficLightId, cancellationToken);
@@ -253,7 +259,7 @@ namespace Airport.Domain.Providers
         {
             _logger.LogInformation("Initializing station logics from database");
 
-            using var scope = _serviceProvider.CreateAsyncScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var stationLogicFactory = scope.ServiceProvider.GetRequiredService<IStationLogicFactory>();
             var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
 
