@@ -48,7 +48,7 @@ namespace Airport.Web
                             .ToArray()!;
                         builder.WithOrigins(clientOrigins!)
                             .AllowAnyHeader()
-                            .WithMethods("GET", "POST")
+                            .AllowAnyMethod()
                             .AllowCredentials();
                     });
             });
@@ -118,7 +118,7 @@ namespace Airport.Web
                 app.UseHsts();
             }
 
-            //app.UseHttpsRedirection();
+            app.UseHttpsRedirection();
             app.UseCors();
             app.UseAuthorization();
             app.MapHub<AirportHub>("/airporthub");
