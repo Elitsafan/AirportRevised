@@ -1,8 +1,6 @@
-﻿using Moq;
-
-namespace OnionArchitecture.Simulator.Tests
+﻿namespace OnionArchitecture.Simulator.Tests
 {
-    public class FlightLauncherServiceTests : IDisposable
+    public class FlightLauncherServiceTests
     {
         #region Fields
         private IFlightLauncherService _service;
@@ -141,9 +139,7 @@ namespace OnionArchitecture.Simulator.Tests
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
 
             await foreach (var launch in _service.LaunchManyAsync("10", "exit"))
-                Assert.True(launch.StatusCode == HttpStatusCode.Created);
+                Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
         }
-
-        public void Dispose() => _service.Dispose();
     }
 }
