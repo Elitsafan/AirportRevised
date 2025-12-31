@@ -113,7 +113,10 @@ namespace Airport.Web
                 //app.UseDeveloperExceptionPage();
             }
             else
+            {
+                await SeedDatabaseAsync(app);
                 app.UseHsts();
+            }
 
             //app.UseHttpsRedirection();
             app.UseCors();
