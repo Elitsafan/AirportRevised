@@ -1,5 +1,4 @@
-name: Deploy Simulator to Google Cloud Run
-
+name: Deploy Simulator App to Google Cloud Run
 on:
   push:
     branches:
