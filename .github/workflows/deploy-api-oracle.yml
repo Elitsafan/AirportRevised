@@ -50,42 +50,45 @@ jobs:
           # Add host to known_hosts
           ssh-keyscan -H $ORACLE_VM_HOST >> ~/.ssh/known_hosts
           
-          # Copy docker image to VM (podman will load it)
+          # Copy docker image to VM (docker/podman will load it)
           docker save ${{ env.API_SERVICE_NAME }}:${{ github.sha }} | \
-            ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST podman load
+            ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST docker load
           
           # Deploy container on VM
           ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << 'ENDSSH'
           
-          # Stop and remove old container (using podman)
-          podman stop airport-api 2>/dev/null || true
-          podman rm airport-api 2>/dev/null || true
+          # Stop and remove old container (using docker command)
+          docker stop airport-api 2>/dev/null || true
+          docker rm airport-api 2>/dev/null || true
           
-          # Run new container with podman
-          # API runs on HTTP internally (8080), Nginx handles HTTPS externally (443)
-          podman run -d \
+          # Run new container with docker
+          # API runs on HTTP internally (8080), Caddy handles HTTPS externally (443)
+          docker run -d \
             --name airport-api \
             --restart unless-stopped \
             -p 127.0.0.1:8080:8080 \
             -e ConnectionStrings__Default="${MONGODB_CONNECTION_STRING}" \
+            -e AirportDbConfiguration__ConnectionString="${MONGODB_CONNECTION_STRING}" \
             -e ASPNETCORE_ENVIRONMENT=Production \
             -e ASPNETCORE_URLS="http://0.0.0.0:8080" \
             ${{ env.API_SERVICE_NAME }}:${{ github.sha }}
           
           # Verify container is running
-          if podman ps | grep -q airport-api; then
+          if docker ps | grep -q airport-api; then
             echo "API container started successfully"
-            podman logs --tail 20 airport-api
+            docker logs --tail 20 airport-api
           else
             echo "API container failed to start"
-            podman logs airport-api
+            docker logs airport-api
             exit 1
           fi
           
           # Clean up old images (keep last 3)
-          podman image prune -a -f --filter "until=72h" || true
+          docker image prune -a -f --filter "until=72h" || true
           
-          echo "API deployed successfully" ENDSSH
+          echo "API deployed successfully"
+          
+          ENDSSH
 
       - name: Health check
         env:
@@ -110,7 +113,9 @@ jobs:
           fi
           
           # Check container status
-          podman ps --filter name=airport-api --format "{{.Status}}" ENDSSH
+          docker ps --filter name=airport-api --format "{{.Status}}"
+          
+          ENDSSH
 
       - name: Notify deployment
         run: |
