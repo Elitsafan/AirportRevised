@@ -34,6 +34,7 @@ namespace Airport.Web
             //                .AddConsole();
             //#endif
             builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
             builder.Services.AddSignalR(/*options => options.EnableDetailedErrors = true*/);
             builder.Services.AddCors(options =>
             {
@@ -104,8 +105,10 @@ namespace Airport.Web
             using var app = builder.Build();
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();
-            if (app.Environment.IsDevelopment())
+            if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Local")
             {
+                app.UseSwagger();
+                app.UseSwaggerUI();
                 await SeedDatabaseAsync(app);
                 //app.UseDeveloperExceptionPage();
             }
@@ -121,7 +124,7 @@ namespace Airport.Web
             await app.WaitForShutdownAsync();
         }
 
-        private static IConfiguration Configuration { get; set; } = null!;
+        private static ConfigurationManager Configuration { get; set; } = null!;
 
         private static async Task SeedDatabaseAsync(WebApplication app)
         {
@@ -131,6 +134,13 @@ namespace Airport.Web
             {
                 await SeedData.DeleteAsync(client, dbConfiguration);
                 await SeedData.InitializeAsync(client, dbConfiguration);
+
+                // Refresh the station logics cache after seeding
+                var stationLogicProvider = app.Services.GetRequiredService<IStationLogicProvider>();
+                if (stationLogicProvider is StationLogicProvider provider)
+                {
+                    await provider.RefreshAsync();
+                }
             }
             catch (TimeoutException ex)
             {
