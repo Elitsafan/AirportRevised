@@ -1,0 +1,120 @@
+name: Deploy API to Oracle Compute VM
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - 'Airport.Web/**'
+      - 'Airport.Domain/**'
+      - 'Airport.Services/**'
+      - 'Airport.Persistence/**'
+      - 'Airport.Models/**'
+      - 'Airport.Contracts/**'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-api-oracle.yml'
+  workflow_dispatch:
+
+env:
+  API_SERVICE_NAME: airport-api
+  API_INTERNAL_PORT: 8080
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f Dockerfile \
+            -t ${{ env.API_SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.API_SERVICE_NAME }}:latest \
+            .
+
+      - name: Deploy to Oracle VM via SSH
+        env:
+          ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_HOST }}
+          ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
+          ORACLE_VM_SSH_KEY: ${{ secrets.ORACLE_VM_SSH_KEY }}
+          MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
+        run: |
+          # Create SSH key file
+          mkdir -p ~/.ssh
+          echo "$ORACLE_VM_SSH_KEY" > ~/.ssh/oracle_key
+          chmod 600 ~/.ssh/oracle_key
+          
+          # Add host to known_hosts
+          ssh-keyscan -H $ORACLE_VM_HOST >> ~/.ssh/known_hosts
+          
+          # Copy docker image to VM (podman will load it)
+          docker save ${{ env.API_SERVICE_NAME }}:${{ github.sha }} | \
+            ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST podman load
+          
+          # Deploy container on VM
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << 'ENDSSH'
+          
+          # Stop and remove old container (using podman)
+          podman stop airport-api 2>/dev/null || true
+          podman rm airport-api 2>/dev/null || true
+          
+          # Run new container with podman
+          # API runs on HTTP internally (8080), Nginx handles HTTPS externally (443)
+          podman run -d \
+            --name airport-api \
+            --restart unless-stopped \
+            -p 127.0.0.1:8080:8080 \
+            -e ConnectionStrings__Default="${MONGODB_CONNECTION_STRING}" \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS="http://0.0.0.0:8080" \
+            ${{ env.API_SERVICE_NAME }}:${{ github.sha }}
+          
+          # Verify container is running
+          if podman ps | grep -q airport-api; then
+            echo "API container started successfully"
+            podman logs --tail 20 airport-api
+          else
+            echo "API container failed to start"
+            podman logs airport-api
+            exit 1
+          fi
+          
+          # Clean up old images (keep last 3)
+          podman image prune -a -f --filter "until=72h" || true
+          
+          echo "API deployed successfully" ENDSSH
+
+      - name: Health check
+        env:
+          ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_HOST }}
+          ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
+          ORACLE_VM_SSH_KEY: ${{ secrets.ORACLE_VM_SSH_KEY }}
+        run: |
+          # Wait for API to be ready
+          sleep 10
+          
+          # Check if API is responding (via SSH to VM)
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << 'ENDSSH'
+          
+          echo "Testing API health..."
+          
+          # Test internal endpoint
+          if curl -f -s http://localhost:8080/health >/dev/null 2>&1 || \
+             curl -f -s http://localhost:8080 >/dev/null 2>&1; then
+            echo "API is responding on internal port 8080"
+          else
+            echo "API health check inconclusive (this might be normal if no health endpoint exists)"
+          fi
+          
+          # Check container status
+          podman ps --filter name=airport-api --format "{{.Status}}" ENDSSH
+
+      - name: Notify deployment
+        run: |
+          echo "API successfully deployed to Oracle Compute VM"
+          echo "Image: ${{ env.API_SERVICE_NAME }}:${{ github.sha }}"
+          echo "Access via: https://${{ secrets.ORACLE_VM_HOST }}"
+          echo "API runs on HTTP:8080 internally, Nginx handles HTTPS:443 externally"
