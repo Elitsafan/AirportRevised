@@ -24,12 +24,15 @@ namespace Airport.Simulator
             AppDomain.CurrentDomain.UnhandledException += GlobalUnhandledExceptionHandler;
             using var host = Host
                 .CreateDefaultBuilder(args)
+                .UseEnvironment(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
-                    config.SetBasePath(AppContext.BaseDirectory).AddJsonFile(
-                        "appsettings.json",
-                        optional: false,
-                        reloadOnChange: true);
+                    var env = hostingContext.HostingEnvironment;
+
+                    config.SetBasePath(AppContext.BaseDirectory)
+                        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                        .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
+                        .AddEnvironmentVariables();
                     Configuration = config.Build();
                 })
                 .ConfigureServices(hostingContext =>
@@ -50,7 +53,10 @@ namespace Airport.Simulator
                 .Build();
 
             _logger = host.Services.GetRequiredService<ILogger<Program>>();
-            IFlightLauncherService flightLauncherService = host.Services.GetRequiredService<IFlightLauncherService>();
+            await using IFlightLauncherService flightLauncherService = host.Services
+                .CreateAsyncScope()
+                .ServiceProvider
+                .GetRequiredService<IFlightLauncherService>();
             _logger.LogInformation("Starting Airport Simulator...");
             var startResponse = await flightLauncherService.StartAsync();
             _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
