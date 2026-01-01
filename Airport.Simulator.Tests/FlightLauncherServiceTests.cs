@@ -1,4 +1,6 @@
-﻿namespace OnionArchitecture.Simulator.Tests
+﻿using Airport.Models.Entities;
+
+namespace OnionArchitecture.Simulator.Tests
 {
     public class FlightLauncherServiceTests
     {
@@ -81,7 +83,7 @@
             var mockedProtected = _mockHttpMessageHandler.Protected();
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
+                    nameof(HttpClient.SendAsync),
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
@@ -110,7 +112,7 @@
             var mockedProtected = _mockHttpMessageHandler.Protected();
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
+                    nameof(HttpClient.SendAsync),
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
@@ -128,16 +130,33 @@
                 Assert.True(launch.StatusCode == HttpStatusCode.Created);
         }
 
-        [Fact(Skip = "Crashed")]
+        [Fact]
         public async Task LaunchManyAsync_WithParams_WhenCalled_LaunchesFlightsAndExitAsync()
         {
+            var flights = new List<FlightForCreationDTO>
+            {
+                new LandingForCreationDTO(),
+                new DepartureForCreationDTO(),
+                new LandingForCreationDTO(),
+                new DepartureForCreationDTO(),
+                new LandingForCreationDTO(),
+                new DepartureForCreationDTO(),
+                new LandingForCreationDTO(),
+                new DepartureForCreationDTO(),
+                new LandingForCreationDTO(),
+                new DepartureForCreationDTO()
+            };
             var mockedProtected = _mockHttpMessageHandler.Protected();
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
+                    nameof(HttpClient.SendAsync),
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
+
+            _mockFlightGenerator
+                .Setup(x => x.GenerateFlights(It.IsAny<int>()))
+                .Returns(flights);
 
             await foreach (var launch in _service.LaunchManyAsync("10", "exit"))
                 Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
