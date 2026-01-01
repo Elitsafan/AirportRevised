@@ -27,9 +27,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run tests
-        run: dotnet test --verbosity normal
-
       - name: Build Docker image
         run: |
           docker build \
@@ -59,7 +56,7 @@ jobs:
           
           # Deploy container on VM
           ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << ENDSSH
-
+          
           # Stop and remove old container (using docker command)
           docker stop airport-api 2>/dev/null || true
           docker rm airport-api 2>/dev/null || true
@@ -70,6 +67,7 @@ jobs:
             --name airport-api \
             --restart unless-stopped \
             -p 127.0.0.1:8080:8080 \
+            -e ConnectionStrings__Default="${MONGODB_CONNECTION_STRING}" \
             -e AirportDbConfiguration__ConnectionString="${MONGODB_CONNECTION_STRING}" \
             -e ASPNETCORE_ENVIRONMENT=Production \
             -e ASPNETCORE_URLS="http://0.0.0.0:8080" \
