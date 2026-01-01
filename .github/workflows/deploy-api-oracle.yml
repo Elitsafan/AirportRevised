@@ -115,7 +115,7 @@ jobs:
           fi
           
           # Check container status
-          docker ps --filter name=airport-api --format "{{.Status}}" ENDSSH
+          docker ps --filter "name=airport-api" --format "{{.Status}}" ENDSSH
 
       - name: Notify deployment
         run: |
