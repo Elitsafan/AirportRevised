@@ -27,6 +27,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Run tests
+        run: dotnet test --verbosity normal
+
       - name: Build Docker image
         run: |
           docker build \
@@ -54,24 +57,25 @@ jobs:
           docker save ${{ env.API_SERVICE_NAME }}:${{ github.sha }} | \
             ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST docker load
           
-          # Deploy container on VM
-          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << ENDSSH
+          # Deploy container on VM - pass connection string as SSH environment variable
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST \
+            MONGODB_CONN="$MONGODB_CONNECTION_STRING" \
+            API_IMAGE="${{ env.API_SERVICE_NAME }}:${{ github.sha }}" \
+            bash << 'ENDSSH'
           
-          # Stop and remove old container (using docker command)
+          # Stop and remove old container
           docker stop airport-api 2>/dev/null || true
           docker rm airport-api 2>/dev/null || true
           
-          # Run new container with docker
-          # API runs on HTTP internally (8080), Caddy handles HTTPS externally (443)
+          # Run new container with environment variables
           docker run -d \
             --name airport-api \
             --restart unless-stopped \
             -p 127.0.0.1:8080:8080 \
-            -e ConnectionStrings__Default="${MONGODB_CONNECTION_STRING}" \
-            -e AirportDbConfiguration__ConnectionString="${MONGODB_CONNECTION_STRING}" \
-            -e ASPNETCORE_ENVIRONMENT=Production \
-            -e ASPNETCORE_URLS="http://0.0.0.0:8080" \
-            ${{ env.API_SERVICE_NAME }}:${{ github.sha }}
+            -e "AirportDbConfiguration__ConnectionString=${MONGODB_CONN}" \
+            -e "ASPNETCORE_ENVIRONMENT=Production" \
+            -e "ASPNETCORE_URLS=http://0.0.0.0:8080" \
+            ${API_IMAGE}
           
           # Verify container is running
           if docker ps | grep -q airport-api; then
@@ -86,9 +90,7 @@ jobs:
           # Clean up old images (keep last 3)
           docker image prune -a -f --filter "until=72h" || true
           
-          echo "API deployed successfully"
-          
-          ENDSSH
+          echo "API deployed successfully" ENDSSH
 
       - name: Health check
         env:
@@ -113,13 +115,11 @@ jobs:
           fi
           
           # Check container status
-          docker ps --filter name=airport-api --format "{{.Status}}"
-          
-          ENDSSH
+          docker ps --filter name=airport-api --format "{{.Status}}" ENDSSH
 
       - name: Notify deployment
         run: |
           echo "API successfully deployed to Oracle Compute VM"
           echo "Image: ${{ env.API_SERVICE_NAME }}:${{ github.sha }}"
           echo "Access via: https://${{ secrets.ORACLE_VM_HOST }}"
-          echo "API runs on HTTP:8080 internally, Nginx handles HTTPS:443 externally"
+          echo "API runs on HTTP:8080 internally, Caddy handles HTTPS:443 externally"
