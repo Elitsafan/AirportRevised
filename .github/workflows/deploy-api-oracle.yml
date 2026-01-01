@@ -98,24 +98,17 @@ jobs:
           ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
           ORACLE_VM_SSH_KEY: ${{ secrets.ORACLE_VM_SSH_KEY }}
         run: |
-          # Wait for API to be ready
           sleep 10
-          
-          # Check if API is responding (via SSH to VM)
           ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << 'ENDSSH'
-          
           echo "Testing API health..."
-          
-          # Test internal endpoint
           if curl -f -s http://localhost:8080/health >/dev/null 2>&1 || \
              curl -f -s http://localhost:8080 >/dev/null 2>&1; then
             echo "API is responding on internal port 8080"
           else
             echo "API health check inconclusive (this might be normal if no health endpoint exists)"
           fi
-          
-          # Check container status
-          docker ps --filter "name=airport-api" --format "{{.Status}}" ENDSSH
+          docker ps --filter "name=airport-api" --format "{{.Status}}"
+          ENDSSH
 
       - name: Notify deployment
         run: |
