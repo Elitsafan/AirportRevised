@@ -22,7 +22,8 @@ namespace Airport.Web
         {
             var builder = WebApplication.CreateBuilder(args);
             Configuration = builder.Configuration;
-            builder.Services.Configure<AirportDbConfiguration>(Configuration.GetSection(nameof(AirportDbConfiguration)));
+            builder.Services.Configure<AirportDbConfiguration>(
+                Configuration.GetSection(nameof(AirportDbConfiguration)));
             //#if DEBUG
             //            builder.Logging
             //                .ClearProviders()
@@ -48,7 +49,7 @@ namespace Airport.Web
                             .ToArray()!;
                         builder.WithOrigins(clientOrigins!)
                             .AllowAnyHeader()
-                            .AllowAnyMethod()
+                            .WithMethods("GET", "POST")
                             .AllowCredentials();
                     });
             });
@@ -81,7 +82,10 @@ namespace Airport.Web
                 serviceProvider => RouteLogicProvider.CreateAsync(serviceProvider).Result);
             builder.Services.AddSingleton<IMongoClient>(provider =>
             {
-                var settings = MongoClientSettings.FromConnectionString(Configuration.GetConnectionString("Default"));
+                var connectionString = Configuration["AirportDbConfiguration__ConnectionString"]
+                    ?? Configuration.GetConnectionString("Default")
+                    ?? throw new InvalidOperationException("Database connection string is missing");
+                var settings = MongoClientSettings.FromConnectionString(connectionString);
                 settings.ConnectTimeout = TimeSpan.FromMinutes(1);
                 settings.MaxConnectionPoolSize = 25;
                 settings.MinConnectionPoolSize = 5;
