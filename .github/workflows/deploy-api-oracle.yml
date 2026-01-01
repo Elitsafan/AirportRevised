@@ -55,8 +55,9 @@ jobs:
             ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST docker load
           
           # Deploy container on VM
-          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << ENDSSH
-          
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST << 'ENDSSH'
+          export MONGODB_CONNECTION_STRING="${MONGODB_CONNECTION_STRING}"
+
           # Stop and remove old container (using docker command)
           docker stop airport-api 2>/dev/null || true
           docker rm airport-api 2>/dev/null || true
@@ -67,8 +68,8 @@ jobs:
             --name airport-api \
             --restart unless-stopped \
             -p 127.0.0.1:8080:8080 \
-            -e ConnectionStrings__Default="${MONGODB_CONNECTION_STRING}" \
-            -e AirportDbConfiguration__ConnectionString="${MONGODB_CONNECTION_STRING}" \
+            # -e ConnectionStrings__Default="$MONGODB_CONNECTION_STRING" \
+            -e AirportDbConfiguration__ConnectionString="$MONGODB_CONNECTION_STRING" \
             -e ASPNETCORE_ENVIRONMENT=Production \
             -e ASPNETCORE_URLS="http://0.0.0.0:8080" \
             ${{ env.API_SERVICE_NAME }}:${{ github.sha }}
