@@ -83,8 +83,6 @@ namespace Airport.Simulator.Services
             _logger.LogInformation($"Launching many flights...");
             foreach (var flight in flights)
                 yield return await flight;
-            if (args.Length > 1 && args[1] == "exit")
-                Environment.Exit(0);
             yield break;
         }
         // Send a request to Start endpoint
