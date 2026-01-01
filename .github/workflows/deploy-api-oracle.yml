@@ -71,7 +71,7 @@ jobs:
             --name airport-api \
             --restart unless-stopped \
             -p 127.0.0.1:8080:8080 \
-            # -e ConnectionStrings__Default="$MONGODB_CONNECTION_STRING" \
+            # -e ConnectionStrings__Default="$MONGODB_CONNECTION_STRING"
             -e AirportDbConfiguration__ConnectionString="$MONGODB_CONNECTION_STRING" \
             -e ASPNETCORE_ENVIRONMENT=Production \
             -e ASPNETCORE_URLS="http://0.0.0.0:8080" \
