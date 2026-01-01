@@ -15,7 +15,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: me-west1
   SERVICE_NAME: airport-simulator
-  REPOSITORY: AirportRevised  # Artifact Registry repository name
+  REPOSITORY: airportrevised  # Artifact Registry repository name
 
 jobs:
   deploy:
