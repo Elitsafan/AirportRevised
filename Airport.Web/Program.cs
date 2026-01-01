@@ -125,7 +125,6 @@ namespace Airport.Web
                 app.UseHsts();
             }
 
-            app.UseHttpsRedirection();
             app.UseCors();
             app.UseAuthorization();
             app.MapHub<AirportHub>("/airporthub");
