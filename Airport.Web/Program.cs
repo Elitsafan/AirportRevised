@@ -109,7 +109,7 @@ namespace Airport.Web
             using var app = builder.Build();
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();
-            if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Local")
+            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
@@ -118,6 +118,7 @@ namespace Airport.Web
             }
             else
             {
+                // For Demo purpose
                 await SeedDatabaseAsync(app);
                 app.UseHsts();
             }
@@ -152,7 +153,7 @@ namespace Airport.Web
             catch (TimeoutException ex)
             {
                 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-                logger.LogError(ex, "A database seeding error occurred.");
+                logger.LogError(ex, "A database seeding timeout occurred.");
             }
             catch (Exception ex)
             {
