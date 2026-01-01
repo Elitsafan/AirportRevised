@@ -24,9 +24,10 @@
             _mockFlightEndPointsConfiguration
                 .SetupGet(x => x.Start)
                 .Returns("/api/Airport/Start");
+            // Options.Create(new FlightEndPointsConfiguration { BaseUrl = "http://localhost:5005" });
             _mockFlightEndPointsConfiguration
                 .SetupGet(x => x.BaseUrl)
-                .Returns("http://localhost:5005");
+                .Returns("https://airport.api.elitzafan.com");
             _mockFlightEndPointsConfiguration
                 .SetupGet(x => x.Departure)
                 .Returns("/api/Flights/Departure");
