@@ -82,8 +82,10 @@ namespace Airport.Web
                 serviceProvider => RouteLogicProvider.CreateAsync(serviceProvider).Result);
             builder.Services.AddSingleton<IMongoClient>(provider =>
             {
-                var connectionString = Configuration["AirportDbConfiguration__ConnectionString"]
-                    ?? Configuration.GetConnectionString("Default")
+                // Not using builder.Configuration - ignores runtime environment variables
+                var connectionString = provider.GetRequiredService<IOptions<AirportDbConfiguration>>()
+                    .Value
+                    .ConnectionString
                     ?? throw new InvalidOperationException("Database connection string is missing");
                 var settings = MongoClientSettings.FromConnectionString(connectionString);
                 settings.ConnectTimeout = TimeSpan.FromMinutes(1);
