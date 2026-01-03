@@ -8,7 +8,7 @@ on:
       - 'Airport.Simulator/**'
       - 'Airport.Models/**'
       - 'Airport.Contracts/**'
-      - 'Dockerfile'
+      - 'Dockerfile.simulator'
       - '.github/workflows/deploy-simulator-gcp.yml'
   workflow_dispatch:
 
