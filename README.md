@@ -13,7 +13,7 @@ An interactive airport management system demonstrating real-time flight control 
   	- [Automated Script](#automated-script)
     - [Manual Commands](#manual-commands)
   - [Docker Installation](#docker-installation)
-- [Live Demo](#live-demo)
+  - [Cloud Deployment](#cloud-deployment)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Testing](#testing)
@@ -117,16 +117,12 @@ docker-compose up --build
 - Frontend: [http://localhost:4200](http://localhost:4200)
 - Backend API: [https://localhost:7029](https://localhost:7029), [http://localhost:5005](http://localhost:5005)
 
----
+### Cloud Deployment
 
-## Live Demo
-
-Experience the application live:
-
-- **Frontend**: [https://jolly-desert-0be392103.1.azurestaticapps.net](https://jolly-desert-0be392103.1.azurestaticapps.net)
-- **API Documentation**: [https://your-app-service.azurewebsites.net/swagger](https://your-app-service.azurewebsites.net/swagger)
-
-The demo showcases real-time flight tracking with live updates across all connected clients using SignalR.
+- Deploy backend to Azure App Service or AWS Elastic Beanstalk.
+- Deploy frontend to Azure Static Web Apps, AWS S3, or Netlify.
+- Use managed MongoDB (e.g., MongoDB Atlas).
+- See `.github/workflows/azure-deploy.yml` for CI/CD example.
 
 ---
 
@@ -138,7 +134,7 @@ The demo showcases real-time flight tracking with live updates across all connec
 - Interact with the UI to simulate flights
 
 - **API:**
-- Swagger UI available at [http://localhost:5005/swagger](http://localhost:5005/swagger)
+- Swagger UI available at [http://localhost:5000/swagger](http://localhost:5000/swagger)
 - REST endpoints for airport, flights, and simulation
 
 - **Simulator:**
@@ -165,12 +161,12 @@ dotnet run --project Airport.Simulator
 
 ## Testing
 
-- **Backend and Simulator:**
+- **Backend:**
 - Run all tests:
 ```sh
 dotnet test
 ```
-- Test projects: `Airport.Domain.Tests`, `Airport.Presentation.Tests`, `Airport.Services.Tests`, `Airport.Simulator.Tests`
+- Test projects: `Airport.Services.Tests`, `Airport.Presentation.Tests`
 
 - **Frontend:**
 - Unit tests:
