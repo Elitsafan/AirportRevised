@@ -36,7 +36,7 @@ services:
       - "5006:8081"
       - "7030:441"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
     depends_on:
       - backend
 

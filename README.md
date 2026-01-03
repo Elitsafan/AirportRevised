@@ -13,7 +13,7 @@ An interactive airport management system demonstrating real-time flight control 
   	- [Automated Script](#automated-script)
     - [Manual Commands](#manual-commands)
   - [Docker Installation](#docker-installation)
-  - [Cloud Deployment](#cloud-deployment)
+- [Live Demo](#live-demo)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Testing](#testing)
@@ -117,12 +117,16 @@ docker-compose up --build
 - Frontend: [http://localhost:4200](http://localhost:4200)
 - Backend API: [https://localhost:7029](https://localhost:7029), [http://localhost:5005](http://localhost:5005)
 
-### Cloud Deployment
+---
 
-- Deploy backend to Azure App Service or AWS Elastic Beanstalk.
-- Deploy frontend to Azure Static Web Apps, AWS S3, or Netlify.
-- Use managed MongoDB (e.g., MongoDB Atlas).
-- See `.github/workflows/azure-deploy.yml` for CI/CD example.
+## Live Demo
+
+Experience the application live:
+
+- **Frontend**: [https://jolly-desert-0be392103.1.azurestaticapps.net](https://jolly-desert-0be392103.1.azurestaticapps.net)
+- **API Documentation**: [https://your-app-service.azurewebsites.net/swagger](https://your-app-service.azurewebsites.net/swagger)
+
+The demo showcases real-time flight tracking with live updates across all connected clients using SignalR.
 
 ---
 
@@ -134,7 +138,7 @@ docker-compose up --build
 - Interact with the UI to simulate flights
 
 - **API:**
-- Swagger UI available at [http://localhost:5000/swagger](http://localhost:5000/swagger)
+- Swagger UI available at [http://localhost:5005/swagger](http://localhost:5005/swagger)
 - REST endpoints for airport, flights, and simulation
 
 - **Simulator:**
@@ -161,12 +165,12 @@ dotnet run --project Airport.Simulator
 
 ## Testing
 
-- **Backend:**
+- **Backend and Simulator:**
 - Run all tests:
 ```sh
 dotnet test
 ```
-- Test projects: `Airport.Services.Tests`, `Airport.Presentation.Tests`
+- Test projects: `Airport.Domain.Tests`, `Airport.Presentation.Tests`, `Airport.Services.Tests`, `Airport.Simulator.Tests`
 
 - **Frontend:**
 - Unit tests:
