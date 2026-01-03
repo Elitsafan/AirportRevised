@@ -14,7 +14,7 @@ services:
       - "5005:8080"
       - "7029:443"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__Default=mongodb://mongodb:27017
     depends_on:
       - mongodb
