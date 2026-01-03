@@ -1,4 +1,5 @@
-name: Deploy Simulator App to Google Cloud Run
+name: Deploy .NET 8 App to Google Cloud Run
+
 on:
   push:
     branches:
@@ -7,7 +8,7 @@ on:
       - 'Airport.Simulator/**'
       - 'Airport.Models/**'
       - 'Airport.Contracts/**'
-      - 'Dockerfile.simulator'
+      - 'Dockerfile'
       - '.github/workflows/deploy-simulator-gcp.yml'
   workflow_dispatch:
 
@@ -20,7 +21,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
       id-token: write
@@ -29,8 +30,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
       - name: Run tests
-        run: dotnet test --verbosity normal
+        run: dotnet test --no-build --configuration Release --verbosity normal
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -47,7 +59,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -f Dockerfile.simulator \
+            -f Dockerfile \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest \
             .
@@ -63,16 +75,12 @@ jobs:
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
-            --no-allow-unauthenticated \
-            --set-env-vars "FlightEndPointsConfiguration__BaseUrl=${{ secrets.API_BASE_URL }}" \
+            --allow-unauthenticated \
             --memory 512Mi \
             --timeout 3600
 
-      - name: Get service URL
+      - name: Show service URL
         run: |
           gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --format='value(status.url)'
-
-      - name: Notify deployment
-        run: echo "Simulator deployed successfully to Google Cloud Run"
