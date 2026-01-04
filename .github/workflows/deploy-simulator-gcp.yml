@@ -48,7 +48,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -f Dockerfile \
+            -f Dockerfile.simulator \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest \
             .
