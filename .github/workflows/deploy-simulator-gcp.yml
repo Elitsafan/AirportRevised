@@ -66,7 +66,8 @@ jobs:
             --platform managed \
             --no-allow-unauthenticated \
             --memory 512Mi \
-            --timeout 3600
+            --timeout 3600 \
+            --set-env-vars "GCP_PROJECT=${{ env.PROJECT_ID }}"
 
       - name: Show service URL
         run: |
