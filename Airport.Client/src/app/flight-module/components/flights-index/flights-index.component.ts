@@ -18,6 +18,8 @@ export class FlightsIndexComponent implements OnInit, OnDestroy {
   departure: FlightType;
   landing: FlightType;
 
+  errorMessage: string | null = null;
+
   constructor(private flightSvc: FlightService) {
     this.flights = [];
     this.loading = false;
@@ -28,10 +30,14 @@ export class FlightsIndexComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loading = true;
     this.flightRoutesErrorSubscription = this.flightSvc.flightRoutesError$
-      .subscribe(_ => this.loading = false);
+      .subscribe(err => {
+        this.loading = false;
+        this.errorMessage = "Unable to fetch flights. Please try again.";
+      });
     this.flightsSubscription = this.flightSvc.flights$.subscribe(flights => {
       this.flights = flights;
       this.loading = false;
+      this.errorMessage = null;
     })
   }
 
@@ -42,6 +48,7 @@ export class FlightsIndexComponent implements OnInit, OnDestroy {
 
   onRefresh(event?: Event) {
     this.loading = true;
+    this.errorMessage = null;
     this.flightSvc.updateFlights(new HttpParams().set("minutesPassed", 7));
   }
 }

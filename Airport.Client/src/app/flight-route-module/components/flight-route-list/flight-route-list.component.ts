@@ -14,7 +14,9 @@ export class FlightRouteListComponent implements OnInit, OnDestroy {
   private flightRoutesErrorSubscription?: Subscription;
 
   flightRoutes$: Observable<FlightRoute[]>;
+  routes: FlightRoute[] = [];
   loading: boolean = false;
+  errorMessage: string | null = null;
 
   constructor(
     private stationSvc: StationService,
@@ -24,14 +26,22 @@ export class FlightRouteListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.flightRoutesErrorSubscription = this.flightRouteSvc.flightRoutesError$
-      .subscribe(_ => this.loading = false);
+      .subscribe(err => {
+        this.loading = false;
+        this.errorMessage = "Unable to fetch routes. Please try again.";
+      });
     this.loading = true;
     this.stationSvc.startService();
     this.flightRouteSvc.startService();
-    this.flightRoutes$.subscribe({
-      next: _ => this.loading = false,
+    this.flightRoutesSubscription = this.flightRoutes$.subscribe({
+      next: routes => {
+        this.routes = routes;
+        this.loading = false;
+        this.errorMessage = null;
+      },
       error: err => {
         this.loading = false;
+        this.errorMessage = "Unable to fetch routes. Please try again.";
         console.error(err);
       }
     });
@@ -40,5 +50,12 @@ export class FlightRouteListComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.flightRoutesSubscription?.unsubscribe();
     this.flightRoutesErrorSubscription?.unsubscribe();
+  }
+
+  onRetry() {
+    this.loading = true;
+    this.errorMessage = null;
+    this.stationSvc.startService();
+    this.flightRouteSvc.startService();
   }
 }

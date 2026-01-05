@@ -1,7 +1,6 @@
 <div class="container-fluid">
-  <div *ngIf="loading" class="text-center p-4">
-    <p>Loading routes...</p>
-  </div>
-  
-  <routes-container [routes]="(flightRoutes$ | async)"></routes-container>
+  <routes-container *ngIf="!loading && !errorMessage && routes.length > 0" [routes]="routes"></routes-container>
+
+  <loading-display [loading]="loading" [hasData]="routes.length > 0" [errorMessage]="errorMessage" (retry)="onRetry()">
+  </loading-display>
 </div>

@@ -28,6 +28,8 @@ export class FlightSummaryListComponent implements OnInit, OnDestroy {
   landingsCount?: number;
   departuresCount?: number;
 
+  errorMessage: string | null = null;
+
   constructor(
     private flightSummarySvc: FlightSummaryService,
     private route: ActivatedRoute) {
@@ -44,9 +46,15 @@ export class FlightSummaryListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.flightRoutesErrorSubscription = this.flightSummarySvc.flightRoutesError$
-      .subscribe(_ => this.loading = false);
+      .subscribe(err => {
+        this.loading = false;
+        this.errorMessage = "Unable to fetch summary. Please try again.";
+      });
     this.queryParamsSubscription = this.route.queryParams
-      .pipe(tap(_ => this.loading = true))
+      .pipe(tap(_ => {
+        this.loading = true;
+        this.errorMessage = null;
+      }))
       .subscribe(params => {
         const newParams = new HttpParams()
           .set("pageNumber", params['pageNumber'] ?? 1)
@@ -56,17 +64,34 @@ export class FlightSummaryListComponent implements OnInit, OnDestroy {
 
     this.summarySubscription = this.flightSummarySvc.summary$
       .subscribe({
-        next: (summary: IAirportSummaryResponse) => {
-          this.flightsSummary = summary.flightsSummary;
-          this.pagination = summary.pagination;
-          this.paginationSubject.next(this.pagination);
-          this.updateCountFlightType();
-          this.updateDisplayCurrentFlights();
-          this.updateDisplayFlightByType()
-          this.loading = false;
+        next: (summary: IAirportSummaryResponse | null) => {
+          if (summary) {
+            this.flightsSummary = summary.flightsSummary;
+            this.pagination = summary.pagination;
+            this.paginationSubject.next(this.pagination);
+            this.updateCountFlightType();
+            this.updateDisplayCurrentFlights();
+            this.updateDisplayFlightByType()
+            this.loading = false;
+            this.errorMessage = null;
+          }
         },
-        error: err => console.log(err)
+        error: err => {
+          this.loading = false;
+          this.errorMessage = "Unable to fetch summary. Please try again.";
+          console.log(err)
+        }
       });
+  }
+
+  onRetry() {
+    this.loading = true;
+    this.errorMessage = null;
+    const params = this.route.snapshot.queryParams;
+    const newParams = new HttpParams()
+          .set("pageNumber", params['pageNumber'] ?? 1)
+          .set("pageSize", params['pageSize'] ?? 10)
+    this.flightSummarySvc.update(newParams);
   }
 
   trackByFlightId(index: number, flight: FlightSummary) {

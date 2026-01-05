@@ -1,0 +1,17 @@
+<div class="d-flex flex-column align-items-center justify-content-center p-4">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="d-flex flex-column align-items-center">
+    <h4 class="mb-3">Loading...</h4>
+    <ellipsis></ellipsis>
+  </div>
+
+  <!-- Error/No Data State -->
+  <div *ngIf="!loading && (!hasData || errorMessage)" class="text-center">
+    <h4 class="mb-3">
+      {{ errorMessage ? errorMessage : 'No data to display' }}
+    </h4>
+    <button class="btn btn-primary" (click)="onRetry()">
+      <i class="bi bi-arrow-clockwise me-1"></i> Retry
+    </button>
+  </div>
+</div>

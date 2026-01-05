@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { Observable, Subject, Subscription, last, map } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, Subscription, last, map } from 'rxjs';
 import { AirportService } from './airport.service';
 import { IRoute } from '../interfaces/iroute.interface';
 import { StationService } from './station.service';
@@ -13,7 +13,7 @@ import { Leg } from '../flight-route-module/models/leg.model';
 
 export class FlightRouteService implements OnDestroy {
   private flightRoutes: FlightRoute[];
-  private flightRoutesSubject: Subject<FlightRoute[]>;
+  private flightRoutesSubject: BehaviorSubject<FlightRoute[]>;
   private flightRoutesErrorSubject: Subject<any>;
   private stationSvcSubscription?: Subscription;
   private stations: Station[];
@@ -22,7 +22,7 @@ export class FlightRouteService implements OnDestroy {
   constructor(
     private airportSvc: AirportService,
     private stationSvc: StationService) {
-    this.flightRoutesSubject = new Subject<FlightRoute[]>();
+    this.flightRoutesSubject = new BehaviorSubject<FlightRoute[]>([]);
     this.flightRoutesErrorSubject = new Subject<any>();
     this.flightRoutes = [];
     this.stations = [];
@@ -88,7 +88,10 @@ export class FlightRouteService implements OnDestroy {
           this.rawRoutes = routes || [];
           this.buildFlightRoutes();
         },
-        error: err => console.error(err)
+        error: err => {
+            console.error(err);
+            this.flightRoutesErrorSubject.next(err);
+        }
       })
   }
 
