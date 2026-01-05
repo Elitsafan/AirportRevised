@@ -1,6 +1,6 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { FlightRouteService } from '../../../services/flight-route.service';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
+import { FlightRouteService } from '../../../services/flight-route.service';
 import { StationService } from '../../../services/station.service';
 import { FlightRoute } from '../../models/flight-route.model';
 
@@ -9,26 +9,23 @@ import { FlightRoute } from '../../models/flight-route.model';
   templateUrl: './flight-route-list.component.html',
   styleUrls: ['./flight-route-list.component.scss']
 })
-
-export class FlightRouteListComponent implements OnInit, OnDestroy {
+export class FlightRouteListComponent implements OnInit, OnDestroy
+{
   private flightRoutesSubscription?: Subscription;
   private flightRoutesErrorSubscription?: Subscription;
+
   flightRoutes$: Observable<FlightRoute[]>;
-  loading: boolean;
+  loading: boolean = false;
 
   constructor(
     private stationSvc: StationService,
-    private flightRouteSvc: FlightRouteService) {
+    private flightRouteSvc: FlightRouteService)
+  {
     this.flightRoutes$ = this.flightRouteSvc.flightRoutes$;
-    this.loading = false;
   }
 
-  ngOnDestroy(): void {
-    this.flightRoutesSubscription?.unsubscribe();
-    this.flightRoutesErrorSubscription?.unsubscribe();
-  }
-
-  public ngOnInit(): void {
+  ngOnInit(): void
+  {
     this.flightRoutesErrorSubscription = this.flightRouteSvc.flightRoutesError$
       .subscribe(_ => this.loading = false);
     this.loading = true;
@@ -38,8 +35,14 @@ export class FlightRouteListComponent implements OnInit, OnDestroy {
       next: _ => this.loading = false,
       error: err => {
         this.loading = false;
-        console.log(err);
+        console.error(err);
       }
     });
+  }
+
+  ngOnDestroy(): void
+  {
+    this.flightRoutesSubscription?.unsubscribe();
+    this.flightRoutesErrorSubscription?.unsubscribe();
   }
 }

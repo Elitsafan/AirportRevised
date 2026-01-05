@@ -78,10 +78,18 @@ export class StationService implements OnDestroy {
   }
 
   private stationSubscriptionEventHandler(data: IStationChangedData) {
-    if (data)
-      this.stations?.forEach((station, i) => station.flight = this.flightResolver(
-        data[i].flight,
-        data[i].stationId))
-    this.stationsSubject.next(this.stations);
+    if (data && this.stations?.length) {
+      // Update flights only, don't recreate the array
+      data.forEach((changedStation, i) => {
+        if (i < this.stations!.length) {
+          this.stations![i].flight = this.flightResolver(
+            changedStation.flight,
+            changedStation.stationId
+          );
+        }
+      });
+      // Notify subscribers of the changes without creating a new array reference
+      this.stationsSubject.next(this.stations);
+    }
   }
 }
