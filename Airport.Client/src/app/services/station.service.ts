@@ -29,13 +29,17 @@ export class StationService implements OnDestroy {
 
   public startService(): void {
     if (this.airportSvc.hasStarted) {
-      this.handleStationsSubscription();
+      if (!this.stationOccupiedSubscription) {
+        this.handleStationsSubscription();
+      }
       this.fetch();
     } else {
       this.airportSvc.start()
         .subscribe({
           next: () => {
-            this.handleStationsSubscription();
+            if (!this.stationOccupiedSubscription) {
+              this.handleStationsSubscription();
+            }
             this.fetch();
           },
           error: (error) => console.error(error)
@@ -79,10 +83,11 @@ export class StationService implements OnDestroy {
 
   private stationSubscriptionEventHandler(data: IStationChangedData) {
     if (data && this.stations?.length) {
-      // Update flights only, don't recreate the array
-      data.forEach((changedStation, i) => {
-        if (i < this.stations!.length) {
-          this.stations![i].flight = this.flightResolver(
+      // Update flights only, identifying the station by its ID
+      data.forEach((changedStation) => {
+        const stationToUpdate = this.stations.find(s => s.stationId === changedStation.stationId);
+        if (stationToUpdate) {
+          stationToUpdate.flight = this.flightResolver(
             changedStation.flight,
             changedStation.stationId
           );
