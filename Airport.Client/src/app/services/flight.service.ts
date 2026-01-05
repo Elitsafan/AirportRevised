@@ -1,43 +1,32 @@
 import { Injectable, OnDestroy } from "@angular/core";
-import { BehaviorSubject, Observable, Subject, Subscription } from "rxjs";
+import { Observable, Subscription } from "rxjs";
 import { AirportService } from "./airport.service";
 import { ColorService } from "./color.service";
 import { Flight } from "../flight-module/models/flight.model.ts";
 import { HttpParams } from "@angular/common/http";
 import { IFlight } from "../interfaces/iflight.interface";
+import { BaseAirportDataService } from "./base-airport-data.service";
 
 @Injectable({
   providedIn: 'root'
 })
-
-export class FlightService implements OnDestroy {
-  private flights: Flight[];
+export class FlightService extends BaseAirportDataService<Flight[]> implements OnDestroy {
+  private flights: Flight[] = [];
   private statusSubscription?: Subscription;
-  private flightRoutesErrorSubject = new Subject<any>();
-  private flightsSubject: BehaviorSubject<Flight[]>;
 
   constructor(
-    private airportSvc: AirportService,
+    airportSvc: AirportService,
     private colorSvc: ColorService
   ) {
-    this.flights = [];
-    this.flightsSubject = new BehaviorSubject<Flight[]>([]);
-    if (!this.airportSvc.hasStarted)
-      this.airportSvc.start()
-        .subscribe({
-          next: _ => this.fetch(),
-          error: err => this.flightRoutesErrorSubject.next(err)
-        });
-    else
-      this.fetch();
+    super(airportSvc, []);
   }
 
   get flights$(): Observable<Flight[]> {
-    return this.flightsSubject.asObservable();
+    return this.data$;
   }
 
   get flightRoutesError$() {
-    return this.flightRoutesErrorSubject.asObservable();
+    return this.error$;
   }
 
   ngOnDestroy(): void {
@@ -45,11 +34,11 @@ export class FlightService implements OnDestroy {
   }
 
   updateFlights(params?: HttpParams) {
-    this.fetch(params);
+    this.fetchData(params);
   }
 
-  private fetch(params?: HttpParams) {
-    return this.airportSvc.getFlights(params)
+  protected fetchData(params?: HttpParams) {
+    this.airportSvc.getFlights(params)
       .subscribe({
         next: (flights: IFlight[]) => {
           const newFlights = flights.map(flight => new Flight(
@@ -60,11 +49,11 @@ export class FlightService implements OnDestroy {
               flight.flightType)));
           this.flights = [...newFlights];
           // Triggers initial flights
-          this.flightsSubject.next(this.flights);
+          this.dataSubject.next(this.flights);
         },
         error: err => {
             console.log(err);
-            this.flightRoutesErrorSubject.next(err);
+            this.errorSubject.next(err);
         }
       });
   }

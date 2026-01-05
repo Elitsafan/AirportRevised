@@ -1,32 +1,28 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, Subscription, last, map } from 'rxjs';
+import { Observable, Subscription, last, map } from 'rxjs';
 import { AirportService } from './airport.service';
 import { IRoute } from '../interfaces/iroute.interface';
 import { StationService } from './station.service';
 import { FlightRoute } from '../flight-route-module/models/flight-route.model';
 import { Station } from '../flight-route-module/models/station.model';
 import { Leg } from '../flight-route-module/models/leg.model';
+import { BaseAirportDataService } from './base-airport-data.service';
 
 @Injectable({
   providedIn: 'root'
 })
 
-export class FlightRouteService implements OnDestroy {
+export class FlightRouteService extends BaseAirportDataService<FlightRoute[]> implements OnDestroy {
   private flightRoutes: FlightRoute[];
-  private flightRoutesSubject: BehaviorSubject<FlightRoute[]>;
-  private flightRoutesErrorSubject: Subject<any>;
   private stationSvcSubscription?: Subscription;
   private stations: Station[];
-  flightRoutes$: Observable<FlightRoute[]>;
 
   constructor(
-    private airportSvc: AirportService,
+    airportSvc: AirportService,
     private stationSvc: StationService) {
-    this.flightRoutesSubject = new BehaviorSubject<FlightRoute[]>([]);
-    this.flightRoutesErrorSubject = new Subject<any>();
+    super(airportSvc, []);
     this.flightRoutes = [];
     this.stations = [];
-    this.flightRoutes$ = this.flightRoutesSubject.asObservable();
   }
 
   private rawRoutes: IRoute[] = [];
@@ -53,34 +49,31 @@ export class FlightRouteService implements OnDestroy {
           return new FlightRoute(route.routeId, route.routeName, legs);
         });
       }
-      this.flightRoutesSubject.next(this.flightRoutes);
+      this.dataSubject.next(this.flightRoutes);
   }
 
   public startService(): void {
-    if (this.airportSvc.hasStarted) {
-      this.handleStationsSubscription();
-      this.fetch();
-    }
-    else
-      this.airportSvc.start()
-        .subscribe({
-          next: () => {
-            this.handleStationsSubscription();
-            this.fetch();
-          },
-          error: err => this.flightRoutesErrorSubject.next(err)
-        });
+   // Actually, handleStationsSubscription listens to StationService, which is separate from AirportService.start()
+   // So we can assume base class handles connection, and we handle stations here.
+   this.handleStationsSubscription();
+
+   // The base class constructor calls initialize(), which calls fetchData()
+   // If we want to ensure stations are loaded before fetchData does anything useful, we are fine because buildFlightRoutes checks for stations.length
+  }
+
+  get flightRoutes$(): Observable<FlightRoute[]> {
+    return this.data$;
   }
 
   get flightRoutesError$() {
-    return this.flightRoutesErrorSubject.asObservable();
+    return this.error$;
   }
 
   ngOnDestroy(): void {
     this.stationSvcSubscription?.unsubscribe();
   }
 
-  private fetch(): void {
+  protected fetchData(): void {
     this.airportSvc.getStatus()
       .pipe(map(status => status.routes), last())
       .subscribe({
@@ -90,7 +83,7 @@ export class FlightRouteService implements OnDestroy {
         },
         error: err => {
             console.error(err);
-            this.flightRoutesErrorSubject.next(err);
+            this.errorSubject.next(err);
         }
       })
   }

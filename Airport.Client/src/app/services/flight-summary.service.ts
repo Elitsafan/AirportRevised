@@ -3,23 +3,16 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Subject, Subscription } from 'rxjs';
 import { AirportService } from './airport.service';
 import { IAirportSummaryResponse } from '../interfaces/iairport-summary-response.interface';
+import { BaseAirportDataService } from './base-airport-data.service';
 
 @Injectable({
   providedIn: 'root'
 })
-export class FlightSummaryService implements OnDestroy {
-  private summarySubject = new BehaviorSubject<IAirportSummaryResponse | null>(null);
-  private flightRoutesErrorSubject = new Subject<any>();
+export class FlightSummaryService extends BaseAirportDataService<IAirportSummaryResponse | null> implements OnDestroy {
   private summarySubscription?: Subscription;
 
-  constructor(private airportSvc: AirportService) {
-    if (!this.airportSvc.hasStarted)
-      this.airportSvc.start().subscribe({
-        next: _ => this.update(new HttpParams()),
-        error: err => this.flightRoutesErrorSubject.next(err)
-      });
-    else
-      this.update(new HttpParams());
+  constructor(airportSvc: AirportService) {
+    super(airportSvc, null);
   }
 
   ngOnDestroy(): void {
@@ -27,25 +20,26 @@ export class FlightSummaryService implements OnDestroy {
   }
 
   update(params: HttpParams) {
-    this.fetch(params);
+    this.fetchData(params);
   }
 
   get summary$() {
-    return this.summarySubject.asObservable();
+    return this.data$;
   }
 
   get flightRoutesError$() {
-    return this.flightRoutesErrorSubject.asObservable();
+    return this.error$;
   }
 
   // Gets flights summaries
-  private fetch(params: HttpParams) {
+  protected fetchData(params?: HttpParams) {
+    if(!params) params = new HttpParams();
     this.airportSvc.getSummary(params)
       .subscribe({
-        next: (data) => this.summarySubject.next(data),
+        next: (data) => this.dataSubject.next(data),
         error: err => {
           console.log(err);
-          this.flightRoutesErrorSubject.next(err);
+          this.errorSubject.next(err);
         }
       });
   }
