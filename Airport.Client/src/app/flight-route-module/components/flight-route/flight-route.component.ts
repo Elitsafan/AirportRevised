@@ -8,6 +8,6 @@ import { RouteName } from '../../../types/route-name.type';
   styleUrls: ['./flight-route.component.scss']
 })
 export class FlightRouteComponent {
-  @Input() legs?: Leg[];
+  @Input() legs?: Leg[] | null;
   @Input() routeName?: RouteName;
 }
