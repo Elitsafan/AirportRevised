@@ -1,0 +1,19 @@
+<div class="routes-wrapper" *ngIf="routes?.length">
+  <div class="routes-section">
+    <h3 class="section-title">Landing Routes</h3>
+    <div class="routes-scroll-container">
+      <div class="route-item" *ngFor="let route of landingRoutes">
+        <flight-route [legs]="route.legs" [routeName]="route.name"></flight-route>
+      </div>
+    </div>
+  </div>
+
+  <div class="routes-section">
+    <h3 class="section-title">Departure Routes</h3>
+    <div class="routes-scroll-container">
+      <div class="route-item" *ngFor="let route of departureRoutes">
+        <flight-route [legs]="route.legs" [routeName]="route.name"></flight-route>
+      </div>
+    </div>
+  </div>
+</div>
