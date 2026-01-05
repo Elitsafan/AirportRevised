@@ -31,7 +31,8 @@ Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Web --laun
 Write-Host "Starting simulator..."
 Start-Process -FilePath "dotnet" -ArgumentList "run --project Airport.Simulator --launch-profile localScript"
 
-# Start Angular client
-Write-Host "Starting Angular client..."
+# Start Angular client in development mode
+Write-Host "Starting Angular client (Development)..."
 Set-Location ./Airport.Client
-Start-Process -FilePath "$env:APPDATA\npm\npm.cmd" -ArgumentList "start"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "npm start"
+Set-Location ..
