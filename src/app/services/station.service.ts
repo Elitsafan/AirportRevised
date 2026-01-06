@@ -34,10 +34,7 @@ export class StationService implements OnDestroy {
   }
 
   public startService(): void {
-    /**
-     * Subscribe to SignalR connection errors and propagate to components.
-     * This ensures UI shows error messages when server disconnects.
-     */
+    // Listen to SignalR connection errors
     if (!this.connectionErrorSubscription) {
       this.connectionErrorSubscription = this.signalRSvc.connectionError$
         .subscribe(error => {
@@ -106,12 +103,6 @@ export class StationService implements OnDestroy {
       ?.subscribe(data => this.stationSubscriptionEventHandler(data))
   }
 
-  /**
-   * Handles real-time station updates from SignalR.
-   * Updates flight assignments for changed stations and notifies subscribers.
-   *
-   * @param data Array of station changes (occupied or cleared)
-   */
   private stationSubscriptionEventHandler(data: IStationChangedData) {
     if (data && this.stations?.length) {
       // Update flights only, identifying the station by its ID
