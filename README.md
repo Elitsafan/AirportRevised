@@ -37,7 +37,7 @@ An interactive airport management system demonstrating real-time flight control 
 
 ```
 Airport.Web/           # ASP.NET Core backend (API, SignalR, DI, etc.)
-Airport.Client/        # Angular frontend (UI, services, components)
+AirportClient/        # Angular frontend (UI, services, components)
 Airport.Domain/        # Domain logic (entities, business rules)
 Airport.Models/        # Shared models and DTOs
 Airport.Services/      # Application services (business logic)
@@ -82,7 +82,7 @@ cd AirportRevised
 ```
 - Install frontend dependencies:
 ```sh
-cd Airport.Client
+cd AirportClient
 npm install
 cd ..
 ```
@@ -101,7 +101,7 @@ dotnet run --project Airport.Simulator --launch-profile localScript
 ```
 - Start the frontend:
 ```sh
-cd Airport.Client
+cd AirportClient
 npm start
 ```
 - Access the frontend at [http://localhost:4200](http://localhost:4200)
@@ -152,7 +152,7 @@ dotnet run --project Airport.Simulator
 - Set `ConnectionStrings:Default` for MongoDB connection
 
 - **Frontend:**
-- `Airport.Client/src/environments/environment.ts` for API base URL
+- `AirportClient/src/environments/environment.ts` for API base URL
 
 - **Docker:**
 - Edit `docker-compose.yml` for port and environment variable overrides

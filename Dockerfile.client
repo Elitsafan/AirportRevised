@@ -1,9 +1,9 @@
 # Frontend
 FROM node:18 AS build
 WORKDIR /app
-COPY Airport.Client/package*.json ./
+COPY AirportClient/package*.json ./
 RUN npm install
-COPY Airport.Client/ .
+COPY AirportClient/ .
 RUN npm run build
 
 FROM nginx:alpine

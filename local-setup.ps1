@@ -11,7 +11,7 @@ $prerequisites = @{
 
 # Install frontend dependencies
 Write-Host "Installing frontend dependencies..."
-Set-Location ./Airport.Client
+Set-Location ./AirportClient
 npm install
 Set-Location ..
 
@@ -30,17 +30,17 @@ dotnet build
 # Launch Terminal with 3 tabs
 if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
     Write-Host "Opening Backend, Simulator, and Client in Windows Terminal tabs..."
-    
+
     wt.exe `
       -w 0 nt --title "Backend API" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Web --launch-profile localScript" `; `
       nt --title "Simulator" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Simulator --launch-profile localScript" `; `
-      nt --title "Angular Client" -d "$PSScriptRoot/Airport.Client" powershell -NoExit -Command "npm start"
+      nt --title "Angular Client" -d "$PSScriptRoot/AirportClient" powershell -NoExit -Command "npm start"
 } else {
     Write-Warning "Windows Terminal (wt.exe) not found. Falling back to separate windows."
-    
+
     Start-Process powershell -ArgumentList "-NoExit", "-Command", "dotnet run --project Airport.Web --launch-profile localScript"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", "dotnet run --project Airport.Simulator --launch-profile localScript"
-    Set-Location ./Airport.Client
+    Set-Location ./AirportClient
     Start-Process powershell -ArgumentList "-NoExit", "-Command", "npm start"
     Set-Location ..
 }
