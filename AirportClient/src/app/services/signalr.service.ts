@@ -10,7 +10,6 @@ export class SignalrService {
   private stationOccupiedSubject: BehaviorSubject<any>;
   private stationClearedSubject: BehaviorSubject<any>;
   private flightRunDoneSubject: BehaviorSubject<any>;
-  /** Emits errors when SignalR connection closes (server stops or network failure) */
   private connectionErrorSubject = new ReplaySubject<any>(1);
   private hubConnection: signalR.HubConnection | undefined;
   #stationOccupiedData$?: Observable<any>;
@@ -40,10 +39,6 @@ export class SignalrService {
     return this.#flightRunDoneData$;
   }
 
-  /**
-   * Observable that emits when SignalR connection is lost.
-   * Subscribe to this to handle server disconnections gracefully.
-   */
   get connectionError$(): Observable<any> {
     return this.#connectionError$;
   }
@@ -53,11 +48,7 @@ export class SignalrService {
       .withUrl(`${environment.remoteUrl}${environment.airportHubEP}`)
       .build();
 
-    /**
-     * Handle SignalR connection close events.
-     * Fires when server stops or connection is lost.
-     * Emits error to connectionError$ stream for subscribers to handle.
-     */
+    // Handle connection close/disconnect
     this.hubConnection.onclose((error) => {
       console.error('SignalR connection closed', error);
       this.connectionErrorSubject.next(
