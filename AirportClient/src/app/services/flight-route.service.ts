@@ -28,6 +28,11 @@ export class FlightRouteService extends BaseAirportDataService<FlightRoute[]> im
 
   private rawRoutes: IRoute[] = [];
 
+  /** Builds FlightRoute objects by combining raw route data with station data.
+  * Transforms route directions into route legs (segments between stations).
+  * Each route consists of multiple legs, each containing stations in order.
+  * Example: Route A-B-C becomes [Leg(A), Leg(A→B), Leg(B→C)]
+  */
   private buildFlightRoutes() {
     if (!this.rawRoutes || this.rawRoutes.length === 0 || this.stations.length === 0) {
       this.flightRoutes = [];
