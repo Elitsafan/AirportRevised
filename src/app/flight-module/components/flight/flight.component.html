@@ -1,0 +1,7 @@
+<div class="text-center overflow-hidden" *ngIf="flight">
+  <hr class="m-1" />
+  <h6><span class="badge bg-secondary">{{index}}{{index ? "--->" : ""}} {{flight.flightId}}</span></h6>
+  <!--<h6 *ngIf="!hideFlightType">
+    <span [ngClass]="flight.color" class="txt-shadow">{{flight.flightType}}</span>
+  </h6>-->
+</div>

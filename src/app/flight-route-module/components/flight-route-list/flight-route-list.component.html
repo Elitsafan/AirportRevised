@@ -1,0 +1,6 @@
+<div class="container-fluid">
+  <routes-container *ngIf="!loading && !errorMessage && routes.length > 0" [routes]="routes"></routes-container>
+
+  <loading-display [loading]="loading" [hasData]="routes.length > 0" [errorMessage]="errorMessage" (retry)="onRetry()">
+  </loading-display>
+</div>

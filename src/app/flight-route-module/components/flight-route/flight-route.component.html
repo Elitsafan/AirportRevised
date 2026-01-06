@@ -1,0 +1,6 @@
+<div class="d-flex flex-column" *ngIf="legs?.length">
+  <h3 class="text-center">{{routeName}} Route</h3>
+  <ng-container *ngFor="let leg of legs | reverse">
+    <leg class="p-1" [stations]="leg.stations" [flightType]="routeName"></leg>
+  </ng-container>
+</div>
