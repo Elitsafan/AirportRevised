@@ -91,6 +91,26 @@
           }
         },
         "test": {
+          "defaultConfiguration": "development",
+          "configurations": {
+            "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.development.ts",
+                  "with": "src/environments/environment.ts"
+                }
+              ]
+            },
+            "development": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.development.ts"
+                }
+              ],
+              "sourceMap": true
+            }
+          },
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
             "polyfills": [
@@ -98,6 +118,7 @@
               "zone.js/testing"
             ],
             "tsConfig": "tsconfig.spec.json",
+            "main": "src/test.ts",
             "assets": [
               "src/favicon.ico",
               "src/assets"
