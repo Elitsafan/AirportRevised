@@ -43,7 +43,6 @@ Airport.Models/        # Shared models and DTOs
 Airport.Services/      # Application services (business logic)
 Airport.Persistence/   # Data access (MongoDB repositories)
 Airport.Simulator/     # Flight and airport simulation
-docs/                  # Documentation
 scripts/               # Setup and utility scripts
 docker-compose.yml     # Multi-container orchestration
 Dockerfile             # Backend Docker build
