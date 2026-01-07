@@ -63,7 +63,8 @@ For local installation you can either run the automated script or manually:
 - Open PowerShell and navigate to the cloned directoey.
 - Run:
 ```sh
-.\local-setup.ps1
+cd scripts
+local-setup.ps1
 ```
 - The script will:
   - Install frontend dependencies
