@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36811.4 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "AirportClient", "AirportClient\AirportClient.esproj", "{135D0965-6CB0-2F9F-8E25-546D21496271}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{135D0965-6CB0-2F9F-8E25-546D21496271}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{135D0965-6CB0-2F9F-8E25-546D21496271}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{135D0965-6CB0-2F9F-8E25-546D21496271}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{135D0965-6CB0-2F9F-8E25-546D21496271}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{135D0965-6CB0-2F9F-8E25-546D21496271}.Release|Any CPU.Build.0 = Release|Any CPU
+		{135D0965-6CB0-2F9F-8E25-546D21496271}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2CD6437E-2A16-476B-9715-386E52BF6AAC}
+	EndGlobalSection
+EndGlobal
