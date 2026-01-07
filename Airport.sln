@@ -39,7 +39,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Airport.Simulator", "Airpor
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 EndProject
-Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "Airport.Client", "AirportClient\Airport.Client.esproj", "{400C5F14-65EE-F040-EC3B-8F126D6E219D}"
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "AirportClient", "AirportClient\AirportClient.esproj", "{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -103,12 +103,12 @@ Global
 		{8BFA154E-6ED1-4581-AC05-0F6A82B65A5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8BFA154E-6ED1-4581-AC05-0F6A82B65A5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8BFA154E-6ED1-4581-AC05-0F6A82B65A5E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{400C5F14-65EE-F040-EC3B-8F126D6E219D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{400C5F14-65EE-F040-EC3B-8F126D6E219D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{400C5F14-65EE-F040-EC3B-8F126D6E219D}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
-		{400C5F14-65EE-F040-EC3B-8F126D6E219D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{400C5F14-65EE-F040-EC3B-8F126D6E219D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{400C5F14-65EE-F040-EC3B-8F126D6E219D}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{367EA3FB-EF0E-F632-E0BB-D0EE9A5DC9E9}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
