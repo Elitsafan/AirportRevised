@@ -13,6 +13,3 @@ global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Logging;
 global using Microsoft.VisualStudio.Threading;
 global using MongoDB.Bson;
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("Airport.Web")]

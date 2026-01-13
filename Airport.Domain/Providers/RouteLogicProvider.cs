@@ -60,7 +60,7 @@ namespace Airport.Domain.Providers
                 .ServiceProvider
                 .GetRequiredService<IRepositoryManager>()
                 .RouteRepository;
-            var routes = await GetRoutesWithValidationAsync(routeRepository);
+            var routes = await GetRoutesAsync(routeRepository);
             foreach (Route route in routes)
             {
                 try
@@ -118,7 +118,7 @@ namespace Airport.Domain.Providers
             return this;
         }
 
-        private async Task<IEnumerable<Route>> GetRoutesWithValidationAsync(IRouteRepository routeRepository)
+        private async Task<IEnumerable<Route>> GetRoutesAsync(IRouteRepository routeRepository)
         {
             var routes = await routeRepository.GetAllAsync();
             if (!routes.Any())

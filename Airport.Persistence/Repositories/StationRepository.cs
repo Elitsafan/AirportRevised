@@ -1,4 +1,5 @@
-﻿using Airport.Domain.Repositories;
+﻿using Airport.Domain.Exceptions;
+using Airport.Domain.Repositories;
 using Airport.Models.Entities;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
@@ -43,6 +44,47 @@ namespace Airport.Persistence.Repositories
             return await _stationsCollection
                 .Find(filter)
                 .ToListAsync(cancellationToken);
+        }
+
+        public async Task<Station> GetStationByIdAsync(ObjectId id, CancellationToken cancellationToken = default) =>
+            await _stationsCollection
+            .Find(s => s.StationId == id)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new EntityNotFoundException();
+
+        public async Task<IEnumerable<ObjectId>> GetExistingStationIdsAsync(
+            IEnumerable<ObjectId> ids,
+            CancellationToken cancellationToken = default) =>
+            await _stationsCollection
+                .Find(s => ids.Contains(s.StationId))
+                .Project(s => s.StationId)
+                .ToListAsync(cancellationToken);
+
+        public async Task<Station> SaveStationAsync(Station station, CancellationToken cancellationToken = default)
+        { 
+            await _stationsCollection.InsertOneAsync(station, null, cancellationToken);
+            return station;
+        }
+
+        public async Task<bool> DeleteStationAsync(ObjectId id, CancellationToken cancellationToken = default) =>
+            (await _stationsCollection.DeleteOneAsync(r => r.StationId == id, cancellationToken)).DeletedCount > 0;
+
+        public async Task<Models.Enums.UpdateResult> UpdateStationAsync(
+            ObjectId id,
+            Station modifiedStation,
+            CancellationToken cancellationToken = default)
+        {
+            var updateResult = await _stationsCollection.UpdateOneAsync(
+                r => r.StationId == id,
+                Builders<Station>.Update
+                    .Set(nameof(Station.EstimatedWaitingTime), modifiedStation.EstimatedWaitingTime),
+                new UpdateOptions { IsUpsert = false },
+                cancellationToken);
+            if (updateResult.MatchedCount < 1)
+                return Models.Enums.UpdateResult.Failed;
+            if (updateResult.ModifiedCount < 1)
+                return Models.Enums.UpdateResult.Matched;
+            return Models.Enums.UpdateResult.Matched | Models.Enums.UpdateResult.Modified;
         }
     }
 }

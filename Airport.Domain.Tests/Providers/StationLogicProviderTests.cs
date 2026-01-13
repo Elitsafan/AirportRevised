@@ -10,6 +10,7 @@ namespace Airport.Domain.Tests.Providers
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<StationLogicProvider> _loggerStationLogicProvider;
         private readonly IMemoryCache _cache;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
         private readonly Mock<IStationLogicFactory> _mockStationLogicFactory;
         private readonly Mock<IRepositoryManager> _mockRepositoryManager;
         private readonly Mock<IStationRepository> _mockStationRepository;
@@ -21,6 +22,7 @@ namespace Airport.Domain.Tests.Providers
 
         public StationLogicProviderTests()
         {
+            _mockDomainEvents = new Mock<IDomainEvents>();
             _loggerStationLogicProvider = Mock.Of<ILogger<StationLogicProvider>>();
             _mockStationLogicFactory = new Mock<IStationLogicFactory>();
             _mockRepositoryManager = new Mock<IRepositoryManager>();
@@ -69,6 +71,7 @@ namespace Airport.Domain.Tests.Providers
             var stationLogicProvider = await StationLogicProvider.CreateAsync(
                 _serviceProvider, 
                 _cache,
+                _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             var result = await stationLogicProvider.GetAllAsync();
 
@@ -82,6 +85,7 @@ namespace Airport.Domain.Tests.Providers
                 () => StationLogicProvider.CreateAsync(
                     _serviceProvider,
                     _cache,
+                    _mockDomainEvents.Object,
                     _loggerStationLogicProvider));
 
         [Fact]
@@ -94,6 +98,7 @@ namespace Airport.Domain.Tests.Providers
             var stationLogicProvider = await StationLogicProvider.CreateAsync(
                 _serviceProvider,
                 _cache,
+                _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             await Assert.ThrowsAsync<LogicNotFoundException>(
                 () => stationLogicProvider.GetStationLogicByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()));
@@ -112,6 +117,7 @@ namespace Airport.Domain.Tests.Providers
             var stationLogicProvider = await StationLogicProvider.CreateAsync(
                 _serviceProvider,
                 _cache,
+                _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             var actual = await stationLogicProvider.GetStationLogicByIdAsync(_station.StationId);
 
@@ -130,6 +136,7 @@ namespace Airport.Domain.Tests.Providers
             var stationLogicProvider = await StationLogicProvider.CreateAsync(
                 _serviceProvider,
                 _cache,
+                _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             var result = await stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>());
 
@@ -146,12 +153,13 @@ namespace Airport.Domain.Tests.Providers
                 .Setup(x => x.GetStationsByRouteAsync(It.IsAny<Route>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new ArgumentNullException());
             _mockRouteRepository
-                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(It.IsAny<Route>());
                 
             var stationLogicProvider = await StationLogicProvider.CreateAsync(
                 _serviceProvider,
                 _cache,
+                _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             await Assert.ThrowsAsync<ArgumentException>(
                 () => stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>()));

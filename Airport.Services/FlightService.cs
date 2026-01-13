@@ -2,6 +2,7 @@
 using Airport.Contracts.EventArgs;
 using Airport.Contracts.Factories;
 using Airport.Contracts.Logics;
+using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
@@ -46,9 +47,8 @@ namespace Airport.Services
             cancellationToken.ThrowIfCancellationRequested();
             if (flightForCreation is null)
                 throw new ArgumentNullException(nameof(flightForCreation));
-            Flight flight;
             using var cts = new CancellationTokenSource();
-            flight = _mapper.Map<Flight>(flightForCreation);
+            Flight flight = _mapper.Map<Flight>(flightForCreation);
             flight.FlightId = id;
             _flightLogic = await _flightLogicFactory
                 .GetCreator(flight)
@@ -72,6 +72,24 @@ namespace Airport.Services
             await _flightLogic.RaiseFlightRunDoneAsync(cts.Token);
         }
 
+        public async Task<FlightDTO?> GetFlightByIdAsync(
+            ObjectId id,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var flight = await _repositoryManager.FlightRepository
+                        .GetFlightByIdAsync(id, cancellationToken);
+
+                return _mapper.Map<FlightDTO>(flight);
+            }
+            catch (EntityNotFoundException)
+            {
+                _logger.LogInformation($"Flight id: {id} not found.");
+                return null;
+            }
+        }
+        
         public async IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
             int? minutesPassed,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -102,6 +120,16 @@ namespace Airport.Services
 #if TEST
             _logger.LogInformation($"{args.Flight.ConvertToFlightType()} ID: {args.Flight.FlightId} -----> Registered");
 #endif
+        }
+
+        public async Task<bool> DeleteFlightAsync(
+            ObjectId id,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _repositoryManager.FlightRepository.DeleteFlightAsync(id, cancellationToken);
+            if (!result)
+                _logger.LogInformation($"Flight with id: {id} not found");
+            return result;
         }
     }
 }

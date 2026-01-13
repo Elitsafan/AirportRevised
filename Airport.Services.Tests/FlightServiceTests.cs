@@ -1,4 +1,7 @@
-﻿namespace Airport.Services.Tests
+﻿using Airport.Domain.Exceptions;
+using Airport.Models.DTOs;
+
+namespace Airport.Services.Tests
 {
     public class FlightServiceTests
     {
@@ -39,7 +42,7 @@
         }
 
         [Fact]
-        public async Task ProcessFlightAsync_FlightForCreationIsNull_ThrowsArgumentNullExceptionAsync()
+        public async Task ProcessFlightAsync_FlightForCreationIsNull_ThrowsArgumentNullException()
         {
             _flightService = new FlightService(
                 _mockFlightLogicFactory.Object,
@@ -53,7 +56,73 @@
         }
 
         [Fact]
-        public async Task ProcessFlightAsync_WhenCalled_ShouldCallMapperMapOnceAsync()
+        public async Task GetFlightByIdAsync_NotExist_ReturnsNull()
+        {
+            var mockFlightRepository = new Mock<IFlightRepository>();
+
+            _flightService = new FlightService(
+                _mockFlightLogicFactory.Object,
+                _mockRepositoryManager.Object,
+                _mockAirportHubService.Object,
+                _mockMapper.Object,
+                _mockLogger);
+
+            _mockRepositoryManager
+                .SetupGet(x => x.FlightRepository)
+                .Returns(mockFlightRepository.Object);
+            mockFlightRepository
+                .Setup(x => x.GetFlightByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new EntityNotFoundException());
+
+            Assert.Null(await _flightService.GetFlightByIdAsync(It.IsAny<ObjectId>()));
+        }
+
+        [Fact]
+        public async Task GetFlightByIdAsync_WhenCalled_ReturnsCorrectFlight()
+        {
+            var mockFlightRepository = new Mock<IFlightRepository>();
+            var departure = new Departure();
+            var departureDto = new DepartureDTO();
+
+            _flightService = new FlightService(
+                _mockFlightLogicFactory.Object,
+                _mockRepositoryManager.Object,
+                _mockAirportHubService.Object,
+                _mockMapper.Object,
+                _mockLogger);
+
+            _mockRepositoryManager
+                .SetupGet(x => x.FlightRepository)
+                .Returns(mockFlightRepository.Object);
+            mockFlightRepository
+                .Setup(x => x.GetFlightByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(departure);
+            _mockFlightLogicCreator
+                .Setup(x => x.CreateAsync())
+                .ReturnsAsync(_mockFlightLogic.Object);
+            _mockMapper
+                .Setup(x => x.Map<FlightDTO>(It.IsAny<Flight>()))
+                .Returns(departureDto);
+
+            Assert.NotNull(await _flightService.GetFlightByIdAsync(It.IsAny<ObjectId>()));
+        }
+
+        [Fact]
+        public async Task ProcessFlightAsync_FlightIsNull_ThrowsArgumentNullException()
+        {
+            _flightService = new FlightService(
+                _mockFlightLogicFactory.Object,
+                _mockRepositoryManager.Object,
+                _mockAirportHubService.Object,
+                _mockMapper.Object,
+                _mockLogger);
+
+            await Assert.ThrowsAsync<ArgumentNullException>(
+                () => _flightService.ProcessFlightAsync(It.IsAny<ObjectId>(), null!));
+        }
+
+        [Fact]
+        public async Task ProcessFlightAsync_WhenCalled_ShouldCallMapperMapOnce()
         {
             var mockFlightRepository = new Mock<IFlightRepository>();
             var flightForCreationDto = new DepartureForCreationDTO();
@@ -86,6 +155,54 @@
             await _flightService.ProcessFlightAsync(It.IsAny<ObjectId>(), flightForCreationDto);
 
             _mockMapper.Verify();
+        }
+
+        [Fact]
+        public async Task DeleteFlightAsync_WheanCalled_ReturnsTrue()
+        {
+            var mockFlightRepository = new Mock<IFlightRepository>();
+
+            _mockRepositoryManager
+                .SetupGet(x => x.FlightRepository)
+                .Returns(mockFlightRepository.Object);
+            mockFlightRepository
+                .Setup(x => x.DeleteFlightAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+
+            _flightService = new FlightService(
+                _mockFlightLogicFactory.Object,
+                _mockRepositoryManager.Object,
+                _mockAirportHubService.Object,
+                _mockMapper.Object,
+                _mockLogger);
+
+            Assert.True(await _flightService.DeleteFlightAsync(
+                It.IsAny<ObjectId>(),
+                It.IsAny<CancellationToken>()));
+        }
+
+        [Fact]
+        public async Task DeleteFlightAsync_FlightNotExists_ReturnsFalse()
+        {
+            var mockFlightRepository = new Mock<IFlightRepository>();
+
+            _mockRepositoryManager
+                .SetupGet(x => x.FlightRepository)
+                .Returns(mockFlightRepository.Object);
+            mockFlightRepository
+                .Setup(x => x.DeleteFlightAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(false);
+
+            _flightService = new FlightService(
+                _mockFlightLogicFactory.Object,
+                _mockRepositoryManager.Object,
+                _mockAirportHubService.Object,
+                _mockMapper.Object,
+                _mockLogger);
+
+            Assert.False(await _flightService.DeleteFlightAsync(
+                It.IsAny<ObjectId>(),
+                It.IsAny<CancellationToken>()));
         }
     }
 }

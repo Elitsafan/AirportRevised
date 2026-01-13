@@ -6,8 +6,10 @@ namespace Airport.Domain.Providers
 {
     public class StationLogicProvider : IStationLogicProvider
     {
+        #region Fields
         private readonly IServiceProvider _serviceProvider;
         private readonly IMemoryCache _cache;
+        private readonly IDomainEvents _domainEvents;
         private readonly ILogger<StationLogicProvider> _logger;
         private readonly ConcurrentDictionary<ObjectId, IStationLogic> _stationLogics;
         private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
@@ -20,15 +22,18 @@ namespace Airport.Domain.Providers
         private const string ALL_STATIONS_KEY = "all_station_logics";
         private const string ROUTE_STATIONS_PREFIX = "route_stations_";
         private const string ROUTE_TRAFFIC_LIGHTS_PREFIX = "route_traffic_lights_";
-        private const string NEXT_TRAFFIC_LIGHTS_PREFIX = "next_traffic_lights_";
+        private const string NEXT_TRAFFIC_LIGHTS_PREFIX = "next_traffic_lights_"; 
+        #endregion
 
         private StationLogicProvider(
             IServiceProvider serviceProvider, 
             IMemoryCache cache, 
+            IDomainEvents domainEvents,
             ILogger<StationLogicProvider> logger)
         {
             _serviceProvider = serviceProvider;
             _cache = cache;
+            _domainEvents = domainEvents;
             _logger = logger;
             _stationLogics = new ConcurrentDictionary<ObjectId, IStationLogic>();
         }
@@ -36,9 +41,10 @@ namespace Airport.Domain.Providers
         public static async Task<StationLogicProvider> CreateAsync(
             IServiceProvider serviceProvider,
             IMemoryCache cache,
+            IDomainEvents domainEvents,
             ILogger<StationLogicProvider> logger)
         {
-            var provider = new StationLogicProvider(serviceProvider, cache, logger);
+            var provider = new StationLogicProvider(serviceProvider, cache, domainEvents, logger);
             await provider.InitializeAsync();
             return provider;
         }
@@ -92,7 +98,7 @@ namespace Airport.Domain.Providers
                         .ServiceProvider
                         .GetRequiredService<IRepositoryManager>();
 
-                    var route = await repositoryManager.RouteRepository.GetByIdAsync(routeId, cancellationToken);
+                    var route = await repositoryManager.RouteRepository.GetRouteByIdAsync(routeId, cancellationToken);
                     var stations = await repositoryManager.StationRepository.GetStationsByRouteAsync(route, cancellationToken);
 
                     var result = stations.Join(
@@ -195,7 +201,7 @@ namespace Airport.Domain.Providers
         /// <summary>
         /// Refreshes all station logics and clears cache (internal method)
         /// </summary>
-        internal async Task RefreshAsync(CancellationToken cancellationToken = default)
+        private async Task RefreshAsync(CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Refreshing station logics and clearing cache");
 
@@ -259,6 +265,10 @@ namespace Airport.Domain.Providers
         {
             _logger.LogInformation("Initializing station logics from database");
 
+            _domainEvents.StationCreated += OnStationCreatedAsync;
+            _domainEvents.StationDeleted += OnStationDeletedAsync;
+            _domainEvents.StationUpdated += OnStationUpdatedAsync;
+
             await using var scope = _serviceProvider.CreateAsyncScope();
             var stationLogicFactory = scope.ServiceProvider.GetRequiredService<IStationLogicFactory>();
             var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
@@ -279,5 +289,12 @@ namespace Airport.Domain.Providers
 
             _logger.LogInformation("Successfully initialized {Count} station logics", _stationLogics.Count);
         }
+
+        private async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args) => 
+            await RefreshAsync();
+        private async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args) =>
+            await RefreshAsync();
+        private async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args) =>
+            await RefreshAsync();
     }
 }

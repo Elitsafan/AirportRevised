@@ -36,7 +36,7 @@
                 .SetupGet(x => x.RouteRepository)
                 .Returns(_mockRouteRepository.Object);
             _mockRouteRepository
-                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), default))
+                .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), default))
                 .ReturnsAsync(_route);
             _mockRouteRepository
                 .Setup(x => x.GetAllAsync(default))
@@ -81,7 +81,7 @@
                 .SetupGet(x => x.To)
                 .Returns(_route.Directions[0].To);
             _mockRouteRepository
-                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), default))
+                .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), default))
                 .ReturnsAsync(It.IsAny<Route>());
 
             var directionLogicProvider = await DirectionLogicProvider.CreateAsync(_serviceProvider);

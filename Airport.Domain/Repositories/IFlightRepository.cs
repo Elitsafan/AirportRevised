@@ -1,4 +1,5 @@
-﻿namespace Airport.Domain.Repositories
+﻿
+namespace Airport.Domain.Repositories
 {
     public interface IFlightRepository : IRepository<Flight>
     {
@@ -17,6 +18,10 @@
         /// <param name="timePassed"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task<IEnumerable<Flight>> FilterByTimePassedAsync(TimeSpan timePassed, CancellationToken cancellationToken = default);
+        Task<IEnumerable<Flight>> FilterByTimePassedAsync(
+            TimeSpan timePassed, 
+            CancellationToken cancellationToken = default);
+        Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
+        Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken cancellationToken = default);
     }
 }

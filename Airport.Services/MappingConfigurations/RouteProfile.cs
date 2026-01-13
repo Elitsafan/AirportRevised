@@ -1,6 +1,6 @@
-﻿using AutoMapper;
-using Airport.Models.DTOs;
+﻿using Airport.Models.DTOs;
 using Airport.Models.Entities;
+using AutoMapper;
 
 namespace Airport.Services.MappingConfigurations
 {
@@ -9,6 +9,9 @@ namespace Airport.Services.MappingConfigurations
         public RouteProfile()
         {
             CreateMap<Route, RouteDTO>();
+            CreateMap<RouteDTO, Route>();
+            CreateMap<RouteForCreationDTO, RouteDTO>();
+            CreateMap<RouteForUpdateDTO, Route>();
         }
     }
 }

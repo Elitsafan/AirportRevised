@@ -12,5 +12,7 @@ namespace Airport.Services.Abstractions
         IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
             int? minutesPassed,
             CancellationToken cancellationToken = default);
+        Task<FlightDTO?> GetFlightByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
+        Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken cancellationToken = default);
     }
 }

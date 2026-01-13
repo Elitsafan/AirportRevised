@@ -21,7 +21,7 @@ namespace Airport.Domain.Providers
                 .GetRequiredService<IRepositoryManager>()
                 .RouteRepository;
             var route = await routeRepository
-                .GetByIdAsync(routeId, cancellationToken) ?? throw new EntityNotFoundException("Route not found.");
+                .GetRouteByIdAsync(routeId, cancellationToken) ?? throw new EntityNotFoundException("Route not found.");
             return route.Directions.Join(
                 _directions,
                 dLeft => new { dLeft.From, dLeft.To },

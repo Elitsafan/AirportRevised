@@ -1,6 +1,8 @@
 using Airport.Contracts.Factories;
+using Airport.Contracts.Helpers;
 using Airport.Contracts.Providers;
 using Airport.Domain.Factories;
+using Airport.Domain.Helpers;
 using Airport.Domain.Providers;
 using Airport.Domain.Repositories;
 using Airport.Persistence;
@@ -12,6 +14,9 @@ using Airport.SignalR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Any;
+using Microsoft.OpenApi.Models;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Airport.Web
@@ -21,9 +26,8 @@ namespace Airport.Web
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            Configuration = builder.Configuration;
             builder.Services.Configure<AirportDbConfiguration>(
-                Configuration.GetSection(nameof(AirportDbConfiguration)));
+                builder.Configuration.GetSection(nameof(AirportDbConfiguration)));
             //#if DEBUG
             //            builder.Logging
             //                .ClearProviders()
@@ -35,19 +39,27 @@ namespace Airport.Web
             //                .AddConsole();
             //#endif
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options =>
+            {// This tells Swagger to treat ObjectId as a simple string schema
+                options.MapType<ObjectId>(() => new OpenApiSchema
+                {
+                    Type = "string",
+                    Format = "hex",
+                    Example = new OpenApiString("6962bc27216b2f3897a15ad0")
+                });
+            });
             builder.Services.AddSignalR(/*options => options.EnableDetailedErrors = true*/);
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(
-                    builder =>
+                    corsBuilder =>
                     {
-                        var clientOrigins = Configuration
+                        var clientOrigins = builder.Configuration
                             .GetSection("ClientOrigins")
                             .GetChildren()
                             .Select(cs => cs.Value)!
                             .ToArray()!;
-                        builder.WithOrigins(clientOrigins!)
+                        corsBuilder.WithOrigins(clientOrigins!)
                             .AllowAnyHeader()
                             .WithMethods("GET", "POST")
                             .AllowCredentials();
@@ -58,12 +70,16 @@ namespace Airport.Web
                 .AddApplicationPart(typeof(Presentation.AssemblyReference).Assembly);
             builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
             builder.Services.AddScoped<IFlightService, FlightService>();
+            builder.Services.AddScoped<IStationService, StationService>();
+            builder.Services.AddScoped<IRouteService, RouteService>();
             builder.Services.AddScoped<IAirportService, AirportService>();
+            builder.Services.AddSingleton<IDomainEvents>(serviceProvider => new DomainEvents());
             builder.Services.AddSingleton<IStationLogicProvider>(serviceProvider =>
             {
                 var cache = serviceProvider.GetRequiredService<IMemoryCache>();
+                var domainEvents = serviceProvider.GetRequiredService<IDomainEvents>();
                 var logger = serviceProvider.GetRequiredService<ILogger<StationLogicProvider>>();
-                return StationLogicProvider.CreateAsync(serviceProvider, cache, logger).Result;
+                return StationLogicProvider.CreateAsync(serviceProvider, cache, domainEvents, logger).Result;
             });
             builder.Services.AddSingleton<IAirportHubService, AirportHubService>(serviceProvider =>
             {
@@ -83,11 +99,9 @@ namespace Airport.Web
             builder.Services.AddSingleton<IMongoClient>(provider =>
             {
                 // Not using builder.Configuration - ignores runtime environment variables
-                var connectionString = provider.GetRequiredService<IOptions<AirportDbConfiguration>>()
-                    .Value
-                    .ConnectionString
+                var config = provider.GetRequiredService<IOptions<AirportDbConfiguration>>().Value
                     ?? throw new InvalidOperationException("Database connection string is missing");
-                var settings = MongoClientSettings.FromConnectionString(connectionString);
+                var settings = MongoClientSettings.FromConnectionString(config.ConnectionString);
                 settings.ConnectTimeout = TimeSpan.FromMinutes(1);
                 settings.MaxConnectionPoolSize = 25;
                 settings.MinConnectionPoolSize = 5;
@@ -95,7 +109,7 @@ namespace Airport.Web
             });
             builder.Services.AddAutoMapper(cfg =>
             {
-                var autoMapperKey = Configuration.GetSection("AutoMapper")["Key"];
+                var autoMapperKey = builder.Configuration.GetSection("AutoMapper")["Key"];
                 cfg.LicenseKey = autoMapperKey;
                 cfg.AddProfile<FlightProfile>();
                 cfg.AddProfile<StationProfile>();
@@ -133,32 +147,28 @@ namespace Airport.Web
             await app.WaitForShutdownAsync();
         }
 
-        private static ConfigurationManager Configuration { get; set; } = null!;
-
         private static async Task SeedDatabaseAsync(WebApplication app)
         {
-            var client = app.Services.GetRequiredService<IMongoClient>();
-            var dbConfiguration = app.Services.GetRequiredService<IOptions<AirportDbConfiguration>>();
+            await using var scope = app.Services.CreateAsyncScope();
+            var client = scope.ServiceProvider.GetRequiredService<IMongoClient>();
+            var dbConfiguration = scope.ServiceProvider.GetRequiredService<IOptions<AirportDbConfiguration>>();
             try
             {
                 await SeedData.DeleteAsync(client, dbConfiguration);
                 await SeedData.InitializeAsync(client, dbConfiguration);
 
                 // Refresh the station logics cache after seeding
-                var stationLogicProvider = app.Services.GetRequiredService<IStationLogicProvider>();
-                if (stationLogicProvider is StationLogicProvider provider)
-                {
-                    await provider.RefreshAsync();
-                }
+                var domainEvents = scope.ServiceProvider.GetRequiredService<IDomainEvents>();
+                //domainEvents.
             }
             catch (TimeoutException ex)
             {
-                var logger = app.Services.GetRequiredService<ILogger<Program>>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
                 logger.LogError(ex, "A database seeding timeout occurred.");
             }
             catch (Exception ex)
             {
-                var logger = app.Services.GetRequiredService<ILogger<Program>>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
                 logger.LogError(ex, "A database seeding error occurred.");
             }
         }

@@ -2,7 +2,7 @@
 
 namespace Airport.Contracts.EventArgs
 {
-    public interface IStationClearedEventArgs : IStationEventArgs
+    public interface IStationClearedEventArgs : IStationStatusEventArgs
     {
         ObjectId RouteId { get; }
     }

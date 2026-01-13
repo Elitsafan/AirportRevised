@@ -17,13 +17,25 @@ namespace Airport.Presentation.Controllers
         public FlightsController(IFlightService flightSvc) => _flightSvc = flightSvc;
 
         // GET: api/Flights
-        [HttpGet(Name = "GetAllFlights")]
-        public async IAsyncEnumerable<FlightDTO> FlightsAsync(
+        [HttpGet]
+        public async IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
             int? minutesPassed,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await foreach (var flight in _flightSvc.GetAllFlightsAsync(minutesPassed, cancellationToken))
                 yield return flight;
+        }
+
+        // GET: api/Flights/{id}
+        [HttpGet("{id}", Name = "FlightById")]
+        public async Task<IActionResult> GetFlightByIdAsync(
+            ObjectId id,
+            CancellationToken cancellationToken = default)
+        {
+            var flightDto = await _flightSvc.GetFlightByIdAsync(id, cancellationToken);
+            return flightDto is null
+                ? NotFound()
+                : Ok(flightDto);
         }
 
         // POST: api/Flights/Landing/...
@@ -34,7 +46,7 @@ namespace Airport.Presentation.Controllers
             CancellationToken cancellationToken = default)
         {
             await _flightSvc.ProcessFlightAsync(id, flightForCreation, cancellationToken);
-            return CreatedAtRoute("GetAllFlights", new { id, flightForCreation.FlightType });
+            return CreatedAtRoute("FlightById", new { id }, flightForCreation);
         }
 
         // POST: api/Flights/Departure/...
@@ -45,7 +57,16 @@ namespace Airport.Presentation.Controllers
             CancellationToken cancellationToken = default)
         {
             await _flightSvc.ProcessFlightAsync(id, flightForCreation, cancellationToken);
-            return CreatedAtRoute("GetAllFlights", new { id, flightForCreation.FlightType });
+            return CreatedAtRoute("FlightById", new { id }, flightForCreation);
         }
+
+        // DELETE: api/Flights/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteFlightAsync(
+            ObjectId id,
+            CancellationToken cancellationToken = default) =>
+            !await _flightSvc.DeleteFlightAsync(id, cancellationToken)
+            ? NotFound()
+            : NoContent();
     }
 }

@@ -1,7 +1,9 @@
-﻿using Airport.Domain.Repositories;
+﻿using Airport.Domain.Exceptions;
+using Airport.Domain.Repositories;
 using Airport.Models.Entities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Airport.Persistence.Repositories
@@ -66,5 +68,14 @@ namespace Airport.Persistence.Repositories
                 cancellationToken);
             return updateResult.MatchedCount > 0;
         }
+
+        public async Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken cancellationToken) => 
+            await _flightsCollection
+            .Find(f => f.FlightId == id)
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new EntityNotFoundException();
+
+        public async Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken cancellationToken = default) =>
+            (await _flightsCollection.DeleteOneAsync(f => f.FlightId == id, cancellationToken)).DeletedCount > 0;
     }
 }

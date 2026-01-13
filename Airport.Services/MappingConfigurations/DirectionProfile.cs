@@ -9,6 +9,7 @@ namespace Airport.Services.MappingConfigurations
         public DirectionProfile()
         {
             CreateMap<Direction, DirectionDTO>();
+            CreateMap<DirectionDTO, Direction>();
         }
     }
 }

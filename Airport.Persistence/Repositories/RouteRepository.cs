@@ -1,8 +1,10 @@
-﻿using Airport.Domain.Repositories;
+﻿using Airport.Domain.Exceptions;
+using Airport.Domain.Repositories;
 using Airport.Models.Entities;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 
 namespace Airport.Persistence.Repositories
 {
@@ -23,10 +25,11 @@ namespace Airport.Persistence.Repositories
                 .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
         }
 
-        public async Task<Route> GetByIdAsync(ObjectId id, CancellationToken cancellationToken = default) =>
+        public async Task<Route> GetRouteByIdAsync(ObjectId id, CancellationToken cancellationToken = default) =>
             await _routesCollection
             .Find(r => r.RouteId == id)
-            .SingleOrDefaultAsync(cancellationToken);
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new EntityNotFoundException();
 
         public async Task<IEnumerable<Route>> GetAllAsync(CancellationToken cancellationToken = default) => await _routesCollection
             .Find(Builders<Route>.Filter.Empty)
@@ -93,5 +96,44 @@ namespace Airport.Persistence.Repositories
                 }
             return added;
         }
+
+        public async Task<Route> SaveRouteAsync(Route route, CancellationToken cancellationToken = default)
+        {
+            await _routesCollection.InsertOneAsync(route, null, cancellationToken);
+            return route;
+        }
+
+        public async Task<bool> DeleteRouteAsync(
+            ObjectId id,
+            CancellationToken cancellationToken = default) =>
+            (await _routesCollection.DeleteOneAsync(r => r.RouteId == id, cancellationToken)).DeletedCount > 0;
+
+        public async Task<Models.Enums.UpdateResult> UpdateRouteAsync(
+            ObjectId id,
+            Route modifiedRoute,
+            CancellationToken cancellationToken = default)
+        {
+            var updateResult = await _routesCollection.UpdateOneAsync(
+                r => r.RouteId == id,
+                Builders<Route>.Update
+                    .Set(nameof(Route.RouteName), modifiedRoute.RouteName)
+                    .Set(nameof(Route.Directions), modifiedRoute.Directions),
+                new UpdateOptions { IsUpsert = false },
+                cancellationToken);
+            if (updateResult.MatchedCount < 1)
+                return Models.Enums.UpdateResult.Failed;
+            if (updateResult.ModifiedCount < 1)
+                return Models.Enums.UpdateResult.Matched;
+            return Models.Enums.UpdateResult.Matched | Models.Enums.UpdateResult.Modified;
+        }
+
+        public async Task<IEnumerable<Route>> GetRoutesContainStationAsync(
+            ObjectId stationId,
+            CancellationToken cancellationToken = default) => await _routesCollection
+            .Find(Builders<Route>.Filter
+                .ElemMatch(
+                    r => r.Directions,
+                    d => d.From == stationId || d.To == stationId))
+            .ToListAsync(cancellationToken);
     }
 }
