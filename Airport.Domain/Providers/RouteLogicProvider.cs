@@ -52,11 +52,17 @@ namespace Airport.Domain.Providers
             _countDepartureRoutes = -1;
             _countLandingRoutes = -1;
             HashSet<IRouteSection> sections = new(new RouteSectionComparer());
-            _logger = serviceProvider.GetRequiredService<ILogger<RouteLogicProvider>>();
-            var routeLogicFactory = serviceProvider.GetRequiredService<IRouteLogicFactory>();
-            var stationLogicProvider = serviceProvider.GetRequiredService<IStationLogicProvider>();
-            var routeRepository = serviceProvider
-                .CreateAsyncScope()
+            await using var scope = serviceProvider.CreateAsyncScope();
+            _logger = scope
+                .ServiceProvider
+                .GetRequiredService<ILogger<RouteLogicProvider>>();
+            var routeLogicFactory = scope
+                .ServiceProvider
+                .GetRequiredService<IRouteLogicFactory>();
+            var stationLogicProvider = scope
+                .ServiceProvider
+                .GetRequiredService<IStationLogicProvider>();
+            var routeRepository = scope
                 .ServiceProvider
                 .GetRequiredService<IRepositoryManager>()
                 .RouteRepository;

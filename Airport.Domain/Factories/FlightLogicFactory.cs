@@ -10,8 +10,14 @@
         {
             if (flight is null)
                 throw new ArgumentNullException(nameof(flight));
-            var logger = _serviceProvider.GetRequiredService<ILogger<FlightLogic>>();
-            var routeLogicProvider = _serviceProvider.GetRequiredService<IRouteLogicProvider>();
+
+            using var scope = _serviceProvider.CreateScope();
+            var logger = scope
+                .ServiceProvider
+                .GetRequiredService<ILogger<FlightLogic>>();
+            var routeLogicProvider = scope
+                .ServiceProvider
+                .GetRequiredService<IRouteLogicProvider>();
 
             return flight switch
             {

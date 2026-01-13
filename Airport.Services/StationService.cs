@@ -1,4 +1,7 @@
-﻿using Airport.Domain.Exceptions;
+﻿using Airport.Contracts.EventArgs;
+using Airport.Contracts.Helpers;
+using Airport.Domain.EventArgs;
+using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
@@ -16,16 +19,19 @@ namespace Airport.Services
         #region Fields
         private readonly IRepositoryManager _repositoryManager;
         private readonly IMapper _mapper;
+        private readonly IDomainEvents _domainEvents;
         private readonly ILogger<StationService> _logger;
         #endregion
 
         public StationService(
             IRepositoryManager repositoryManager,
             IMapper mapper,
+            IDomainEvents domainEvents,
             ILogger<StationService> logger)
         {
             _repositoryManager = repositoryManager;
             _mapper = mapper;
+            _domainEvents = domainEvents;
             _logger = logger;
         }
 
@@ -67,6 +73,7 @@ namespace Airport.Services
             var stationDto = _mapper.Map<StationDTO>(stationForCreationDTO);
             var stationSaved = await _repositoryManager.StationRepository
                 .SaveStationAsync(_mapper.Map<Station>(stationDto), cancellationToken);
+            await _domainEvents.RaiseStationCreatedAsync(new StationCreatedEventArgs(stationDto.StationId));
             return stationSaved.StationId;
         }
 
@@ -76,8 +83,10 @@ namespace Airport.Services
             CancellationToken cancellationToken = default)
         {
             var modifiedStation = _mapper.Map<Station>(stationForUpdate);
-            return await _repositoryManager.StationRepository
+            var updateResult =  await _repositoryManager.StationRepository
                 .UpdateStationAsync(id, modifiedStation, cancellationToken);
+            await _domainEvents.RaiseStationUpdatedAsync(new StationUpdatedEventArgs(id));
+            return updateResult;
         }
 
         public async Task<bool> DeleteStationAsync(
@@ -94,6 +103,8 @@ namespace Airport.Services
                 .DeleteStationAsync(stationId, cancellationToken);
             if (!result)
                 _logger.LogInformation($"Route with id: {stationId} not found");
+            else
+                await _domainEvents.RaiseStationDeletedAsync(new StationDeletedEventArgs(stationId));
             return result;
         }
     }

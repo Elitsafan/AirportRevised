@@ -36,6 +36,11 @@ namespace Airport.Domain.Providers
             _domainEvents = domainEvents;
             _logger = logger;
             _stationLogics = new ConcurrentDictionary<ObjectId, IStationLogic>();
+
+            _domainEvents.StationCreated += OnStationCreatedAsync;
+            _domainEvents.StationDeleted += OnStationDeletedAsync;
+            _domainEvents.StationUpdated += OnStationUpdatedAsync;
+            _domainEvents.DataRefreshed += OnDataRefreshedAsync;
         }
 
         public static async Task<StationLogicProvider> CreateAsync(
@@ -265,10 +270,6 @@ namespace Airport.Domain.Providers
         {
             _logger.LogInformation("Initializing station logics from database");
 
-            _domainEvents.StationCreated += OnStationCreatedAsync;
-            _domainEvents.StationDeleted += OnStationDeletedAsync;
-            _domainEvents.StationUpdated += OnStationUpdatedAsync;
-
             await using var scope = _serviceProvider.CreateAsyncScope();
             var stationLogicFactory = scope.ServiceProvider.GetRequiredService<IStationLogicFactory>();
             var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
@@ -289,6 +290,8 @@ namespace Airport.Domain.Providers
 
             _logger.LogInformation("Successfully initialized {Count} station logics", _stationLogics.Count);
         }
+
+        private async Task OnDataRefreshedAsync() => await RefreshAsync();
 
         private async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args) => 
             await RefreshAsync();

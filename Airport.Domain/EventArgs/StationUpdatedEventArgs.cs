@@ -1,6 +1,6 @@
 ﻿namespace Airport.Domain.EventArgs
 {
-    internal class StationUpdatedEventArgs : IStationUpdatedEventArgs
+    public class StationUpdatedEventArgs : IStationUpdatedEventArgs
     {
         public StationUpdatedEventArgs(ObjectId stationId) => StationId = stationId;
 

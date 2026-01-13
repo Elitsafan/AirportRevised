@@ -59,7 +59,10 @@ namespace Airport.Domain.Tests.Providers
                  options.SizeLimit = 1024;
              });
             _serviceProvider = serviceCollection.BuildServiceProvider();
-            _cache = _serviceProvider.GetRequiredService<IMemoryCache>();
+            using var scope = _serviceProvider.CreateScope();
+            _cache = scope
+                .ServiceProvider
+                .GetRequiredService<IMemoryCache>();
         }
 
         [Fact]

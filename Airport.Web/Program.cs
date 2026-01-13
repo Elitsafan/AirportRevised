@@ -159,7 +159,7 @@ namespace Airport.Web
 
                 // Refresh the station logics cache after seeding
                 var domainEvents = scope.ServiceProvider.GetRequiredService<IDomainEvents>();
-                //domainEvents.
+                await domainEvents.RaiseDataRefreshedAsync();
             }
             catch (TimeoutException ex)
             {

@@ -36,14 +36,16 @@ namespace Airport.Domain.Providers
         private async Task<DirectionLogicProvider> InitializeAsync(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
-            var routeRepository = _serviceProvider
-                .CreateAsyncScope()
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var routeRepository = scope
                 .ServiceProvider
                 .GetRequiredService<IRepositoryManager>()
                 .RouteRepository;
-            var directionLogicFactory = _serviceProvider.GetRequiredService<IDirectionLogicFactory>();
+            var directionLogicFactory = scope
+                .ServiceProvider
+                .GetRequiredService<IDirectionLogicFactory>();
             // Creates the direction logics
-            _directions = new HashSet<IDirectionLogic>((await routeRepository.GetAllAsync(default))
+            _directions = new HashSet<IDirectionLogic>((await routeRepository.GetAllAsync())
                 .SelectMany(r => r.Directions)
                 .Select(d => directionLogicFactory
                     .GetCreator(d)
