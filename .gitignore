@@ -39,13 +39,13 @@ bld/
 #wwwroot/
 
 # Ignore everything inside wwwroot
-Airport.Web/wwwroot/**/*
+**/wwwroot/*
 
 # Except for the .gitkeep file (which forces the folder to exist in Git)
-!Airport.Web/wwwroot/.gitkeep
+!**/wwwroot/.gitkeep
 
 # Optional: Allow specific standard files if you have them
-!Airport.Web/wwwroot/favicon.ico
+!**/wwwroot/favicon.ico
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
