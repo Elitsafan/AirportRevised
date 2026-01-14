@@ -6,6 +6,7 @@
         public event AsyncEventHandler<IStationDeletedEventArgs>? StationDeleted;
         public event AsyncEventHandler<IStationUpdatedEventArgs>? StationUpdated;
         public event Func<Task>? DataRefreshed;
+        public event Func<Task>? SystemResetRequested;
 
         public async Task RaiseStationCreatedAsync(IStationCreatedEventArgs args) =>
             await (StationCreated?.InvokeAsync(this, args) ?? Task.CompletedTask);
@@ -18,5 +19,8 @@
 
         public async Task RaiseDataRefreshedAsync() =>
             await (DataRefreshed?.Invoke() ?? Task.CompletedTask);
+
+        public async Task RaiseSystemResetAsync() =>
+            await (SystemResetRequested?.Invoke() ?? Task.CompletedTask);
     }
 }

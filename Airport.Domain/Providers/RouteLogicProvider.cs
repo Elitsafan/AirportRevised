@@ -1,6 +1,7 @@
 ﻿using Airport.Domain.Helpers;
 using Airport.Domain.Repositories;
 using Airport.Models.Enums;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Airport.Domain.Providers
 {
@@ -9,53 +10,157 @@ namespace Airport.Domain.Providers
         #region Fields
         private int _countLandingRoutes;
         private int _countDepartureRoutes;
-        private List<IRouteLogic> _landingRoutes = null!;
-        private List<IRouteLogic> _departureRoutes = null!;
-        private ILogger<RouteLogicProvider>? _logger;
+        private List<IRouteLogic> _landingRoutes;
+        private List<IRouteLogic> _departureRoutes;
+        private bool _isInitialized;
+        private readonly SemaphoreSlim _initializationSemaphore;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly IMemoryCache _cache;
+        private readonly IDomainEvents _domainEvents;
+        private readonly ILogger<RouteLogicProvider> _logger;
+
+        // Cache configuration
+        private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(15);
+
+        private const string ALL_ROUTES_KEY = "all_route_logics";
         #endregion
 
-        public static async Task<RouteLogicProvider> CreateAsync(IServiceProvider serviceProvider)
+        public RouteLogicProvider(
+            IServiceProvider serviceProvider,
+            IMemoryCache cache,
+            IDomainEvents domainEvents,
+            ILogger<RouteLogicProvider> logger)
         {
-            try
-            {
-                return await new RouteLogicProvider().InitializeAsync(serviceProvider);
-            }
-            catch (EntityNotFoundException e)
-            {
-                throw new InvalidOperationException(e.Message);
-            }
+            _serviceProvider = serviceProvider;
+            _cache = cache;
+            _domainEvents = domainEvents;
+            _logger = logger;
+            _landingRoutes = new();
+            _departureRoutes = new();
+            _initializationSemaphore = new(1, 1);
+
+            _domainEvents.StationCreated += OnStationCreatedAsync;
+            _domainEvents.StationDeleted += OnStationDeletedAsync;
+            _domainEvents.StationUpdated += OnStationUpdatedAsync;
+            _domainEvents.DataRefreshed += OnDataRefreshedAsync;
+            _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
         }
 
-        public IEnumerable<IRouteLogic> LandingRoutes => _landingRoutes;
-        public IEnumerable<IRouteLogic> DepartureRoutes => _departureRoutes;
+        public async Task<IEnumerable<IRouteLogic>> GetLandingRoutesAsync(CancellationToken cancellationToken = default)
+        {
+            await EnsureInitializedAsync(cancellationToken);
 
-        public IRouteLogic? GetNextRoute(FlightType flightType) => flightType == FlightType.Landing
-            ? GetNextLandingRoute()
-            : GetNextDepartureRoute();
+            return _landingRoutes;
+        }
+
+        public async Task<IEnumerable<IRouteLogic>> GetDepartureRoutesAsync(CancellationToken cancellationToken = default)
+        {
+            await EnsureInitializedAsync(cancellationToken);
+
+            return _departureRoutes;
+        }
+
+        public async Task<IRouteLogic?> GetNextRouteAsync(FlightType flightType, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitializedAsync(cancellationToken);
+
+            return flightType == FlightType.Landing
+                ? await GetNextLandingRouteAsync(cancellationToken)
+                : await GetNextDepartureRouteAsync(cancellationToken);
+        }
+
+        public void Dispose()
+        {
+            _initializationSemaphore?.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         // Iterator for getting the next route
-        private IRouteLogic? GetNextDepartureRoute() => DepartureRoutes.Any()
+        private async Task<IRouteLogic?> GetNextDepartureRouteAsync(CancellationToken cancellationToken = default) =>
+            (await GetDepartureRoutesAsync(cancellationToken)).Any()
             ? _departureRoutes[Interlocked.Increment(ref _countDepartureRoutes) % _departureRoutes.Count]
             : null;
 
         // Iterator for getting the next route
-        private IRouteLogic? GetNextLandingRoute() => LandingRoutes.Any()
+        private async Task<IRouteLogic?> GetNextLandingRouteAsync(CancellationToken cancellationToken = default) =>
+            (await GetLandingRoutesAsync(cancellationToken)).Any()
             ? _landingRoutes[Interlocked.Increment(ref _countLandingRoutes) % _landingRoutes.Count]
             : null;
 
-        private RouteLogicProvider()
+        private async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
         {
+            if (_isInitialized)
+                return;
+
+            await _initializationSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                if (_isInitialized)
+                    return;
+
+                await InitializeAsync(cancellationToken);
+                _isInitialized = true;
+            }
+            finally
+            {
+                _initializationSemaphore.Release();
+            }
         }
 
-        private async Task<RouteLogicProvider> InitializeAsync(IServiceProvider serviceProvider)
+        /// <summary>
+        /// Refreshes all route logics and clears cache
+        /// </summary>
+        private async Task RefreshAsync(CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Refreshing route logics and clearing cache");
+
+            await _initializationSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                // Clear cache first
+                InvalidateCache();
+
+                // Clear existing route logics
+                _landingRoutes.Clear();
+                _departureRoutes.Clear();
+
+                // Re-initialize
+                _isInitialized = false;
+                await InitializeAsync(cancellationToken);
+
+                _logger.LogInformation("Route logics refreshed successfully");
+            }
+            finally
+            {
+                _initializationSemaphore.Release();
+            }
+        }
+
+        private void InvalidateCache()
+        {
+            _logger.LogDebug("Invalidating all cache entries");
+
+            // Remove the main cache entry
+            _cache.Remove(ALL_ROUTES_KEY);
+        }
+
+        private async Task OnDataRefreshedAsync() => await RefreshAsync();
+
+        private async Task OnSystemResetRequestedAsync() => await RefreshAsync();
+
+        private async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args) =>
+            await RefreshAsync();
+        private async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args) =>
+            await RefreshAsync();
+        private async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args) =>
+            await RefreshAsync();
+
+        private async Task<RouteLogicProvider> InitializeAsync(CancellationToken cancellationToken = default)
         {
             _countDepartureRoutes = -1;
             _countLandingRoutes = -1;
             HashSet<IRouteSection> sections = new(new RouteSectionComparer());
-            await using var scope = serviceProvider.CreateAsyncScope();
-            _logger = scope
-                .ServiceProvider
-                .GetRequiredService<ILogger<RouteLogicProvider>>();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var routeLogicFactory = scope
                 .ServiceProvider
                 .GetRequiredService<IRouteLogicFactory>();

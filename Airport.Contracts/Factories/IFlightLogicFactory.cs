@@ -5,6 +5,6 @@ namespace Airport.Contracts.Factories
 {
     public interface IFlightLogicFactory
     {
-        IFlightLogicCreator GetCreator(Flight flight);
+        Task<IFlightLogicCreator> GetCreatorAsync(Flight flight, CancellationToken cancellationToken = default);
     }
 }

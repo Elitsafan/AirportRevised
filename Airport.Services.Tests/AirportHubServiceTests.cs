@@ -18,9 +18,9 @@
         }
 
         [Fact]
-        public async Task AirportHubService_Created_NotNullAsync()
+        public void AirportHubService_Created_NotNull()
         {
-            var airportHubService = await AirportHubService.CreateAsync(
+            var airportHubService = new AirportHubService(
                 _mockStationLogicProvider.Object,
                 _mockLogger,
                 _mockHubContext.Object);
@@ -41,7 +41,7 @@
             var mockEventArgs = new Mock<IFlightRunDoneEventArgs>();
             var mockHubClients = new Mock<IHubClients>();
             var mockClientsProxy = new Mock<IClientProxy>();
-            var airportHubService = await AirportHubService.CreateAsync(
+            var airportHubService = new AirportHubService(
                 _mockStationLogicProvider.Object,
                 _mockLogger,
                 _mockHubContext.Object);
@@ -104,7 +104,7 @@
             _mockStationLogicProvider
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new IStationLogic[] { mockStationLogic.Object });
-            var airportHubService = await AirportHubService.CreateAsync(
+            var airportHubService = new AirportHubService(
                 _mockStationLogicProvider.Object,
                 _mockLogger,
                 _mockHubContext.Object);
@@ -171,7 +171,7 @@
             _mockStationLogicProvider
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new IStationLogic[] { mockStationLogic.Object });
-            var airportHubService = await AirportHubService.CreateAsync(
+            var airportHubService = new AirportHubService(
                 _mockStationLogicProvider.Object,
                 _mockLogger,
                 _mockHubContext.Object);

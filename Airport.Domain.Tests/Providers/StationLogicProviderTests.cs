@@ -17,6 +17,7 @@ namespace Airport.Domain.Tests.Providers
         private readonly Mock<IRouteRepository> _mockRouteRepository;
         private readonly Mock<IStationLogicCreator> _mockStationLogicCreator;
         private readonly Mock<IStationLogic> _mockStationLogic;
+        private IStationLogicProvider _stationLogicProvider = null!;
         private Station _station;
         #endregion
 
@@ -71,21 +72,21 @@ namespace Airport.Domain.Tests.Providers
             _mockStationRepository
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync([_station]);
-            var stationLogicProvider = await StationLogicProvider.CreateAsync(
+            _stationLogicProvider = new StationLogicProvider(
                 _serviceProvider, 
                 _cache,
                 _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
-            var result = await stationLogicProvider.GetAllAsync();
+            var result = await _stationLogicProvider.GetAllAsync();
 
             Assert.NotNull(result);
             Assert.Single(result);
         }
 
         [Fact]
-        public async Task Created_WithNoStations_ThrowsInvalidOperationExceptionAsync() => 
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => StationLogicProvider.CreateAsync(
+        public void Created_WithNoStations_ThrowsInvalidOperationException() => 
+            Assert.Throws<InvalidOperationException>(
+                () => new StationLogicProvider(
                     _serviceProvider,
                     _cache,
                     _mockDomainEvents.Object,
@@ -98,13 +99,13 @@ namespace Airport.Domain.Tests.Providers
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync([_station]);
 
-            var stationLogicProvider = await StationLogicProvider.CreateAsync(
+            _stationLogicProvider = new StationLogicProvider(
                 _serviceProvider,
                 _cache,
                 _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             await Assert.ThrowsAsync<LogicNotFoundException>(
-                () => stationLogicProvider.GetStationLogicByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()));
+                () => _stationLogicProvider.GetStationLogicByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()));
         }
 
         [Fact]
@@ -117,12 +118,12 @@ namespace Airport.Domain.Tests.Providers
                 .SetupGet(x => x.StationId)
                 .Returns(_station.StationId);
 
-            var stationLogicProvider = await StationLogicProvider.CreateAsync(
+            _stationLogicProvider = new StationLogicProvider(
                 _serviceProvider,
                 _cache,
                 _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
-            var actual = await stationLogicProvider.GetStationLogicByIdAsync(_station.StationId);
+            var actual = await _stationLogicProvider.GetStationLogicByIdAsync(_station.StationId);
 
             Assert.Equal(_mockStationLogic.Object.StationId, actual.StationId);
         }
@@ -136,12 +137,12 @@ namespace Airport.Domain.Tests.Providers
             _mockStationRepository
                 .Setup(x => x.GetStationsByRouteAsync(It.IsAny<Route>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync([_station]);
-            var stationLogicProvider = await StationLogicProvider.CreateAsync(
+            _stationLogicProvider = new StationLogicProvider(
                 _serviceProvider,
                 _cache,
                 _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
-            var result = await stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>());
+            var result = await _stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>());
 
             Assert.NotEmpty(result);
         }
@@ -158,14 +159,14 @@ namespace Airport.Domain.Tests.Providers
             _mockRouteRepository
                 .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(It.IsAny<Route>());
-                
-            var stationLogicProvider = await StationLogicProvider.CreateAsync(
+
+            _stationLogicProvider = new StationLogicProvider(
                 _serviceProvider,
                 _cache,
                 _mockDomainEvents.Object,
                 _loggerStationLogicProvider);
             await Assert.ThrowsAsync<ArgumentException>(
-                () => stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>()));
+                () => _stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>()));
         }
     }
 }

@@ -1,16 +1,21 @@
-﻿namespace Airport.Domain.Tests.Providers
+﻿using Microsoft.Extensions.Caching.Memory;
+
+namespace Airport.Domain.Tests.Providers
 {
     public class RouteLogicProviderTests
     {
         #region Fields
-        private IServiceProvider _serviceProvider;
-        private ILogger<RouteLogicProvider> _mockLogger;
-        private Mock<IRepositoryManager> _mockRepositoryManager;
-        private Mock<IRouteRepository> _mockRouteRepository;
-        private Mock<IRouteLogicCreator> _mockRouteLogicCreator;
-        private Mock<IRouteLogicFactory> _mockRouteLogicFactory;
-        private Mock<IStationLogicProvider> _mockStationLogicProvider;
-        private Mock<IRouteLogic> _mockRouteLogic;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<RouteLogicProvider> _mockLogger;
+        private readonly IMemoryCache _cache;
+        private readonly Mock<IRepositoryManager> _mockRepositoryManager;
+        private readonly Mock<IRouteRepository> _mockRouteRepository;
+        private readonly Mock<IRouteLogicCreator> _mockRouteLogicCreator;
+        private readonly Mock<IRouteLogicFactory> _mockRouteLogicFactory;
+        private readonly Mock<IStationLogicProvider> _mockStationLogicProvider;
+        private readonly Mock<IRouteLogic> _mockRouteLogic;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
+        private IRouteLogicProvider _routeLogicProvider = null!;
         #endregion
 
         public RouteLogicProviderTests()
@@ -21,6 +26,7 @@
             _mockRouteRepository = new Mock<IRouteRepository>();
             _mockRouteLogicCreator = new Mock<IRouteLogicCreator>();
             _mockRouteLogic = new Mock<IRouteLogic>();
+            _mockDomainEvents = new Mock<IDomainEvents>();
             _mockLogger = Mock.Of<ILogger<RouteLogicProvider>>();
             var route = new Route();
 
@@ -43,29 +49,45 @@
             serviceCollection.AddSingleton<ILogger<RouteLogicProvider>>(_mockLogger);
             serviceCollection.AddScoped<IRepositoryManager>(factory => _mockRepositoryManager.Object);
             _serviceProvider = serviceCollection.BuildServiceProvider();
+            using var scope = _serviceProvider.CreateScope();
+            _cache = scope
+                .ServiceProvider
+                .GetRequiredService<IMemoryCache>();
         }
 
         [Fact]
-        public async Task RouteLogicProvider_CreatedWithNoRoutes_ThrowsInvalidOperationExceptionAsync() => 
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => RouteLogicProvider.CreateAsync(_serviceProvider));
+        public void RouteLogicProvider_CreatedWithNoRoutes_ThrowsInvalidOperationExceptionAsync() =>
+            Assert.Throws<InvalidOperationException>(() =>
+                new RouteLogicProvider(
+                    _serviceProvider,
+                    _cache,
+                    _mockDomainEvents.Object,
+                    _mockLogger));
 
         [Fact]
-        public async Task RouteLogicProvider_Created_NotNullAsync()
+        public void RouteLogicProvider_Created_NotNull()
         {
             _mockRouteLogic
                 .SetupGet(x => x.RouteName)
                 .Returns("Landing");
-            IRouteLogicProvider routeLogicProvider = await RouteLogicProvider.CreateAsync(_serviceProvider);
+            _routeLogicProvider = new RouteLogicProvider(
+                    _serviceProvider,
+                    _cache,
+                    _mockDomainEvents.Object,
+                    _mockLogger);
 
-            Assert.NotNull(routeLogicProvider);
+            Assert.NotNull(_routeLogicProvider);
 
             _mockRouteLogic
                 .SetupGet(x => x.RouteName)
                 .Returns("Departure");
-            routeLogicProvider = await RouteLogicProvider.CreateAsync(_serviceProvider);
+            _routeLogicProvider = new RouteLogicProvider(
+                    _serviceProvider,
+                    _cache,
+                    _mockDomainEvents.Object,
+                    _mockLogger);
 
-            Assert.NotNull(routeLogicProvider);
+            Assert.NotNull(_routeLogicProvider);
         }
 
         [Fact]
@@ -75,19 +97,28 @@
                 .SetupGet(x => x.RouteName)
                 .Returns("Departure");
 
-            IRouteLogicProvider routeLogicProvider = await RouteLogicProvider.CreateAsync(_serviceProvider);
-            Assert.NotNull(routeLogicProvider.GetNextRoute(FlightType.Departure));
+            _routeLogicProvider = new RouteLogicProvider(
+                    _serviceProvider,
+                    _cache,
+                    _mockDomainEvents.Object,
+                    _mockLogger);
+            Assert.NotNull(await _routeLogicProvider.GetNextRouteAsync(FlightType.Departure));
         }
 
         [Fact]
-        public async Task GetNextRoute_WhenCalledWithLanding_ReturnsNextLandingRouteAsync()
+        public void GetNextRoute_WhenCalledWithLanding_ReturnsNextLandingRoute()
         {
             _mockRouteLogic
                 .SetupGet(x => x.RouteName)
                 .Returns("Landing");
 
-            IRouteLogicProvider routeLogicProvider = await RouteLogicProvider.CreateAsync(_serviceProvider);
-            Assert.NotNull(routeLogicProvider.GetNextRoute(FlightType.Landing));
+            _routeLogicProvider = new RouteLogicProvider(
+                    _serviceProvider,
+                    _cache,
+                    _mockDomainEvents.Object,
+                    _mockLogger);
+
+            Assert.NotNull(_routeLogicProvider.GetNextRouteAsync(FlightType.Landing));
         }
     }
 }

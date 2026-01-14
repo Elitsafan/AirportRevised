@@ -1,18 +1,7 @@
-using Airport.Contracts.Factories;
 using Airport.Contracts.Helpers;
-using Airport.Contracts.Providers;
-using Airport.Domain.Factories;
-using Airport.Domain.Helpers;
-using Airport.Domain.Providers;
-using Airport.Domain.Repositories;
 using Airport.Persistence;
-using Airport.Persistence.Repositories;
-using Airport.Services;
-using Airport.Services.Abstractions;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
@@ -68,34 +57,7 @@ namespace Airport.Web
             builder.Services.AddControllers()
                 .AddNewtonsoftJson()
                 .AddApplicationPart(typeof(Presentation.AssemblyReference).Assembly);
-            builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
-            builder.Services.AddScoped<IFlightService, FlightService>();
-            builder.Services.AddScoped<IStationService, StationService>();
-            builder.Services.AddScoped<IRouteService, RouteService>();
-            builder.Services.AddScoped<IAirportService, AirportService>();
-            builder.Services.AddSingleton<IDomainEvents>(serviceProvider => new DomainEvents());
-            builder.Services.AddSingleton<IStationLogicProvider>(serviceProvider =>
-            {
-                var cache = serviceProvider.GetRequiredService<IMemoryCache>();
-                var domainEvents = serviceProvider.GetRequiredService<IDomainEvents>();
-                var logger = serviceProvider.GetRequiredService<ILogger<StationLogicProvider>>();
-                return StationLogicProvider.CreateAsync(serviceProvider, cache, domainEvents, logger).Result;
-            });
-            builder.Services.AddSingleton<IAirportHubService, AirportHubService>(serviceProvider =>
-            {
-                var stationLogicProvider = serviceProvider.GetRequiredService<IStationLogicProvider>();
-                var logger = serviceProvider.GetRequiredService<ILogger<AirportHubService>>();
-                var hub = serviceProvider.GetRequiredService<IHubContext<AirportHub>>();
-                return AirportHubService.CreateAsync(stationLogicProvider, logger, hub).Result;
-            });
-            builder.Services.AddSingleton<IDirectionLogicFactory, DirectionLogicFactory>();
-            builder.Services.AddSingleton<IFlightLogicFactory, FlightLogicFactory>();
-            builder.Services.AddSingleton<IRouteLogicFactory, RouteLogicFactory>();
-            builder.Services.AddSingleton<IStationLogicFactory, StationLogicFactory>();
-            builder.Services.AddSingleton<IDirectionLogicProvider, DirectionLogicProvider>(
-                serviceProvider => DirectionLogicProvider.CreateAsync(serviceProvider).Result);
-            builder.Services.AddSingleton<IRouteLogicProvider, RouteLogicProvider>(
-                serviceProvider => RouteLogicProvider.CreateAsync(serviceProvider).Result);
+            builder.Services.AddAirportServices(builder.Configuration);
             builder.Services.AddSingleton<IMongoClient>(provider =>
             {
                 // Not using builder.Configuration - ignores runtime environment variables
@@ -122,7 +84,13 @@ namespace Airport.Web
                 options.SizeLimit = 1024;
             });
 
-            using var app = builder.Build();
+            var app = builder.Build();
+
+            await using (var scope = app.Services.CreateAsyncScope())
+            {
+                var domainEvents = scope.ServiceProvider.GetRequiredService<IDomainEvents>();
+                await domainEvents.RaiseSystemResetAsync();
+            }
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();
             if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
@@ -143,8 +111,7 @@ namespace Airport.Web
             app.UseAuthorization();
             app.MapHub<AirportHub>("/airporthub");
             app.MapControllers();
-            await app.StartAsync();
-            await app.WaitForShutdownAsync();
+            await app.RunAsync();
         }
 
         private static async Task SeedDatabaseAsync(WebApplication app)

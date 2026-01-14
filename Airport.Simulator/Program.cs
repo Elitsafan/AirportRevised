@@ -16,7 +16,6 @@ namespace Airport.Simulator
     public class Program
     {
         private static ILogger<Program> _logger = null!;
-        private static IConfiguration Configuration { get; set; } = null!;
 
         public static async Task Main(params string[] args)
         {
@@ -33,28 +32,28 @@ namespace Airport.Simulator
                         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                         .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
                         .AddEnvironmentVariables();
-                    Configuration = config.Build();
+                    config.Build();
                 })
-                .ConfigureServices(hostingContext =>
+                .ConfigureServices((hostingContext, config) =>
                 {
                     // Http client
-                    hostingContext.AddHttpClient<IFlightLauncherService, FlightLauncherService>()
+                    config.AddHttpClient<IFlightLauncherService, FlightLauncherService>()
                         .AddPolicyHandler(GetRetryPolicy());
-                    hostingContext.AddScoped<IFlightGenerator, FlightGenerator>();
-                    hostingContext.Configure<FlightEndPointsConfiguration>(
-                        Configuration.GetSection(nameof(FlightEndPointsConfiguration)));
-                    hostingContext.Configure<FlightTimeoutConfiguration>(
-                        Configuration.GetSection(nameof(FlightTimeoutConfiguration)));
-                    hostingContext.AddSingleton<IFlightEndPointsConfiguration>(
+                    config.AddScoped<IFlightGenerator, FlightGenerator>();
+                    config.Configure<FlightEndPointsConfiguration>(
+                        hostingContext.Configuration.GetSection(nameof(FlightEndPointsConfiguration)));
+                    config.Configure<FlightTimeoutConfiguration>(
+                        hostingContext.Configuration.GetSection(nameof(FlightTimeoutConfiguration)));
+                    config.AddSingleton<IFlightEndPointsConfiguration>(
                         provider => provider.GetRequiredService<IOptions<FlightEndPointsConfiguration>>().Value);
-                    hostingContext.AddSingleton<IFlightTimeoutConfiguration>(
+                    config.AddSingleton<IFlightTimeoutConfiguration>(
                         provider => provider.GetRequiredService<IOptions<FlightTimeoutConfiguration>>().Value);
                 })
                 .Build();
 
-            _logger = host.Services.GetRequiredService<ILogger<Program>>();
-            await using IFlightLauncherService flightLauncherService = host.Services
-                .CreateAsyncScope()
+            await using var scope = host.Services.CreateAsyncScope();
+            _logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            var flightLauncherService = scope
                 .ServiceProvider
                 .GetRequiredService<IFlightLauncherService>();
             _logger.LogInformation("Starting Airport Simulator...");

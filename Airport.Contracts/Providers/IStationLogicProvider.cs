@@ -1,10 +1,14 @@
-﻿using Airport.Contracts.Logics;
+﻿using Airport.Contracts.EventArgs;
+using Airport.Contracts.Logics;
+using Microsoft.VisualStudio.Threading;
 using MongoDB.Bson;
 
 namespace Airport.Contracts.Providers
 {
     public interface IStationLogicProvider
     {
+        event AsyncEventHandler<IStationChangedEventArgs>? AnyStationOccupied;
+        event AsyncEventHandler<IStationChangedEventArgs>? AnyStationCleared;
         Task<IEnumerable<IStationLogic>> FindNextTrafficLightsAsync(
             ObjectId routeId,
             ObjectId trafficLightId,

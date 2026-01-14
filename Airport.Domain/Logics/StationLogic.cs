@@ -84,19 +84,25 @@ namespace Airport.Domain.Logics
         protected virtual async Task RaiseStationOccupiedAsync()
         {
             if (StationOccupiedAsync is not null)
-                await StationOccupiedAsync.InvokeAsync(this, new StationOccupiedEventArgs(_flightLogic!.FlightId));
+                await StationOccupiedAsync.InvokeAsync(
+                    this, 
+                    new StationOccupiedEventArgs(_flightLogic!.FlightId, this));
         }
 
         protected virtual async Task RaiseStationClearingAsync()
         {
             if (StationClearingAsync is not null)
-                await StationClearingAsync.InvokeAsync(this, new StationClearingEventArgs(_flightLogic!.FlightId));
+                await StationClearingAsync.InvokeAsync(
+                    this, 
+                    new StationClearingEventArgs(_flightLogic!.FlightId, this));
         }
 
         protected virtual async Task RaiseStationClearedAsync(ObjectId routeId, ObjectId flightId)
         {
             if (StationClearedAsync is not null)
-                await StationClearedAsync.InvokeAsync(this, new StationClearedEventArgs(routeId, flightId));
+                await StationClearedAsync.InvokeAsync(
+                    this, 
+                    new StationClearedEventArgs(routeId, flightId, this));
         }
     }
 }

@@ -47,15 +47,15 @@ namespace Airport.Services
             cancellationToken.ThrowIfCancellationRequested();
             if (flightForCreation is null)
                 throw new ArgumentNullException(nameof(flightForCreation));
-            using var cts = new CancellationTokenSource();
             Flight flight = _mapper.Map<Flight>(flightForCreation);
             flight.FlightId = id;
-            _flightLogic = await _flightLogicFactory
-                .GetCreator(flight)
+            _flightLogic = await (await _flightLogicFactory
+                .GetCreatorAsync(flight, cancellationToken))
                 .CreateAsync();
             _flightLogic.FlightRunStarted += OnFlightRunStartedAsync;
             _airportHubService.RegisterFlightRunDone(_flightLogic);
             // Starts the run
+            using var cts = new CancellationTokenSource();
             await _flightLogic.RunAsync(cts.Token);
             try
             {

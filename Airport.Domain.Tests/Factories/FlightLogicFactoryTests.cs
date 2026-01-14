@@ -16,14 +16,14 @@
             _mockFlightLogicLogger = Mock.Of<ILogger<FlightLogic>>();
 
             _mockRouteLogicProvider
-                .SetupGet(x => x.DepartureRoutes)
-                .Returns(new List<IRouteLogic>
+                .Setup(x => x.GetDepartureRoutesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<IRouteLogic>
                 {
                     Mock.Of<IRouteLogic>(),
                 });
             _mockRouteLogicProvider
-                .SetupGet(x => x.LandingRoutes)
-                .Returns(new List<IRouteLogic>
+                .Setup(x => x.GetLandingRoutesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<IRouteLogic>
                 {
                     Mock.Of<IRouteLogic>(),
                 });
@@ -36,20 +36,20 @@
         }
 
         [Fact]
-        public void GetCreator_WhenCalled_ReturnsDepartureLogicCreator()
+        public async Task GetCreator_WhenCalled_ReturnsDepartureLogicCreatorAsync()
         {
             IFlightLogicFactory flightLogicFactory = new FlightLogicFactory(_serviceProvider);
-            IFlightLogicCreator creator = flightLogicFactory.GetCreator(new Departure());
+            IFlightLogicCreator creator = await flightLogicFactory.GetCreatorAsync(new Departure());
 
             Assert.NotNull(creator);
             Assert.IsAssignableFrom<DepartureLogicCreator>(creator);
         }
 
         [Fact]
-        public void GetCreator_WhenCalled_ReturnsLandingLogicCreator()
+        public async Task GetCreator_WhenCalled_ReturnsLandingLogicCreatorAsync()
         {
             IFlightLogicFactory flightLogicFactory = new FlightLogicFactory(_serviceProvider);
-            IFlightLogicCreator creator = flightLogicFactory.GetCreator(new Landing());
+            IFlightLogicCreator creator = await flightLogicFactory.GetCreatorAsync(new Landing());
 
             Assert.NotNull(creator);
             Assert.IsAssignableFrom<LandingLogicCreator>(creator);

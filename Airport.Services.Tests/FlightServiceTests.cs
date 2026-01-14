@@ -129,8 +129,8 @@ namespace Airport.Services.Tests
             var departure = new Departure();
 
             _mockFlightLogicFactory
-                .Setup(x => x.GetCreator(departure))
-                .Returns(_mockFlightLogicCreator.Object);
+                .Setup(x => x.GetCreatorAsync(departure, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(_mockFlightLogicCreator.Object);
             _mockFlightLogicCreator
                 .Setup(x => x.CreateAsync())
                 .ReturnsAsync(_mockFlightLogic.Object);

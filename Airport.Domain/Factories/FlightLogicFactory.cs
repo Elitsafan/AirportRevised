@@ -1,4 +1,7 @@
-﻿namespace Airport.Domain.Factories
+﻿using Airport.Models.Enums;
+using System.Threading;
+
+namespace Airport.Domain.Factories
 {
     public class FlightLogicFactory : IFlightLogicFactory
     {
@@ -6,7 +9,7 @@
 
         public FlightLogicFactory(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
-        public IFlightLogicCreator GetCreator(Flight flight)
+        public async Task<IFlightLogicCreator> GetCreatorAsync(Flight flight, CancellationToken cancellationToken = default)
         {
             if (flight is null)
                 throw new ArgumentNullException(nameof(flight));
@@ -23,11 +26,11 @@
             {
                 Departure => new DepartureLogicCreator(
                     (Departure)flight,
-                    routeLogicProvider.GetNextRoute(Models.Enums.FlightType.Departure)!,
+                    (await routeLogicProvider.GetNextRouteAsync(FlightType.Departure, cancellationToken))!,
                     logger),
                 Landing => new LandingLogicCreator(
                     (Landing)flight,
-                    routeLogicProvider.GetNextRoute(Models.Enums.FlightType.Landing)!,
+                    (await routeLogicProvider.GetNextRouteAsync(FlightType.Landing, cancellationToken))!,
                     logger),
                 _ => throw new ArgumentException("Unknown type of flight.")
             };
