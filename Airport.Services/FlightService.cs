@@ -45,8 +45,6 @@ namespace Airport.Services
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (flightForCreation is null)
-                throw new ArgumentNullException(nameof(flightForCreation));
             Flight flight = _mapper.Map<Flight>(flightForCreation);
             flight.FlightId = id;
             _flightLogic = await (await _flightLogicFactory
@@ -60,7 +58,7 @@ namespace Airport.Services
             try
             {
                 // Updates flight after the run has ended
-                await _repositoryManager.FlightRepository.UpdateFlightAsync(flight, cancellationToken: cts.Token);
+                await _repositoryManager.FlightRepository.UpdateFlightAsync(flight, ct: cts.Token);
             }
             catch (OperationCanceledException e)
             {
@@ -89,7 +87,7 @@ namespace Airport.Services
                 return null;
             }
         }
-        
+
         public async IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
             int? minutesPassed,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -126,7 +124,7 @@ namespace Airport.Services
             ObjectId id,
             CancellationToken cancellationToken = default)
         {
-            var result = await _repositoryManager.FlightRepository.DeleteFlightAsync(id, cancellationToken);
+            var result = await _repositoryManager.FlightRepository.DeleteOneAsync(id, cancellationToken);
             if (!result)
                 _logger.LogInformation($"Flight with id: {id} not found");
             return result;

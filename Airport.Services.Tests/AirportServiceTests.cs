@@ -24,8 +24,7 @@ namespace Airport.Services.Tests
         private Mock<IRouteLogicProvider> _mockRouteLogicProvider;
         private Mock<IOptions<AirportDbConfiguration>> _mockAirportDbConfiguration;
         private Mock<IMongoClient> _mockMongoClient;
-        private Mock<IMemoryCache> _mockCache;
-        private Mock<ICacheEntry> _mockCacheEntry;
+        private Mock<IAirportStateProvider> _mockAirportStateProvider;
         private ILogger<AirportService> _mockLogger;
         #endregion
 
@@ -46,12 +45,9 @@ namespace Airport.Services.Tests
             _mockRouteLogicProvider = new Mock<IRouteLogicProvider>();
             _mockAirportDbConfiguration = new Mock<IOptions<AirportDbConfiguration>>();
             _mockMongoClient = new Mock<IMongoClient>();
-            _mockCache = new Mock<IMemoryCache>();
-            _mockCacheEntry = new Mock<ICacheEntry>();
             _mockLogger = Mock.Of<ILogger<AirportService>>();
-            _mockCache
-                .Setup(x => x.CreateEntry(It.IsAny<object>()))
-                .Returns(_mockCacheEntry.Object);
+            _mockAirportStateProvider = new Mock<IAirportStateProvider>();
+
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<IAirportHubService>(_mockHubService.Object);
             serviceCollection.AddSingleton<IFlightLogicFactory>(_mockFlightLogicFactory.Object);
@@ -64,6 +60,7 @@ namespace Airport.Services.Tests
             serviceCollection.AddSingleton<IOptions<AirportDbConfiguration>>(_mockAirportDbConfiguration.Object);
             serviceCollection.AddSingleton<IMongoClient>(_mockMongoClient.Object);
             serviceCollection.AddSingleton<ILogger<AirportService>>(_mockLogger);
+            serviceCollection.AddSingleton<IAirportStateProvider>(_mockAirportStateProvider.Object);
             _serviceProvider = serviceCollection.BuildServiceProvider();
         }
 
@@ -94,11 +91,10 @@ namespace Airport.Services.Tests
                 .Returns(() => routeDto);
 
             var airportService = new AirportService(
-                _serviceProvider,
+                _mockAirportStateProvider.Object,
                 _mockStationLogicProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
-                _mockCache.Object,
                 _mockLogger);
 
             var actual = await airportService.GetStatusAsync();
@@ -114,11 +110,10 @@ namespace Airport.Services.Tests
         public async Task StartAsync_WhenFirstStarted_ReturnsStartedStringAsync()
         {
             var airportService = new AirportService(
-                _serviceProvider,
+                _mockAirportStateProvider.Object,
                 _mockStationLogicProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
-                _mockCache.Object,
                 _mockLogger);
 
             var actual = await airportService.StartAsync();
@@ -130,20 +125,18 @@ namespace Airport.Services.Tests
         public async Task StartAsync_WhenStarted_ReturnsAlreadyStartedStringAsync()
         {
             var airportService = new AirportService(
-                _serviceProvider,
+                _mockAirportStateProvider.Object,
                 _mockStationLogicProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
-                _mockCache.Object,
                 _mockLogger);
+
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
 
             await airportService.StartAsync();
             object expected = true;
-
-            _mockCache
-                .Setup(x => x.TryGetValue(It.IsAny<string>(), out expected!))
-                .Returns(true);
-            Assert.True(airportService.HasStarted);
 
             var actual = await airportService.StartAsync();
 
@@ -164,27 +157,26 @@ namespace Airport.Services.Tests
                 .ReturnsAsync(new Flight[] { departure, landing });
 
             var airportService = new AirportService(
-                _serviceProvider,
+                _mockAirportStateProvider.Object,
                 _mockStationLogicProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
-                _mockCache.Object,
                 _mockLogger);
 
-            var actual = await airportService.GetPagedSummaryAsync(new GetSummaryParameters
+            var actual = await airportService.GetSummaryWithMetadataAsync(new GetSummaryParameters
             {
                 PageNumber = 1,
                 PageSize = 1,
             });
             IPagedList<FlightSummary> expected = new List<FlightSummary>
             {
-                new FlightSummary
+                new()
                 {
                     FlightId = departure.FlightId,
                     Stations = new List<OccupationDetails>(),
                     FlightType = FlightType.Departure
                 },
-                new FlightSummary
+                new()
                 {
                     FlightId = landing.FlightId,
                     Stations = new List<OccupationDetails>(),
@@ -192,7 +184,6 @@ namespace Airport.Services.Tests
                 }
             }.ToPagedList(1, 1);
             Assert.Equivalent(expected, actual);
-            Assert.True(expected.SequenceEqual(actual));
         }
     }
 }

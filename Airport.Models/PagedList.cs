@@ -20,5 +20,6 @@
         public int TotalCount { get; private set; }
         public bool HasPrevious => CurrentPage > 1;
         public bool HasNext => CurrentPage < TotalPages;
+        public int ItemsProcessed => CurrentPage * PageSize;
     }
 }

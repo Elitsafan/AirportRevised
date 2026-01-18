@@ -26,14 +26,14 @@ namespace Airport.Persistence.Repositories
                 .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
         }
 
-        public async Task<IEnumerable<Station>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        public async Task<IEnumerable<Station>> GetAllAsync(CancellationToken ct = default) =>
             await _stationsCollection
             .Find(Builders<Station>.Filter.Empty)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(ct);
 
         public async Task<IEnumerable<Station>> GetStationsByRouteAsync(
             Route route,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             if (route is null)
                 throw new ArgumentNullException(nameof(route));
@@ -43,48 +43,48 @@ namespace Airport.Persistence.Repositories
             var filter = Builders<Station>.Filter.In(nameof(Station.StationId), stationIds);
             return await _stationsCollection
                 .Find(filter)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(ct);
         }
 
-        public async Task<Station> GetStationByIdAsync(ObjectId id, CancellationToken cancellationToken = default) =>
+        public async Task<Station> GetStationByIdAsync(ObjectId id, CancellationToken ct = default) =>
             await _stationsCollection
             .Find(s => s.StationId == id)
-            .FirstOrDefaultAsync(cancellationToken)
+            .FirstOrDefaultAsync(ct)
             ?? throw new EntityNotFoundException();
 
         public async Task<IEnumerable<ObjectId>> GetExistingStationIdsAsync(
             IEnumerable<ObjectId> ids,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken ct = default) =>
             await _stationsCollection
                 .Find(s => ids.Contains(s.StationId))
                 .Project(s => s.StationId)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(ct);
 
-        public async Task<Station> SaveStationAsync(Station station, CancellationToken cancellationToken = default)
+        public async Task<Station> AddStationAsync(Station station, CancellationToken ct = default)
         { 
-            await _stationsCollection.InsertOneAsync(station, null, cancellationToken);
+            await _stationsCollection.InsertOneAsync(station, null, ct);
             return station;
         }
-
-        public async Task<bool> DeleteStationAsync(ObjectId id, CancellationToken cancellationToken = default) =>
-            (await _stationsCollection.DeleteOneAsync(r => r.StationId == id, cancellationToken)).DeletedCount > 0;
 
         public async Task<Models.Enums.UpdateResult> UpdateStationAsync(
             ObjectId id,
             Station modifiedStation,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             var updateResult = await _stationsCollection.UpdateOneAsync(
                 r => r.StationId == id,
                 Builders<Station>.Update
                     .Set(nameof(Station.EstimatedWaitingTime), modifiedStation.EstimatedWaitingTime),
                 new UpdateOptions { IsUpsert = false },
-                cancellationToken);
+                ct);
             if (updateResult.MatchedCount < 1)
                 return Models.Enums.UpdateResult.Failed;
             if (updateResult.ModifiedCount < 1)
                 return Models.Enums.UpdateResult.Matched;
             return Models.Enums.UpdateResult.Matched | Models.Enums.UpdateResult.Modified;
         }
+
+        public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
+            (await _stationsCollection.DeleteOneAsync(r => r.StationId == id, ct)).DeletedCount > 0;
     }
 }

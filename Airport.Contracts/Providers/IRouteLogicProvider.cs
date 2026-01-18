@@ -5,8 +5,8 @@ namespace Airport.Contracts.Providers
 {
     public interface IRouteLogicProvider : IDisposable
     {
-        Task<IEnumerable<IRouteLogic>> GetDepartureRoutesAsync(CancellationToken cancellationToken = default);
-        Task<IEnumerable<IRouteLogic>> GetLandingRoutesAsync(CancellationToken cancellationToken = default);
-        Task<IRouteLogic?> GetNextRouteAsync(FlightType flightType, CancellationToken cancellationToken = default);
+        Task<IEnumerable<IRouteLogic>> GetDepartureRoutesAsync(CancellationToken ct = default);
+        Task<IEnumerable<IRouteLogic>> GetLandingRoutesAsync(CancellationToken ct = default);
+        Task<IRouteLogic?> GetNextRouteAsync(FlightType flightType, CancellationToken ct = default);
     }
 }

@@ -37,7 +37,10 @@ namespace Airport.Domain.Tests.Providers
                 .Setup(x => x.GetAllAsync(default))
                 .ReturnsAsync(new Route[] { route });
             _mockRouteLogicFactory
-                .Setup(x => x.GetCreator(route, It.IsAny<IEnumerable<IRouteSectionDetails>>()))
+                .Setup(x => x.GetCreator(
+                    route, 
+                    It.IsAny<IEnumerable<IRouteSectionDetails>>(),
+                    It.IsAny<CancellationToken>()))
                 .Returns(_mockRouteLogicCreator.Object);
             _mockRouteLogicCreator
                 .Setup(x => x.CreateAsync())

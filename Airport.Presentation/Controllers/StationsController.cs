@@ -10,7 +10,7 @@ namespace Airport.Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [TypeFilter(typeof(AirportNotStartedFilter))]
+    [ServiceFilter(typeof(AirportNotStartedFilter))]
     public class StationsController : ControllerBase
     {
         private readonly IStationService _stationSvc;
@@ -20,19 +20,17 @@ namespace Airport.Presentation.Controllers
         // GET: api/Stations
         [HttpGet]
         public async IAsyncEnumerable<StationDTO> GetAllStationsAsync(
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
-            await foreach (var station in _stationSvc.GetAllStationsAsync(cancellationToken))
+            await foreach (var station in _stationSvc.GetAllStationsAsync(ct))
                 yield return station;
         }
 
         // GET: api/Stations/{id}
         [HttpGet("{id}", Name = "StationById")]
-        public async Task<IActionResult> GetStationByIdAsync(
-            ObjectId id,
-            CancellationToken cancellationToken = default)
+        public async Task<IActionResult> GetStationByIdAsync(ObjectId id, CancellationToken ct = default)
         {
-            var stationDto = await _stationSvc.GetStationByIdAsync(id, cancellationToken);
+            var stationDto = await _stationSvc.GetStationByIdAsync(id, ct);
             return stationDto is null
                 ? NotFound()
                 : Ok(stationDto);
@@ -42,9 +40,9 @@ namespace Airport.Presentation.Controllers
         [HttpPost("[action]/{id}")]
         public async Task<IActionResult> PostStationAsync(
             [FromBody] StationForCreationDTO stationForCreationDTO,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            var stationId = await _stationSvc.SaveStationAsync(stationForCreationDTO, cancellationToken);
+            var stationId = await _stationSvc.AddStationAsync(stationForCreationDTO, ct);
             return CreatedAtRoute("StationById", new { id = stationId }, stationForCreationDTO);
         }
 
@@ -53,23 +51,21 @@ namespace Airport.Presentation.Controllers
         public async Task<IActionResult> UpdateStationAsync(
             ObjectId id,
             [FromBody] StationForUpdateDTO stationForUpdate,
-            CancellationToken cancellationToken = default) => await _stationSvc.UpdateStationAsync(
+            CancellationToken ct = default) => await _stationSvc.UpdateStationAsync(
                 id,
                 stationForUpdate,
-                cancellationToken) switch
-                {
-                    Models.Enums.UpdateResult.Failed => NotFound(),
-                    Models.Enums.UpdateResult.Matched => BadRequest("Invalid station"),
-                    Models.Enums.UpdateResult.Modified => NoContent(),
-                    _ => new StatusCodeResult(StatusCodes.Status500InternalServerError),
-                };
+                ct) switch
+            {
+                Models.Enums.UpdateResult.Failed => NotFound(),
+                Models.Enums.UpdateResult.Matched => BadRequest("Invalid station"),
+                Models.Enums.UpdateResult.Modified => NoContent(),
+                _ => new StatusCodeResult(StatusCodes.Status500InternalServerError),
+            };
 
         // DELETE: api/Stations/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteStationAsync(
-            ObjectId id,
-            CancellationToken cancellationToken = default) =>
-            !await _stationSvc.DeleteStationAsync(id, cancellationToken)
+        public async Task<IActionResult> DeleteStationAsync(ObjectId id, CancellationToken ct = default) =>
+            !await _stationSvc.DeleteStationAsync(id, ct)
             ? NotFound()
             : NoContent();
     }

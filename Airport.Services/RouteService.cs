@@ -31,47 +31,41 @@ namespace Airport.Services
         }
 
         public async IAsyncEnumerable<RouteDTO> GetAllRoutesAsync(
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
             var routes = await _repositoryManager.RouteRepository
-                .GetAllAsync(cancellationToken);
+                .GetAllAsync(ct);
 
             foreach (var route in routes.Select(_mapper.Map<RouteDTO>))
                 yield return route;
         }
 
-        public async Task<RouteDTO?> GetRouteByIdAsync(
-            ObjectId id,
-            CancellationToken cancellationToken = default)
+        public async Task<RouteDTO?> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default)
         {
             try
             {
                 var route = await _repositoryManager.RouteRepository
-                    .GetRouteByIdAsync(id, cancellationToken);
+                    .GetRouteByIdAsync(id, ct);
 
                 return _mapper.Map<RouteDTO>(route);
             }
-            catch (EntityNotFoundException)
+            catch (EntityNotFoundException e)
             {
-                _logger.LogInformation($"Route id: {id} not found");
+                _logger.LogError($"Route id: {id} not found", e);
                 return null;
             }
         }
 
-        public async Task<ObjectId> SaveRouteAsync(
-            RouteForCreationDTO routeForCreationDTO,
-            CancellationToken cancellationToken = default)
+        public async Task<ObjectId> AddRouteAsync(RouteForCreationDTO routeForCreationDTO, CancellationToken ct = default)
         {
-            if (routeForCreationDTO is null)
-                throw new ArgumentNullException(nameof(routeForCreationDTO));
-
-            IEnumerable<ObjectId> ids = await ValidateRouteStationsExistenceAsync(routeForCreationDTO, cancellationToken);
-
-            ValidateIfRouteCircular(routeForCreationDTO, ids);
+            await ValidateRouteAsync(routeForCreationDTO, ct);
 
             var routeDto = _mapper.Map<RouteDTO>(routeForCreationDTO);
             var routeSaved = await _repositoryManager.RouteRepository
-                .SaveRouteAsync(_mapper.Map<Route>(routeDto), cancellationToken);
+                .AddRouteAsync(_mapper.Map<Route>(routeDto), ct);
+
+            await AddTrafficLightsAsync(routeSaved, ct);
+
             return routeSaved.RouteId;
         }
 
@@ -79,30 +73,36 @@ namespace Airport.Services
         public async Task<UpdateResult> UpdateRouteAsync(
             ObjectId id,
             RouteForUpdateDTO routeForUpdate,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await ValidateRouteAsync(routeForUpdate, cancellationToken);
+            await ValidateRouteAsync(routeForUpdate, ct);
 
             var modifiedRoute = _mapper.Map<Route>(routeForUpdate);
-            return await _repositoryManager.RouteRepository
-                .UpdateRouteAsync(id, modifiedRoute, cancellationToken);
+            var updateResult = await _repositoryManager.RouteRepository
+                .UpdateRouteAsync(id, modifiedRoute, ct);
+
+            if (updateResult == UpdateResult.Modified)
+                await UpdateTrafficLightsAsync(modifiedRoute, ct);
+            return updateResult;
         }
 
-        public async Task<bool> DeleteRouteAsync(
-            ObjectId id,
-            CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteRouteAsync(ObjectId id, CancellationToken ct = default)
         {
-            var result = await _repositoryManager.RouteRepository.DeleteRouteAsync(id, cancellationToken);
-            if (!result)
-                _logger.LogInformation($"Route with id: {id} not found");
+            var route = await _repositoryManager.RouteRepository.GetRouteByIdAsync(id);
+            if (route is null)
+            {
+                _logger.LogInformation($"Route with id: {id} not found.");
+                return false;
+            }
+            var result = await _repositoryManager.RouteRepository.DeleteOneAsync(id, ct);
+            if (result)
+                await DeleteTrafficLightsAsync(route, ct);
             return result;
         }
 
-        private async Task ValidateRouteAsync(RouteForOperationDTO route, CancellationToken cancellationToken)
+        private async Task ValidateRouteAsync(RouteForOperationDTO route, CancellationToken ct)
         {
-            if (route is null)
-                throw new ArgumentNullException(nameof(route));
-            IEnumerable<ObjectId> ids = await ValidateRouteStationsExistenceAsync(route, cancellationToken);
+            IEnumerable<ObjectId> ids = await ValidateStationsExistenceAsync(route, ct);
             ValidateIfRouteCircular(route, ids);
         }
 
@@ -110,7 +110,7 @@ namespace Airport.Services
             RouteForOperationDTO route,
             IEnumerable<ObjectId> ids)
         {
-            var graph = new Graph(ids);
+            var graph = new Graph<ObjectId>(ids);
 
             foreach (var direction in route.Directions)
                 graph.AddEdge(direction.From, direction.To);
@@ -118,9 +118,9 @@ namespace Airport.Services
                 throw new InvalidRouteStructureException("Route is a circular route.");
         }
 
-        private async Task<IEnumerable<ObjectId>> ValidateRouteStationsExistenceAsync(
+        private async Task<IEnumerable<ObjectId>> ValidateStationsExistenceAsync(
             RouteForOperationDTO route,
-            CancellationToken cancellationToken)
+            CancellationToken ct)
         {
             var froms = route.Directions
                 .Select(d => d.From)
@@ -131,15 +131,76 @@ namespace Airport.Services
             var ids = froms.Union(tos);
 
             var existingStationIds = await _repositoryManager.StationRepository
-                .GetExistingStationIdsAsync(ids, cancellationToken);
+                .GetExistingStationIdsAsync(ids, ct);
             var missingIds = ids
                 .Except(existingStationIds)
                 .ToList();
             if (missingIds.Count != 0)
                 throw new MissingRouteStationsException(
-                    $"Stations don't exist: {string.Join(", ", missingIds)}. " +
+                    $"Stations don't exist:\n{string.Join(",\n", missingIds)}.\n" +
                     "First insert the stations of the route, and then save the route.");
             return ids;
         }
+
+        private async Task AddTrafficLightsAsync(Route route, CancellationToken ct)
+        {
+            IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
+            var addedIds = new List<ObjectId>();
+            foreach (var id in stationIds)
+                if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, ct: ct))
+                {
+                    var tl = new TrafficLight { StationId = id };
+                    await _repositoryManager.TrafficLightRepository.AddTrafficLightAsync(tl, ct);
+                    addedIds.Add(id);
+                }
+            if (addedIds.Count > 0)
+                _logger.LogInformation($"Traffic lights added:\n{string.Join(",\n", addedIds)}");
+        }
+
+        private async Task DeleteTrafficLightsAsync(Route route, CancellationToken ct)
+        {
+            IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
+            var deletedIds = new List<ObjectId>();
+            foreach (var id in stationIds)
+                if (!await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, 2, ct))
+                {
+                    await _repositoryManager.TrafficLightRepository.DeleteOneAsync(id, ct);
+                    deletedIds.Add(id);
+                }
+            if (deletedIds.Count > 0)
+                _logger.LogInformation($"Traffic lights deleted:\n{string.Join(",\n", deletedIds)}");
+        }
+
+        private async Task UpdateTrafficLightsAsync(Route route, CancellationToken ct)
+        {
+            IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
+            var updatedIds = new List<ObjectId>();
+            var deletedIds = new List<ObjectId>();
+            foreach (var id in stationIds)
+                if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, 2, ct))
+                {
+                    var tl = new TrafficLight { StationId = id };
+                    await _repositoryManager.TrafficLightRepository.AddTrafficLightAsync(tl, ct);
+                    updatedIds.Add(id);
+                }
+                else
+                {
+                    await _repositoryManager.TrafficLightRepository.DeleteOneAsync(id, ct);
+                    deletedIds.Add(id);
+                }
+
+            if (updatedIds.Count > 0)
+                _logger.LogInformation($"Traffic lights updated:\n{string.Join(",\n", updatedIds)}");
+            if (deletedIds.Count > 0)
+                _logger.LogInformation($"Traffic lights deleted:\n{string.Join(",\n", deletedIds)}");
+        }
+
+        private IEnumerable<ObjectId> ExtractStationIds(Route route) => route.Directions
+            .Select(d => d.From)
+            .Distinct()
+            .Union(route.Directions
+                .Select(d => d.To)
+                .Distinct())
+            .ToList();
     }
 }

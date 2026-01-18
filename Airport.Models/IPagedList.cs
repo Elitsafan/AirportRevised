@@ -8,5 +8,6 @@
         int PageSize { get; }
         int TotalCount { get; }
         int TotalPages { get; }
+        int ItemsProcessed { get; }
     }
 }

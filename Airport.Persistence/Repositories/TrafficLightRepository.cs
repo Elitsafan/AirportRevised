@@ -24,48 +24,54 @@ namespace Airport.Persistence.Repositories
                 .GetCollection<TrafficLight>(dbConfiguration.Value.TrafficLightsCollectionName);
         }
 
-        public async Task<IEnumerable<TrafficLight>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        public async Task<TrafficLight> AddTrafficLightAsync(TrafficLight trafficLight, CancellationToken ct = default)
+        {
+            await _trafficLightsCollection.InsertOneAsync(trafficLight, null, ct);
+            return trafficLight;
+        }
+
+        public async Task<IEnumerable<TrafficLight>> GetAllAsync(CancellationToken ct = default) =>
             await _trafficLightsCollection
                 .Find(Builders<TrafficLight>.Filter.Empty)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(ct);
 
         public async Task<IEnumerable<TrafficLight>> GetTrafficLightsByRouteIdAsync(
             ObjectId routeId,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             var routesCollection = _client!
                 .GetDatabase(_dbConfiguration.Value.DatabaseName)
                 .GetCollection<Route>(_dbConfiguration.Value.RoutesCollectionName);
             var stationIds = (await routesCollection
                 .Find(r => r.RouteId == routeId)
-                .SingleAsync(cancellationToken)).Directions
+                .SingleAsync(ct)).Directions
                 .SelectMany(d => new ObjectId[] { d.From, d.To })
                 .Distinct();
 
             return await _trafficLightsCollection
                 .Find(Builders<TrafficLight>.Filter.In(x => x.StationId, stationIds))
-                .ToListAsync(cancellationToken);
+                .ToListAsync(ct);
         }
 
         public async Task<IEnumerable<TrafficLight>> GetNextTrafficLightsAsync(
             ObjectId routeId,
             ObjectId id,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             var routesCollection = _client
                 .GetDatabase(_dbConfiguration.Value.DatabaseName)
                 .GetCollection<Route>(_dbConfiguration.Value.RoutesCollectionName);
             var route = await routesCollection
                 .Find(r => r.RouteId == routeId)
-                .FirstOrDefaultAsync(cancellationToken)
+                .FirstOrDefaultAsync(ct)
                 ?? throw new EntityNotFoundException($"Route Id: {routeId} not found");
             var trafficLightCollection = _client
                 .GetDatabase(_dbConfiguration.Value.DatabaseName)
                 .GetCollection<TrafficLight>(_dbConfiguration.Value.TrafficLightsCollectionName);
-            var tls = await GetTrafficLightsByRouteIdAsync(routeId, cancellationToken);
+            var tls = await GetTrafficLightsByRouteIdAsync(routeId, ct);
             var trafficLight = await (await trafficLightCollection
-                .FindAsync(tl => tl.TrafficLightId == id, cancellationToken: cancellationToken))
-                .FirstOrDefaultAsync(cancellationToken);
+                .FindAsync(tl => tl.TrafficLightId == id, cancellationToken: ct))
+                .FirstOrDefaultAsync(ct);
             if (trafficLight is null)
             {
                 if (tls.All(tl => tl.StationId != id))
@@ -73,18 +79,18 @@ namespace Airport.Persistence.Repositories
                         "The route with the provided id doesn't have the traffic light with the provided station id.",
                         nameof(id));
                 // If id provided is a station id 
-                return (await GetNextTrafficLightsAsync(route, id, cancellationToken))
+                return (await GetNextTrafficLightsAsync(route, id, ct))
                     .ToArray();
             }
             // If id provided is a traffic light id 
-            return (await GetNextTrafficLightsAsync(route, trafficLight.StationId, cancellationToken))
+            return (await GetNextTrafficLightsAsync(route, trafficLight.StationId, ct))
                 .ToArray();
         }
 
         private async Task<IEnumerable<TrafficLight>> GetNextTrafficLightsAsync(
             Route route,
             ObjectId stationId,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             var nextDirections = route.Directions
                 .Where(d => d.From == stationId)
@@ -93,22 +99,24 @@ namespace Airport.Persistence.Repositories
             if (nextDirections.Length == 0)
                 return trafficLights;
             var tasks = nextDirections
-                .Select(async d => await GetTrafficLightByStationIdAsync(d.To, cancellationToken));
+                .Select(async d => await GetTrafficLightByStationIdAsync(d.To, ct));
             trafficLights = (await Task.WhenAll(tasks))
                 .Where(tl => tl is not null)
                 .ToArray();
             if (trafficLights.Length > 0)
                 return trafficLights;
             return (await Task.WhenAll(nextDirections
-                .Select(async d => await GetNextTrafficLightsAsync(route, d.To, cancellationToken))))
+                .Select(async d => await GetNextTrafficLightsAsync(route, d.To, ct))))
                 .SelectMany(x => x)
                 .ToArray();
         }
 
         private async Task<TrafficLight> GetTrafficLightByStationIdAsync(
             ObjectId stationId,
-            CancellationToken cancellationToken = default) => await _trafficLightsCollection
-            .FindSync(tl => tl.StationId == stationId, cancellationToken: cancellationToken)
-            .FirstOrDefaultAsync(cancellationToken);
+            CancellationToken ct = default) => await _trafficLightsCollection
+            .FindSync(tl => tl.StationId == stationId, cancellationToken: ct)
+            .FirstOrDefaultAsync(ct);
+        public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
+            (await _trafficLightsCollection.DeleteOneAsync(tl => tl.TrafficLightId == id, ct)).DeletedCount > 0;
     }
 }

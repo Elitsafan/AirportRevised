@@ -4,7 +4,7 @@
     {
         #region Fields
         private Station _station;
-        private readonly ILogger<IStationLogic> _mockLogger;
+        private readonly ILogger<StationLogic> _mockLogger;
         private Mock<IFlightLogic> _mockFlightLogic;
         private IStationLogic _stationLogic;
         private IStationOccupiedEventArgs _stationOcuupiedArgs;
@@ -14,7 +14,7 @@
         public StationLogicTests()
         {
             _mockFlightLogic = new Mock<IFlightLogic>();
-            _mockLogger = Mock.Of<ILogger<IStationLogic>>();
+            _mockLogger = Mock.Of<ILogger<StationLogic>>();
             _station = new Station();
             _stationOcuupiedArgs = null!;
             _stationClearedArgs = null!;

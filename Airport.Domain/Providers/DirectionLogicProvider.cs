@@ -11,7 +11,7 @@ namespace Airport.Domain.Providers
         private readonly IMemoryCache _cache;
         private readonly IDomainEvents _domainEvents;
         private readonly ILogger<DirectionLogicProvider> _logger;
-        private readonly SemaphoreSlim _initializationSemaphore;
+        private readonly AsyncSemaphore _initializationSemaphore;
         private bool _isInitialized;
         private HashSet<IDirectionLogic> _directionLogics = null!;
         private ConcurrentDictionary<ObjectId, List<IDirectionLogic>> _routeIdToDirectionLogics = null!;
@@ -34,7 +34,7 @@ namespace Airport.Domain.Providers
             _cache = cache;
             _domainEvents = domainEvents;
             _logger = logger;
-            _initializationSemaphore = new(1, 1);
+            _initializationSemaphore = new(1);
 
             _domainEvents.StationCreated += OnStationCreatedAsync;
             _domainEvents.StationDeleted += OnStationDeletedAsync;
@@ -45,9 +45,9 @@ namespace Airport.Domain.Providers
 
         public async Task<IEnumerable<IDirectionLogic>> GetDirectionsByRouteIdAsync(
             ObjectId routeId,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(cancellationToken);
+            await EnsureInitializedAsync(ct);
 
             var cacheKey = $"{ROUTE_DIRECTIONS_PREFIX}{routeId}";
 
@@ -64,7 +64,7 @@ namespace Airport.Domain.Providers
                         .ServiceProvider
                         .GetRequiredService<IRepositoryManager>()
                         .RouteRepository
-                        .GetRouteByIdAsync(routeId, cancellationToken);
+                        .GetRouteByIdAsync(routeId, ct);
 
                     var result = route.Directions.Join(
                         _directionLogics,
@@ -90,8 +90,7 @@ namespace Airport.Domain.Providers
             GC.SuppressFinalize(this);
         }
 
-        private async Task InitializeAsync(
-            CancellationToken cancellationToken = default)
+        private async Task InitializeAsync(CancellationToken ct = default)
         {
             _logger.LogInformation("Initializing direction logics from database");
 
@@ -104,7 +103,7 @@ namespace Airport.Domain.Providers
                 .ServiceProvider
                 .GetRequiredService<IDirectionLogicFactory>();
 
-            var allRoutes = await routeRepository.GetAllAsync(cancellationToken);
+            var allRoutes = await routeRepository.GetAllAsync(ct);
             _routeIdToDirectionLogics = new ConcurrentDictionary<ObjectId, List<IDirectionLogic>>();
             _directionLogics = new HashSet<IDirectionLogic>();
             foreach (var route in allRoutes)
@@ -123,53 +122,40 @@ namespace Airport.Domain.Providers
             _logger.LogInformation($"Successfully initialized {_directionLogics.Count} direction logics");
         }
 
-        private async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
+        private async Task EnsureInitializedAsync(CancellationToken ct = default)
         {
             if (_isInitialized)
                 return;
 
-            await _initializationSemaphore.WaitAsync(cancellationToken);
-            try
-            {
-                if (_isInitialized)
-                    return;
+            using var releaser = await _initializationSemaphore.EnterAsync(ct);
 
-                await InitializeAsync(cancellationToken);
-                _isInitialized = true;
-            }
-            finally
-            {
-                _initializationSemaphore.Release();
-            }
+            if (_isInitialized)
+                return;
+
+            await InitializeAsync(ct);
+            _isInitialized = true;
         }
 
         /// <summary>
         /// Refreshes all direction logics and clears cache
         /// </summary>
-        private async Task RefreshAsync(CancellationToken cancellationToken = default)
+        private async Task RefreshAsync(CancellationToken ct = default)
         {
             _logger.LogInformation("Refreshing direction logics and clearing cache");
 
-            await _initializationSemaphore.WaitAsync(cancellationToken);
-            try
-            {
-                // Clear cache first
-                InvalidateCache();
+            using var releaser = await _initializationSemaphore.EnterAsync(ct);
+            // Clear cache first
+            InvalidateCache();
 
-                // Clear existing direction logics
-                _directionLogics.Clear();
-                _routeIdToDirectionLogics.Clear();
+            // Clear existing direction logics
+            _directionLogics.Clear();
+            _routeIdToDirectionLogics.Clear();
 
-                // Re-initialize
-                _isInitialized = false;
-                await InitializeAsync(cancellationToken);
+            // Re-initialize
+            _isInitialized = false;
+            await InitializeAsync(ct);
 
-                _logger.LogInformation("Direction logics refreshed successfully");
-            }
-            finally
-            {
-                _initializationSemaphore.Release();
-            }
+            _logger.LogInformation("Direction logics refreshed successfully");
         }
 
         private void InvalidateCache()

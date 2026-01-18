@@ -1,5 +1,5 @@
-﻿using MongoDB.Bson;
-using Airport.Contracts.Logics;
+﻿using Airport.Contracts.Logics;
+using MongoDB.Bson;
 
 namespace Airport.Contracts.Helpers
 {

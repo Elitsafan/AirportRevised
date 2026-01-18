@@ -8,7 +8,7 @@ namespace Airport.Models
     {
         public ObjectId FlightId { get; init; }
         public FlightType FlightType { get; init; }
-        public IEnumerable<OccupationDetails> Stations { get; init; } = Enumerable.Empty<OccupationDetails>();
+        public required IEnumerable<OccupationDetails> Stations { get; init; }
 
         public override bool Equals(object? obj) => obj is FlightSummary summary &&
             FlightId == summary.FlightId &&

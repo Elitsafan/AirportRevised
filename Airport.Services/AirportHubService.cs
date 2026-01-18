@@ -2,12 +2,10 @@
 using Airport.Contracts.Helpers;
 using Airport.Contracts.Logics;
 using Airport.Contracts.Providers;
-using Airport.Models.Enums;
 using Airport.Services.Abstractions;
 using Airport.SignalR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
@@ -70,17 +68,17 @@ namespace Airport.Services
 
         private async Task OnStationOccupiedAsync(
             object? sender,
-            IStationChangedEventArgs e) => await OnStationChangedAsync(
+            IStationChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
                 nameof(IStationLogic.StationOccupiedAsync),
-                e);
+                e.StationsState);
 
         private async Task OnStationClearedAsync(
             object? sender,
-            IStationChangedEventArgs e) => await OnStationChangedAsync(
+            IStationChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
                 nameof(IStationLogic.StationClearedAsync),
-                e);
+                e.StationsState);
 
-        private async Task OnStationChangedAsync(string name, IStationChangedData data)
+        private async Task OnStationChangedAsync(string name, IQueryable<IStationChangedData> data)
         {
             try
             {

@@ -7,6 +7,6 @@ namespace Airport.Contracts.Providers
     {
         Task<IEnumerable<IDirectionLogic>> GetDirectionsByRouteIdAsync(
             ObjectId routeId,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
     }
 }

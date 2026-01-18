@@ -1,27 +1,24 @@
-﻿
+﻿using Airport.Models.Enums;
+
 namespace Airport.Domain.Repositories
 {
     public interface IFlightRepository : IRepository<Flight>
     {
-        Task AddFlightAsync(Flight flight, CancellationToken cancellationToken = default);
-        //Task<IEnumerable<T>> OfTypeAsync<T>(CancellationToken cancellationToken = default) where T : Flight;
-        Task<bool> UpdateFlightAsync(Flight flight, bool upsert = true, CancellationToken cancellationToken = default);
+        Task AddFlightAsync(Flight flight, CancellationToken ct = default);
+        Task<UpdateResult> UpdateFlightAsync(Flight flight, bool upsert = true, CancellationToken ct = default);
         /// <summary>
         /// Oreders flight by the earliest entrance
         /// </summary>
-        /// <param name="cancellationToken"></param>
+        /// <param name="ct"></param>
         /// <returns></returns>
-        Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken cancellationToken = default);
+        Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default);
         /// <summary>
         /// Flights older than <paramref name="timePassed"/> will not be retrieved.
         /// </summary>
         /// <param name="timePassed"></param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="ct"></param>
         /// <returns></returns>
-        Task<IEnumerable<Flight>> FilterByTimePassedAsync(
-            TimeSpan timePassed, 
-            CancellationToken cancellationToken = default);
-        Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
-        Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken cancellationToken = default);
+        Task<IEnumerable<Flight>> FilterByTimePassedAsync(TimeSpan timePassed, CancellationToken ct = default);
+        Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default);
     }
 }

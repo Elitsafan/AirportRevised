@@ -8,7 +8,7 @@ namespace Airport.Services.Abstractions
     {
         IAsyncEnumerable<RouteDTO> GetAllRoutesAsync(CancellationToken cancellationToken = default);
         Task<RouteDTO?> GetRouteByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
-        Task<ObjectId> SaveRouteAsync(
+        Task<ObjectId> AddRouteAsync(
             RouteForCreationDTO routeForCreationDTO,
             CancellationToken cancellationToken = default);
         Task<bool> DeleteRouteAsync(ObjectId id, CancellationToken cancellationToken = default);

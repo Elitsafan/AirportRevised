@@ -39,21 +39,21 @@ namespace Airport.Domain.Logics
         public FlightType FlightType { get; private set; }
         #endregion
 
-        public async Task RunAsync(CancellationToken cancellationToken = default)
+        public async Task RunAsync(CancellationToken ct = default)
         {
-            _releaser = await _routeLogic.StartRunAsync(cancellationToken);
+            _releaser = await _routeLogic.StartRunAsync(ct);
             try
             {
                 // Gets the next leg till the end of the route
                 while (_nextLeg.Any())
                 {
-                    CurrentStation = await _routeLogic.EnterLegAsync(this, _nextLeg, cancellationToken);
-                    await Task.Delay(CurrentStation.EstimatedWaitingTime, cancellationToken);
+                    CurrentStation = await _routeLogic.EnterLegAsync(this, _nextLeg, ct);
+                    await Task.Delay(CurrentStation.EstimatedWaitingTime, ct);
                     _nextLeg = _routeLogic.GetNextLeg(CurrentStation);
                 }
                 if (CurrentStation is null)
                     throw new InvalidOperationException("Flight did not visit any station.");
-                await CurrentStation!.ClearAsync(cancellationToken);
+                await CurrentStation!.ClearAsync(ct);
             }
             catch (LogicNotFoundException)
             {
@@ -83,9 +83,9 @@ namespace Airport.Domain.Logics
         public async Task ThrowIfCancellationRequestedAsync(CancellationTokenSource? cts) =>
             await _syncEntrance.ThrowIfCancellationRequestedAsync(cts);
 
-        public async Task RaiseFlightRunDoneAsync(CancellationToken cancellationToken = default)
+        public async Task RaiseFlightRunDoneAsync(CancellationToken ct = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
             if (FlightRunDone is not null)
                 await FlightRunDone.InvokeAsync(this, new FlightRunDoneEventArgs(this));
         }

@@ -25,21 +25,21 @@ namespace Airport.Persistence.Repositories
                 .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
         }
 
-        public async Task<Route> GetRouteByIdAsync(ObjectId id, CancellationToken cancellationToken = default) =>
+        public async Task<Route> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default) =>
             await _routesCollection
             .Find(r => r.RouteId == id)
-            .SingleOrDefaultAsync(cancellationToken)
+            .SingleOrDefaultAsync(ct)
             ?? throw new EntityNotFoundException();
 
-        public async Task<IEnumerable<Route>> GetAllAsync(CancellationToken cancellationToken = default) => await _routesCollection
+        public async Task<IEnumerable<Route>> GetAllAsync(CancellationToken ct = default) => await _routesCollection
             .Find(Builders<Route>.Filter.Empty)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(ct);
 
         public async Task<IEnumerable<Station>> GetStationsBetweenAsync(
             Route route,
             ObjectId from,
             ObjectId to,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             // Validations
             if (from == to)
@@ -59,22 +59,77 @@ namespace Airport.Persistence.Repositories
             var directions = route.Directions
                 .Where(d => d.From == from)
                 .ToArray();
-            if (!await GetStationIdsBetweenAsync(route.Directions, directions, to, stationIds, cancellationToken))
+            if (!await GetStationIdsBetweenAsync(route.Directions, directions, to, stationIds, ct))
                 return await Task.FromResult(Enumerable.Empty<Station>());
             var stationsCollection = _client!
                 .GetDatabase(_dbConfiguration.Value.DatabaseName)
                 .GetCollection<Station>(_dbConfiguration.Value.StationsCollectionName);
             return (await stationsCollection
-                .FindAsync(s => stationIds.Contains(s.StationId), cancellationToken: cancellationToken))
-                .ToList(cancellationToken);
+                .FindAsync(s => stationIds.Contains(s.StationId), cancellationToken: ct))
+                .ToList(ct);
         }
+
+        public async Task<Route> AddRouteAsync(Route route, CancellationToken ct = default)
+        {
+            await _routesCollection.InsertOneAsync(route, null, ct);
+            return route;
+        }
+
+        public async Task<Models.Enums.UpdateResult> UpdateRouteAsync(
+            ObjectId id,
+            Route modifiedRoute,
+            CancellationToken ct = default)
+        {
+            var updateResult = await _routesCollection.UpdateOneAsync(
+                r => r.RouteId == id,
+                Builders<Route>.Update
+                    .Set(nameof(Route.RouteName), modifiedRoute.RouteName)
+                    .Set(nameof(Route.Directions), modifiedRoute.Directions),
+                new UpdateOptions { IsUpsert = false },
+                ct);
+            if (updateResult.MatchedCount < 1)
+                return Models.Enums.UpdateResult.Failed;
+            if (updateResult.ModifiedCount < 1)
+                return Models.Enums.UpdateResult.Matched;
+            return Models.Enums.UpdateResult.Matched | Models.Enums.UpdateResult.Modified;
+        }
+
+        public async Task<IEnumerable<Route>> GetRoutesContainStationAsync(
+            ObjectId stationId,
+            CancellationToken ct = default) => await _routesCollection
+            .Find(Builders<Route>.Filter
+                .ElemMatch(
+                    r => r.Directions,
+                    d => d.From == stationId || d.To == stationId))
+            .ToListAsync(ct);
+
+        public async Task<bool> IsExistOnAnyRoutesAsync(
+            ObjectId stationId,
+            int limit = 1,
+            CancellationToken ct = default)
+        {
+            if (limit < 0) 
+                throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be non-negative.");
+            return await _routesCollection
+                .Find(Builders<Route>.Filter
+                    .ElemMatch(
+                        r => r.Directions,
+                        d => d.From == stationId || d.To == stationId))
+                .Limit(limit)
+                .AnyAsync(ct);
+        }
+
+        public async Task<bool> DeleteOneAsync(
+            ObjectId id,
+            CancellationToken ct = default) =>
+            (await _routesCollection.DeleteOneAsync(r => r.RouteId == id, ct)).DeletedCount > 0;
 
         private async Task<bool> GetStationIdsBetweenAsync(
             List<Direction> allDirections,
             Direction[] directions,
             ObjectId to,
             HashSet<ObjectId> ids,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             if (directions.Length == 0)
                 return false;
@@ -89,51 +144,12 @@ namespace Airport.Persistence.Repositories
                 .ToArray();
             bool added = false;
             foreach (var direction in nextDirections)
-                if (await GetStationIdsBetweenAsync(allDirections, nextDirections, direction.To, ids, cancellationToken))
+                if (await GetStationIdsBetweenAsync(allDirections, nextDirections, direction.To, ids, ct))
                 {
                     ids.Add(direction.To);
                     added = true;
                 }
             return added;
         }
-
-        public async Task<Route> SaveRouteAsync(Route route, CancellationToken cancellationToken = default)
-        {
-            await _routesCollection.InsertOneAsync(route, null, cancellationToken);
-            return route;
-        }
-
-        public async Task<bool> DeleteRouteAsync(
-            ObjectId id,
-            CancellationToken cancellationToken = default) =>
-            (await _routesCollection.DeleteOneAsync(r => r.RouteId == id, cancellationToken)).DeletedCount > 0;
-
-        public async Task<Models.Enums.UpdateResult> UpdateRouteAsync(
-            ObjectId id,
-            Route modifiedRoute,
-            CancellationToken cancellationToken = default)
-        {
-            var updateResult = await _routesCollection.UpdateOneAsync(
-                r => r.RouteId == id,
-                Builders<Route>.Update
-                    .Set(nameof(Route.RouteName), modifiedRoute.RouteName)
-                    .Set(nameof(Route.Directions), modifiedRoute.Directions),
-                new UpdateOptions { IsUpsert = false },
-                cancellationToken);
-            if (updateResult.MatchedCount < 1)
-                return Models.Enums.UpdateResult.Failed;
-            if (updateResult.ModifiedCount < 1)
-                return Models.Enums.UpdateResult.Matched;
-            return Models.Enums.UpdateResult.Matched | Models.Enums.UpdateResult.Modified;
-        }
-
-        public async Task<IEnumerable<Route>> GetRoutesContainStationAsync(
-            ObjectId stationId,
-            CancellationToken cancellationToken = default) => await _routesCollection
-            .Find(Builders<Route>.Filter
-                .ElemMatch(
-                    r => r.Directions,
-                    d => d.From == stationId || d.To == stationId))
-            .ToListAsync(cancellationToken);
     }
 }

@@ -4,8 +4,10 @@ namespace Airport.Domain.Tests.Helpers
 {
     public class RouteSectionDetailsTests
     {
+        #region Fields
         private readonly Mock<IRouteSection> _mockRouteSection;
         private readonly Mock<ISectionSynchronizerDetails> _mockSectionSynchronizerDetails;
+        #endregion
 
         public RouteSectionDetailsTests()
         {
@@ -14,77 +16,145 @@ namespace Airport.Domain.Tests.Helpers
         }
 
         [Fact]
-        public void Created_NotNull()
+        public void Created_ReturnsCorrectValues()
         {
-            var source = new IStationLogic[] { new Mock<IStationLogic>().Object };
-            var destination = new IStationLogic[] { new Mock<IStationLogic>().Object };
-            var stations = new IStationLogic[] { new Mock<IStationLogic>().Object };
-
+            // Arrange
+            var destination = new HashSet<IStationLogic> { new Mock<IStationLogic>().Object };
             _mockRouteSection
                 .SetupGet(x => x.Destination)
-                .Returns(destination.ToHashSet());
+                .Returns(destination);
 
+            // Act
             IRouteSectionDetails rsd = new RouteSectionDetails(
                 _mockRouteSection.Object,
                 _mockSectionSynchronizerDetails.Object);
 
-            Assert.NotNull(rsd);
+            // Assert
+            Assert.Equal(_mockRouteSection.Object, rsd.RouteSection);
         }
 
         [Fact]
-        public async Task EnterSectionAsync_StationDoNotBelongToSource_ThrowsArgumentExceptionAsync()
+        public async Task EnterSectionAsync_StationDoNotBelongToSource_ThrowsArgumentException()
         {
-            var source = new IStationLogic[] { new Mock<IStationLogic>().Object };
-            var destination = new IStationLogic[] { new Mock<IStationLogic>().Object };
-            var stations = new IStationLogic[] { new Mock<IStationLogic>().Object };
-
+            // Arrange
+            var source = new HashSet<IStationLogic> { new Mock<IStationLogic>().Object };
+            var destination = new HashSet<IStationLogic> { new Mock<IStationLogic>().Object };
             var mockStationLogic = new Mock<IStationLogic>();
 
             _mockRouteSection
                 .SetupGet(x => x.Destination)
-                .Returns(destination.ToHashSet());
+                .Returns(destination);
             _mockRouteSection
                 .SetupGet(x => x.Source)
-                .Returns(source.ToHashSet());
+                .Returns(source);
 
+            // Act
             IRouteSectionDetails rsd = new RouteSectionDetails(
                 _mockRouteSection.Object,
                 _mockSectionSynchronizerDetails.Object);
 
-            await Assert.ThrowsAsync<ArgumentException>(() => rsd.EnterSectionAsync(
+            // Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => rsd.EnterSectionAsync(
                 mockStationLogic.Object,
-                It.IsAny<ObjectId>(),
+                ObjectId.GenerateNewId(),
                 null,
-                It.IsAny<CancellationToken>()));
+                default));
+            Assert.Equal("station", ex.ParamName);
         }
 
         [Fact]
-        public async Task EnterSectionAsync_WhenCalled_EntersSectionAsync()
+        public async Task EnterSectionAsync_WhenCalled_CallsSynchronizerAndAddsToTrace()
         {
+            // Arrange
             var mockStationLogic = new Mock<IStationLogic>();
-            var source = new IStationLogic[] { mockStationLogic.Object };
-            var destination = new IStationLogic[] { new Mock<IStationLogic>().Object };
-            var stations = new IStationLogic[] { new Mock<IStationLogic>().Object };
+            var flightId = ObjectId.GenerateNewId();
+            var routeId = ObjectId.GenerateNewId();
 
-            _mockRouteSection
-                .SetupGet(x => x.Destination)
-                .Returns(destination.ToHashSet());
             _mockRouteSection
                 .SetupGet(x => x.Source)
-                .Returns(source.ToHashSet());
+                .Returns(new HashSet<IStationLogic>() { mockStationLogic.Object });
+            _mockRouteSection
+                .SetupGet(x => x.Destination)
+                .Returns(new HashSet<IStationLogic>());
+            _mockRouteSection
+                .SetupGet(x => x.RouteId)
+                .Returns(routeId);
 
+            // Act
             IRouteSectionDetails rsd = new RouteSectionDetails(
                 _mockRouteSection.Object,
                 _mockSectionSynchronizerDetails.Object);
-
-            var task = rsd.EnterSectionAsync(
+            await rsd.EnterSectionAsync(
                 mockStationLogic.Object,
-                It.IsAny<ObjectId>(),
-                null,
-                It.IsAny<CancellationToken>());
-            await task;
+                flightId,
+                null);
 
-            Assert.True(task.IsCompletedSuccessfully);
+            // Assert
+            _mockSectionSynchronizerDetails.Verify(
+                s => s.EnterSectionAsync(It.IsAny<CancellationToken>()), Times.Once);
+            _mockSectionSynchronizerDetails.Verify(
+                s => s.GetSourceRightOfWayAsync(routeId, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public void Constructor_SubscribesToDestinationStationEvents()
+        {
+            // Arrange
+            var mockDestStation = new Mock<IStationLogic>();
+            var destination = new HashSet<IStationLogic> { mockDestStation.Object };
+            _mockRouteSection
+                .SetupGet(x => x.Destination)
+                .Returns(destination);
+
+            // Act
+            var rsd = new RouteSectionDetails(
+                _mockRouteSection.Object,
+                _mockSectionSynchronizerDetails.Object);
+
+            // Assert
+            // Check if the += subscription happened (This requires the event to be mockable)
+            mockDestStation.VerifyAdd(
+                s => s.StationClearedAsync += It.IsAny<AsyncEventHandler<IStationClearedEventArgs>>(), Times.Once);
+        }
+
+        [Fact]
+        public async Task EnterSectionAsync_OnCancellation_TriggersRollbackAndCleansTrace()
+        {
+            // Arrange
+            var flightId = ObjectId.GenerateNewId();
+            var routeId = ObjectId.GenerateNewId(); 
+            var mockStationLogic = new Mock<IStationLogic>();
+            _mockRouteSection
+                .SetupGet(x => x.Source)
+                .Returns(new HashSet<IStationLogic>() { Mock.Of<IStationLogic>() });
+            _mockRouteSection
+                .SetupGet(x => x.Destination)
+                .Returns(new HashSet<IStationLogic>());
+            _mockRouteSection
+                .SetupGet(x => x.RouteId)
+                .Returns(routeId);
+
+            // 1. First call MUST succeed to get the releaser
+            _mockSectionSynchronizerDetails
+                .Setup(s => s.EnterSectionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(default(AsyncSemaphore.Releaser)); // Return a dummy releaser
+            // 2. Right of Way FAILS (This is the "Exception Thrown" moment)
+            // We use Task.FromException to ensure the task is in a Faulted state immediately
+            _mockSectionSynchronizerDetails
+                .Setup(s => s.GetSourceRightOfWayAsync(routeId, It.IsAny<CancellationToken>()))
+                .Returns(Task.FromException(new OperationCanceledException()));
+
+            var rsd = new RouteSectionDetails(
+                _mockRouteSection.Object,
+                _mockSectionSynchronizerDetails.Object);
+
+            // Act
+            // We expect the exception to bubble up from the catch block after Rollback
+            var act = () => rsd.EnterSectionAsync(mockStationLogic.Object, flightId, null);
+
+            // Assert
+            await Assert.ThrowsAsync<OperationCanceledException>(act);
+            _mockSectionSynchronizerDetails.Verify(s => s.RollBackSourceEntrance(routeId), Times.Once);
         }
     }
 }

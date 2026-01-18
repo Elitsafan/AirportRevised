@@ -1,6 +1,5 @@
 ﻿namespace Airport.Models.Enums
 {
-    [Flags]
     public enum UpdateResult
     {
         Failed = 0,

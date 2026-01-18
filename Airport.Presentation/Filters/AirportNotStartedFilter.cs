@@ -1,18 +1,19 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Airport.Contracts.Providers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Airport.Services.Abstractions;
 
 namespace Airport.Presentation.Filters
 {
-    internal class AirportNotStartedFilter : IAsyncActionFilter
+    public class AirportNotStartedFilter : IAsyncActionFilter
     {
-        private readonly IAirportService _airportService;
+        private readonly IAirportStateProvider _airportStateProvider;
 
-        public AirportNotStartedFilter(IAirportService airportService) => _airportService = airportService;
+        public AirportNotStartedFilter(IAirportStateProvider airportStateProvider) =>
+            _airportStateProvider = airportStateProvider;
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
-            if (_airportService.HasStarted)
+            if (_airportStateProvider.HasStarted)
                 await next();
             else
                 context.Result = new BadRequestObjectResult("Airport needs to start/restart.");

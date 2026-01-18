@@ -4,12 +4,12 @@ using Airport.Models.Enums;
 
 namespace Airport.Domain.Logics
 {
-    internal class StationLogic : IStationLogic
+    public class StationLogic : IStationLogic
     {
         #region Fields
         private readonly AsyncSemaphore _semaphore;
         private readonly Station _station;
-        private readonly ILogger<IStationLogic> _logger;
+        private readonly ILogger<StationLogic> _logger;
         private IFlightLogic? _flightLogic;
         private AsyncSemaphore.Releaser _releaser;
         public event AsyncEventHandler<IStationClearingEventArgs>? StationClearingAsync;
@@ -17,7 +17,7 @@ namespace Airport.Domain.Logics
         public event AsyncEventHandler<IStationClearedEventArgs>? StationClearedAsync;
         #endregion
 
-        public StationLogic(Station station, ILogger<IStationLogic> logger)
+        public StationLogic(Station station, ILogger<StationLogic> logger)
         {
             _station = station;
             _logger = logger;
@@ -61,7 +61,7 @@ namespace Airport.Domain.Logics
             return this;
         }
 
-        public async Task ClearAsync(CancellationToken cancellationToken = default)
+        public async Task ClearAsync(CancellationToken ct = default)
         {
             if (_flightLogic is null)
                 throw new InvalidOperationException("No flight set.");
@@ -76,7 +76,7 @@ namespace Airport.Domain.Logics
 
         public void Dispose() => _semaphore?.Dispose();
 
-        public override bool Equals(object? obj) => obj is StationLogic stationLogic && 
+        public override bool Equals(object? obj) => obj is StationLogic stationLogic &&
             _station.StationId.Equals(stationLogic._station.StationId);
 
         public override int GetHashCode() => _station.StationId.GetHashCode();
@@ -85,24 +85,37 @@ namespace Airport.Domain.Logics
         {
             if (StationOccupiedAsync is not null)
                 await StationOccupiedAsync.InvokeAsync(
-                    this, 
-                    new StationOccupiedEventArgs(_flightLogic!.FlightId, this));
+                    this,
+                    new StationOccupiedEventArgs
+                    {
+                        StationLogic = this,
+                        FlightId = _flightLogic!.FlightId
+                    });
         }
 
         protected virtual async Task RaiseStationClearingAsync()
         {
             if (StationClearingAsync is not null)
                 await StationClearingAsync.InvokeAsync(
-                    this, 
-                    new StationClearingEventArgs(_flightLogic!.FlightId, this));
+                    this,
+                    new StationClearingEventArgs
+                    {
+                        StationLogic = this,
+                        FlightId = _flightLogic!.FlightId
+                    });
         }
 
         protected virtual async Task RaiseStationClearedAsync(ObjectId routeId, ObjectId flightId)
         {
             if (StationClearedAsync is not null)
                 await StationClearedAsync.InvokeAsync(
-                    this, 
-                    new StationClearedEventArgs(routeId, flightId, this));
+                    this,
+                    new StationClearedEventArgs
+                    {
+                        StationLogic = this,
+                        RouteId = routeId,
+                        FlightId = flightId
+                    });
         }
     }
 }

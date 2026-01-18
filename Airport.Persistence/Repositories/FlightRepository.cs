@@ -28,36 +28,36 @@ namespace Airport.Persistence.Repositories
                 .GetCollection<Flight>(dbConfiguration.Value.FlightsCollectionName);
         }
 
-        public async Task AddFlightAsync(Flight flight, CancellationToken cancellationToken = default) =>
-            await _flightsCollection.InsertOneAsync(flight, cancellationToken: cancellationToken);
+        public async Task AddFlightAsync(Flight flight, CancellationToken ct = default) =>
+            await _flightsCollection.InsertOneAsync(flight, cancellationToken: ct);
 
-        public async Task<IEnumerable<Flight>> GetAllAsync(CancellationToken cancellationToken = default) => await _flightsCollection
+        public async Task<IEnumerable<Flight>> GetAllAsync(CancellationToken ct = default) => await _flightsCollection
             .Find(Builders<Flight>.Filter.Empty)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(ct);
 
-        //public async Task<IEnumerable<T>> OfTypeAsync<T>(CancellationToken cancellationToken = default) where T : Flight => await _flightsCollection
+        //public async Task<IEnumerable<T>> OfTypeAsync<T>(CancellationToken ct = default) where T : Flight => await _flightsCollection
         //    .OfType<T>()
         //    .Find(Builders<T>.Filter.Empty)
-        //    .ToListAsync(cancellationToken);
+        //    .ToListAsync(ct);
 
-        public async Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken cancellationToken = default) =>
+        public async Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default) =>
             await _flightsCollection
                 .Find(FilterDefinition<Flight>.Empty)
                 .SortBy(f => f.OccupationDetails[0].Entrance)
-                .ToListAsync(cancellationToken);
+                .ToListAsync(ct);
 
         public async Task<IEnumerable<Flight>> FilterByTimePassedAsync(
             TimeSpan timePassed,
-            CancellationToken cancellationToken = default) => await _flightsCollection
+            CancellationToken ct = default) => await _flightsCollection
             .Find(new FilterDefinitionBuilder<Flight>()
                 .Gt(f => f.OccupationDetails[0].Entrance, DateTime.Now - timePassed))
             .SortBy(f => f.OccupationDetails[0].Entrance)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(ct);
 
-        public async Task<bool> UpdateFlightAsync(
+        public async Task<Models.Enums.UpdateResult> UpdateFlightAsync(
             Flight flight,
             bool upsert = false,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             UpdateResult updateResult = await _flightsCollection.UpdateOneAsync(
                 f => f.FlightId == flight.FlightId,
@@ -65,17 +65,21 @@ namespace Airport.Persistence.Repositories
                     .Set(nameof(Flight.OccupationDetails), flight.OccupationDetails)
                     .Set(nameof(Flight.RouteId), flight.RouteId),
                 new UpdateOptions { IsUpsert = upsert },
-                cancellationToken);
-            return updateResult.MatchedCount > 0;
+                ct);
+            if (updateResult.ModifiedCount > 0)
+                return Models.Enums.UpdateResult.Modified;
+            if (updateResult.MatchedCount > 0)
+                return Models.Enums.UpdateResult.Matched;
+            return Models.Enums.UpdateResult.Failed;
         }
 
-        public async Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken cancellationToken) => 
+        public async Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken ct) =>
             await _flightsCollection
             .Find(f => f.FlightId == id)
-            .SingleOrDefaultAsync(cancellationToken)
+            .SingleOrDefaultAsync(ct)
             ?? throw new EntityNotFoundException();
 
-        public async Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken cancellationToken = default) =>
-            (await _flightsCollection.DeleteOneAsync(f => f.FlightId == id, cancellationToken)).DeletedCount > 0;
+        public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
+            (await _flightsCollection.DeleteOneAsync(f => f.FlightId == id, ct)).DeletedCount > 0;
     }
 }

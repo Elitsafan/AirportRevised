@@ -2,10 +2,12 @@
 {
     internal class StationLogicCreator : IStationLogicCreator
     {
+        #region Fields
         private readonly Station _station;
-        private readonly ILogger<IStationLogic> _logger;
+        private readonly ILogger<StationLogic> _logger;
+        #endregion
 
-        public StationLogicCreator(Station station, ILogger<IStationLogic> logger)
+        public StationLogicCreator(Station station, ILogger<StationLogic> logger)
         {
             _station = station;
             _logger = logger;

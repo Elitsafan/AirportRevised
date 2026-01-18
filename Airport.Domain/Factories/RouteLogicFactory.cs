@@ -2,24 +2,36 @@
 {
     public class RouteLogicFactory : IRouteLogicFactory
     {
-        private readonly IServiceProvider _serviceProvider;
+        #region Fields
+        private readonly ILogger<RouteLogic> _logger;
+        private readonly IDirectionLogicProvider _directionLogicProvider;
+        private readonly IStationLogicProvider _stationLogicProvider;
+        #endregion
 
-        public RouteLogicFactory(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
+        public RouteLogicFactory(
+            ILogger<RouteLogic> logger,
+            IDirectionLogicProvider directionLogicProvider,
+            IStationLogicProvider stationLogicProvider)
+        {
+            _logger = logger;
+            _directionLogicProvider = directionLogicProvider;
+            _stationLogicProvider = stationLogicProvider;
+        }
 
-        public IRouteLogicCreator GetCreator(Route route, IEnumerable<IRouteSectionDetails>? sections)
+        public IRouteLogicCreator GetCreator(
+            Route route,
+            IEnumerable<IRouteSectionDetails>? sections,
+            CancellationToken ct = default)
         {
             if (route is null)
                 throw new ArgumentNullException(nameof(route));
-            var logger = _serviceProvider.GetRequiredService<ILogger<RouteLogic>>();
-            var directionLogicProvider = _serviceProvider.GetRequiredService<IDirectionLogicProvider>();
-            var stationLogicProvider = _serviceProvider.GetRequiredService<IStationLogicProvider>();
 
             return new RouteLogicCreator(
                 route,
+                _logger,
                 sections,
-                logger,
-                directionLogicProvider,
-                stationLogicProvider);
+                _directionLogicProvider,
+                _stationLogicProvider);
         }
     }
 }

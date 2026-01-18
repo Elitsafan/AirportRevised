@@ -35,7 +35,7 @@ namespace Airport.Contracts.Logics
         /// <summary>
         /// Runs through the route
         /// </summary>
-        Task RunAsync(CancellationToken cancellationToken = default);
+        Task RunAsync(CancellationToken ct = default);
         /// <summary>
         /// Registers when the flight entered a station
         /// </summary>
@@ -54,7 +54,7 @@ namespace Airport.Contracts.Logics
         /// Raises the <see cref="IFlightLogic.FlightRunDone"/> event
         /// </summary>
         /// <returns></returns>
-        Task RaiseFlightRunDoneAsync(CancellationToken cancellationToken = default);
+        Task RaiseFlightRunDoneAsync(CancellationToken ct = default);
         /// <summary>
         /// Eliminates other tasks with the same <see cref="CancellationToken"/> of the <paramref name="cts"/>
         /// </summary>

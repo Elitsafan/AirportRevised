@@ -2,13 +2,7 @@
 {
     internal class StationOccupiedEventArgs : System.EventArgs, IStationOccupiedEventArgs
     {
-        public StationOccupiedEventArgs(ObjectId flightId, IStationLogic stationLogic)
-        {
-            StationLogic = stationLogic;
-            FlightId = flightId;
-        }
-
-        public IStationLogic StationLogic { get; }
-        public ObjectId FlightId { get; }
+        public required IStationLogic StationLogic { get; init; }
+        public ObjectId FlightId { get; init; }
     }
 }

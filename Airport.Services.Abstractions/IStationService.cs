@@ -12,7 +12,7 @@ namespace Airport.Services.Abstractions
             ObjectId id, 
             StationForUpdateDTO stationForUpdate, 
             CancellationToken cancellationToken = default);
-        Task<ObjectId> SaveStationAsync(
+        Task<ObjectId> AddStationAsync(
             StationForCreationDTO stationForCreationDTO, 
             CancellationToken cancellationToken = default);
         Task<bool> DeleteStationAsync(ObjectId id, CancellationToken cancellationToken = default);

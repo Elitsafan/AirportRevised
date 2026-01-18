@@ -3,56 +3,108 @@
     public class FlightLogicFactoryTests
     {
         #region Fields
-        private ServiceProvider _serviceProvider;
-        private ILogger<FlightLogic> _mockFlightLogicLogger; 
-        private Mock<IRouteLogicFactory> _mockRouteLogicFactory;
-        private Mock<IRouteLogicProvider> _mockRouteLogicProvider;
+        private readonly ILogger<FlightLogic> _mockFlightLogicLogger;
+        private readonly Mock<IRouteLogicProvider> _mockRouteLogicProvider;
+        private readonly Mock<IRouteLogic> _mockRouteLogic;
+        private IFlightLogicFactory _flightLogicFactory = null!;
         #endregion
 
         public FlightLogicFactoryTests()
         {
-            _mockRouteLogicFactory = new Mock<IRouteLogicFactory>();
             _mockRouteLogicProvider = new Mock<IRouteLogicProvider>();
+            _mockRouteLogic = new Mock<IRouteLogic>();
             _mockFlightLogicLogger = Mock.Of<ILogger<FlightLogic>>();
-
-            _mockRouteLogicProvider
-                .Setup(x => x.GetDepartureRoutesAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<IRouteLogic>
-                {
-                    Mock.Of<IRouteLogic>(),
-                });
-            _mockRouteLogicProvider
-                .Setup(x => x.GetLandingRoutesAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<IRouteLogic>
-                {
-                    Mock.Of<IRouteLogic>(),
-                });
-
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddSingleton<IRouteLogicFactory>(_mockRouteLogicFactory.Object);
-            serviceCollection.AddSingleton<IRouteLogicProvider>(_mockRouteLogicProvider.Object);
-            serviceCollection.AddSingleton<ILogger<FlightLogic>>(_mockFlightLogicLogger);
-            _serviceProvider = serviceCollection.BuildServiceProvider();
         }
 
         [Fact]
-        public async Task GetCreator_WhenCalled_ReturnsDepartureLogicCreatorAsync()
+        public async Task GetCreatorAsync_WhenCalledWithDeparture_ReturnsDepartureLogicCreatorWithCorrectValues()
         {
-            IFlightLogicFactory flightLogicFactory = new FlightLogicFactory(_serviceProvider);
-            IFlightLogicCreator creator = await flightLogicFactory.GetCreatorAsync(new Departure());
+            // Arrange
+            var departure = new Departure
+            {
+                FlightId = ObjectId.GenerateNewId(),
+                RouteId = ObjectId.GenerateNewId(),
+                OccupationDetails = new List<OccupationDetails>()
+                 {
+                     new OccupationDetails
+                     {
+                         StationId = ObjectId.GenerateNewId(),
+                         Entrance = new DateTime(123),
+                         Exit = new DateTime(456)
+                     }
+                 }
+            };
 
-            Assert.NotNull(creator);
+            _mockRouteLogicProvider
+                .Setup(x => x.GetNextRouteAsync(FlightType.Departure, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(_mockRouteLogic.Object);
+            _mockRouteLogic
+                .SetupGet(x => x.RouteId)
+                .Returns(departure.RouteId.Value);
+            _flightLogicFactory = new FlightLogicFactory(
+                _mockRouteLogicProvider.Object,
+                _mockFlightLogicLogger);
+            // Act
+            var creator = await _flightLogicFactory.GetCreatorAsync(departure);
+
+            // Assert
+            var flightLogic = Assert.IsType<FlightLogic>(await creator.CreateAsync());
             Assert.IsAssignableFrom<DepartureLogicCreator>(creator);
+            Assert.Equal(departure.FlightId, flightLogic.FlightId);
+            Assert.Equal(departure.RouteId, flightLogic.RouteId);
         }
 
         [Fact]
-        public async Task GetCreator_WhenCalled_ReturnsLandingLogicCreatorAsync()
+        public async Task GetCreatorAsync_WhenCalledWithLanding_ReturnsLandingLogicCreatorWithCorrectValues()
         {
-            IFlightLogicFactory flightLogicFactory = new FlightLogicFactory(_serviceProvider);
-            IFlightLogicCreator creator = await flightLogicFactory.GetCreatorAsync(new Landing());
+            // Arrange
+            var landing = new Landing
+            {
+                FlightId = ObjectId.GenerateNewId(),
+                RouteId = ObjectId.GenerateNewId(),
+                OccupationDetails = new List<OccupationDetails>()
+                 {
+                     new OccupationDetails
+                     {
+                         StationId = ObjectId.GenerateNewId(),
+                         Entrance = new DateTime(123),
+                         Exit = new DateTime(456)
+                     }
+                 }
+            };
 
-            Assert.NotNull(creator);
+            _mockRouteLogicProvider
+                .Setup(x => x.GetNextRouteAsync(FlightType.Landing, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(_mockRouteLogic.Object);
+            _mockRouteLogic
+                .SetupGet(x => x.RouteId)
+                .Returns(landing.RouteId.Value);
+            _flightLogicFactory = new FlightLogicFactory(
+                _mockRouteLogicProvider.Object,
+                _mockFlightLogicLogger);
+
+            // Act
+            var creator = await _flightLogicFactory.GetCreatorAsync(landing);
+
+            // Assert
+            var flightLogic = Assert.IsType<FlightLogic>(await creator.CreateAsync());
             Assert.IsAssignableFrom<LandingLogicCreator>(creator);
+            Assert.Equal(landing.FlightId, flightLogic.FlightId);
+            Assert.Equal(landing.RouteId, flightLogic.RouteId);
+        }
+
+        [Fact]
+        public async Task GetCreatorAsync_FlightIsNull_ThrowsArgumentNullException()
+        {
+            // Arrange
+            _flightLogicFactory = new FlightLogicFactory(
+                _mockRouteLogicProvider.Object,
+                _mockFlightLogicLogger);
+
+            // Assert
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(
+                () => _flightLogicFactory.GetCreatorAsync(null!));
+            Assert.Equal("flight", ex.ParamName);
         }
     }
 }

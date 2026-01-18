@@ -6,6 +6,7 @@ using Airport.Domain.Helpers;
 using Airport.Domain.Providers;
 using Airport.Domain.Repositories;
 using Airport.Persistence.Repositories;
+using Airport.Presentation.Filters;
 using Airport.Services;
 using Airport.Services.Abstractions;
 
@@ -20,6 +21,9 @@ namespace Airport.Web
             services.AddScoped<IStationService, StationService>();
             services.AddScoped<IRouteService, RouteService>();
             services.AddScoped<IAirportService, AirportService>();
+            services.AddScoped<AirportNotStartedFilter>();
+            services.AddScoped<ValidateParametersExistsFilter>();
+            services.AddSingleton<IAirportStateProvider, AirportStateProvider>();
             services.AddSingleton<IDomainEvents, DomainEvents>();
             services.AddSingleton<IStationLogicProvider, StationLogicProvider>();
             services.AddSingleton<IAirportHubService, AirportHubService>();

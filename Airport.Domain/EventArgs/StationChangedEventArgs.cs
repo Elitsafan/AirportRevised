@@ -1,8 +1,7 @@
 ﻿namespace Airport.Domain.EventArgs
 {
-    public class StationChangedEventArgs : IStationChangedEventArgs
+    public class StationChangedEventArgs : IStationChangedEventArgs<IStationChangedData>
     {
-        public ObjectId StationId { get; init; }
-        public IFlightInfo? Flight { get; init; }
+        public required IQueryable<IStationChangedData> StationsState { get; init; }
     }
 }

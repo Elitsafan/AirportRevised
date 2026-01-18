@@ -10,20 +10,20 @@ namespace Airport.Contracts.Logics
         /// <summary>
         /// Syncs the start of the route
         /// </summary>
-        /// <param name="cancellationToken"></param>
+        /// <param name="ct"></param>
         /// <returns>The semaphore releaser</returns>
-        Task<AsyncSemaphore.Releaser> StartRunAsync(CancellationToken cancellationToken = default);
+        Task<AsyncSemaphore.Releaser> StartRunAsync(CancellationToken ct = default);
         /// <summary>
         /// Performs parallel entrances to the stations of the leg, and returns the entered station.
         /// </summary>
         /// <param name="flightLogic">The <see cref="IFlightLogic"/> that enters the stations</param>
         /// <param name="nextLeg">The stations to enter</param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="ct"></param>
         /// <returns>The entered station</returns>
         Task<IStationLogic> EnterLegAsync(
             IFlightLogic flightLogic,
             IEnumerable<IStationLogic> nextLeg,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
         /// <summary>
         /// Gets the stations collection whose source station is <paramref name="stationLogic"/>
         /// </summary>

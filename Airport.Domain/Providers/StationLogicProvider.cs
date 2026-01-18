@@ -1,11 +1,8 @@
 ﻿using Airport.Domain.EventArgs;
 using Airport.Domain.Repositories;
-using Airport.Models.Entities;
 using Airport.Models.Enums;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
-using System.Reflection;
-using static System.Collections.Specialized.BitVector32;
 
 namespace Airport.Domain.Providers
 {
@@ -17,7 +14,7 @@ namespace Airport.Domain.Providers
         private readonly IDomainEvents _domainEvents;
         private readonly ILogger<StationLogicProvider> _logger;
         private readonly ConcurrentDictionary<ObjectId, IStationLogic> _stationLogics;
-        private readonly SemaphoreSlim _initializationSemaphore;
+        private readonly AsyncSemaphore _initializationSemaphore;
         private bool _isInitialized;
 
         // Cache configuration
@@ -41,7 +38,7 @@ namespace Airport.Domain.Providers
             _domainEvents = domainEvents;
             _logger = logger;
             _stationLogics = new ConcurrentDictionary<ObjectId, IStationLogic>();
-            _initializationSemaphore = new(1, 1);
+            _initializationSemaphore = new(1);
 
             _domainEvents.StationCreated += OnStationCreatedAsync;
             _domainEvents.StationDeleted += OnStationDeletedAsync;
@@ -50,13 +47,13 @@ namespace Airport.Domain.Providers
             _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
         }
 
-        public event AsyncEventHandler<IStationChangedEventArgs>? AnyStationOccupied;
-        public event AsyncEventHandler<IStationChangedEventArgs>? AnyStationCleared;
+        public event AsyncEventHandler<IStationChangedEventArgs<IStationChangedData>>? AnyStationOccupied;
+        public event AsyncEventHandler<IStationChangedEventArgs<IStationChangedData>>? AnyStationCleared;
 
         public async Task<IEnumerable<IStationLogic>> GetAllAsync(
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(cancellationToken);
+            await EnsureInitializedAsync(ct);
 
             return await _cache.GetOrCreateAsync(
                 ALL_STATIONS_KEY,
@@ -72,9 +69,9 @@ namespace Airport.Domain.Providers
 
         public async Task<IStationLogic> GetStationLogicByIdAsync(
             ObjectId id,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(cancellationToken);
+            await EnsureInitializedAsync(ct);
 
             if (_stationLogics.TryGetValue(id, out var stationLogic))
                 return stationLogic;
@@ -85,9 +82,9 @@ namespace Airport.Domain.Providers
 
         public async Task<IEnumerable<IStationLogic>> FindStationLogicsByRouteIdAsync(
             ObjectId routeId,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(cancellationToken);
+            await EnsureInitializedAsync(ct);
 
             var cacheKey = $"{ROUTE_STATIONS_PREFIX}{routeId}";
 
@@ -103,8 +100,8 @@ namespace Airport.Domain.Providers
                         .ServiceProvider
                         .GetRequiredService<IRepositoryManager>();
 
-                    var route = await repositoryManager.RouteRepository.GetRouteByIdAsync(routeId, cancellationToken);
-                    var stations = await repositoryManager.StationRepository.GetStationsByRouteAsync(route, cancellationToken);
+                    var route = await repositoryManager.RouteRepository.GetRouteByIdAsync(routeId, ct);
+                    var stations = await repositoryManager.StationRepository.GetStationsByRouteAsync(route, ct);
 
                     var result = stations.Join(
                         _stationLogics.Values,
@@ -125,9 +122,9 @@ namespace Airport.Domain.Providers
 
         public async Task<IEnumerable<IStationLogic>> FindTrafficLightsByRouteIdAsync(
             ObjectId routeId,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(cancellationToken);
+            await EnsureInitializedAsync(ct);
 
             var cacheKey = $"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{routeId}";
 
@@ -142,7 +139,7 @@ namespace Airport.Domain.Providers
                     .GetRequiredService<IRepositoryManager>();
 
                 var trafficLights = await repositoryManager.TrafficLightRepository
-                    .GetTrafficLightsByRouteIdAsync(routeId, cancellationToken);
+                    .GetTrafficLightsByRouteIdAsync(routeId, ct);
 
                 var result = _stationLogics.Values.Join(
                     trafficLights,
@@ -158,9 +155,9 @@ namespace Airport.Domain.Providers
         public async Task<IEnumerable<IStationLogic>> FindNextTrafficLightsAsync(
             ObjectId routeId,
             ObjectId trafficLightId,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(cancellationToken);
+            await EnsureInitializedAsync(ct);
 
             var cacheKey = $"{NEXT_TRAFFIC_LIGHTS_PREFIX}{routeId}_{trafficLightId}";
 
@@ -177,7 +174,7 @@ namespace Airport.Domain.Providers
                         .GetRequiredService<IRepositoryManager>();
 
                     var nextTrafficLights = await repositoryManager.TrafficLightRepository
-                        .GetNextTrafficLightsAsync(routeId, trafficLightId, cancellationToken);
+                        .GetNextTrafficLightsAsync(routeId, trafficLightId, ct);
 
                     var result = _stationLogics.Values.Join(
                         nextTrafficLights,
@@ -206,29 +203,22 @@ namespace Airport.Domain.Providers
         /// <summary>
         /// Refreshes all station logics and clears cache (internal method)
         /// </summary>
-        private async Task RefreshAsync(CancellationToken cancellationToken = default)
+        private async Task RefreshAsync(CancellationToken ct = default)
         {
             _logger.LogInformation("Refreshing station logics and clearing cache");
 
-            await _initializationSemaphore.WaitAsync(cancellationToken);
-            try
-            {
-                // Clear cache first
-                InvalidateCache();
+            using var releaser = await _initializationSemaphore.EnterAsync(ct);
+            // Clear cache first
+            InvalidateCache();
 
-                // Clear existing station logics
-                _stationLogics.Clear();
+            // Clear existing station logics
+            _stationLogics.Clear();
 
-                // Re-initialize
-                _isInitialized = false;
-                await InitializeAsync(cancellationToken);
+            // Re-initialize
+            _isInitialized = false;
+            await InitializeAsync(ct);
 
-                _logger.LogInformation("Station logics refreshed successfully");
-            }
-            finally
-            {
-                _initializationSemaphore.Release();
-            }
+            _logger.LogInformation("Station logics refreshed successfully");
         }
 
         /// <summary>
@@ -246,27 +236,20 @@ namespace Airport.Domain.Providers
             // For now, we rely on cache expiration
         }
 
-        private async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
+        private async Task EnsureInitializedAsync(CancellationToken ct = default)
         {
             if (_isInitialized)
                 return;
 
-            await _initializationSemaphore.WaitAsync(cancellationToken);
-            try
-            {
-                if (_isInitialized)
-                    return;
+            using var releaser = await _initializationSemaphore.EnterAsync(ct);
+            if (_isInitialized)
+                return;
 
-                await InitializeAsync(cancellationToken);
-                _isInitialized = true;
-            }
-            finally
-            {
-                _initializationSemaphore.Release();
-            }
+            await InitializeAsync(ct);
+            _isInitialized = true;
         }
 
-        private async Task InitializeAsync(CancellationToken cancellationToken = default)
+        private async Task InitializeAsync(CancellationToken ct = default)
         {
             _logger.LogInformation("Initializing station logics from database");
 
@@ -274,7 +257,7 @@ namespace Airport.Domain.Providers
             var stationLogicFactory = scope.ServiceProvider.GetRequiredService<IStationLogicFactory>();
             var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
 
-            var stations = await repositoryManager.StationRepository.GetAllAsync(cancellationToken);
+            var stations = await repositoryManager.StationRepository.GetAllAsync(ct);
             if (!stations.Any())
             {
                 _logger.LogError("No stations found in database during initialization");
@@ -303,29 +286,34 @@ namespace Airport.Domain.Providers
 
         private async Task OnInternalStationOccupiedAsync(object? sender, IStationOccupiedEventArgs args)
         {
-            IStationChangedEventArgs changedData = PopulateStationChangedEventArgs(args);
+            var q = await PopulateStationChangedQueryAsync();
+            var changedData = new StationChangedEventArgs { StationsState = q };
             await (AnyStationOccupied?.InvokeAsync(sender, changedData) ?? Task.CompletedTask);
         }
 
         private async Task OnInternalStationClearedAsync(object? sender, IStationClearedEventArgs args)
         {
-            IStationChangedEventArgs changedData = PopulateStationChangedEventArgs(args);
+            var q = await PopulateStationChangedQueryAsync();
+            var changedData = new StationChangedEventArgs { StationsState = q };
             await (AnyStationCleared?.InvokeAsync(sender, changedData) ?? Task.CompletedTask);
         }
 
-        private IStationChangedEventArgs PopulateStationChangedEventArgs(
-            IStationFlightChangedEventArgs args) => new StationChangedEventArgs
-            {
-                StationId = args.StationLogic.StationId,
-                Flight = args.StationLogic.CurrentFlightId is null
-                    ? null
-                    : new FlightInfo
-                    {
-                        FlightId = args.StationLogic.CurrentFlightId,
-                        FlightType = args.StationLogic.CurrentFlightType
-                    }
-            };
-
+        private async Task<IQueryable<IStationChangedData>> PopulateStationChangedQueryAsync() =>
+            // Prepare stations query for sending the state of stations
+            (await GetAllAsync())
+                .OrderBy(s => s.StationId)
+                .Select(s => new StationChangedData
+                {
+                    StationId = s.StationId,
+                    Flight = s.CurrentFlightId is null
+                        ? null
+                        : new FlightInfo
+                        {
+                            FlightId = s.CurrentFlightId,
+                            FlightType = s.CurrentFlightType
+                        },
+                })
+                .AsQueryable();
         private async Task OnDataRefreshedAsync() => await RefreshAsync();
 
         private async Task OnSystemResetRequestedAsync() => await RefreshAsync();

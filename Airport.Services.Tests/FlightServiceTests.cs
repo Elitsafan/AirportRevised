@@ -143,7 +143,7 @@ namespace Airport.Services.Tests
                 .Returns(mockFlightRepository.Object);
             mockFlightRepository
                 .Setup(x => x.UpdateFlightAsync(It.IsAny<Flight>(), true, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(true);
+                .ReturnsAsync(UpdateResult.Modified);
 
             _flightService = new FlightService(
                 _mockFlightLogicFactory.Object,
@@ -166,7 +166,7 @@ namespace Airport.Services.Tests
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
             mockFlightRepository
-                .Setup(x => x.DeleteFlightAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
 
             _flightService = new FlightService(
@@ -190,7 +190,7 @@ namespace Airport.Services.Tests
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
             mockFlightRepository
-                .Setup(x => x.DeleteFlightAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(false);
 
             _flightService = new FlightService(

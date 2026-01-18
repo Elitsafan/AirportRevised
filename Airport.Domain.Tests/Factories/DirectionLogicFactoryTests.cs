@@ -2,28 +2,29 @@
 {
     public class DirectionLogicFactoryTests
     {
-        #region Fields
-        private Mock<IRepositoryManager> _mockRepositoryManager;
-        private Mock<IRouteRepository> _mockRouteRepository; 
-        #endregion
+        private readonly IDirectionLogicFactory _directionLogicFactory;
 
-        public DirectionLogicFactoryTests()
+        public DirectionLogicFactoryTests() => _directionLogicFactory = new DirectionLogicFactory();
+
+        [Fact]
+        public void GetCreator_WhenCalled_ReturnsDirectionLogicCreator()
         {
-            _mockRepositoryManager = new Mock<IRepositoryManager>();
-            _mockRouteRepository = new Mock<IRouteRepository>();
+            // Arrange
+            var direction = new Direction();
 
-            _mockRepositoryManager
-                .SetupGet(x => x.RouteRepository)
-                .Returns(_mockRouteRepository.Object);
+            // Act
+            var result = _directionLogicFactory.GetCreator(direction);
+
+            // Assert
+            Assert.IsType<DirectionLogicCreator>(result);
         }
 
         [Fact]
-        public void GetCreator_WhenCalled_ReturnsNotNull()
+        public void GetCreator_DirectionIsNull_ThrowsArgumentNullException()
         {
-            IDirectionLogicFactory stationLogicFactory = new DirectionLogicFactory();
-            var creator = stationLogicFactory.GetCreator(new Direction());
+            var ex = Assert.Throws<ArgumentNullException>(() => _directionLogicFactory.GetCreator(null!));
 
-            Assert.NotNull(creator);
+            Assert.Equal("direction", ex.ParamName);
         }
     }
 }

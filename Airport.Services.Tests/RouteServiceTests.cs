@@ -221,7 +221,7 @@ namespace Airport.Services.Tests
                 .SetupGet(x => x.RouteRepository)
                 .Returns(mockRouteRepository.Object);
             mockRouteRepository
-                .Setup(x => x.DeleteRouteAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
 
             _routeService = new RouteService(
@@ -243,7 +243,7 @@ namespace Airport.Services.Tests
                 .SetupGet(x => x.RouteRepository)
                 .Returns(mockRouteRepository.Object);
             mockRouteRepository
-                .Setup(x => x.DeleteRouteAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(false);
 
             _routeService = new RouteService(

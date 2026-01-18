@@ -43,6 +43,6 @@ namespace Airport.Contracts.Logics
         /// Clears the station from the flight
         /// </summary>
         /// <returns></returns>
-        Task ClearAsync(CancellationToken cancellationToken = default);
+        Task ClearAsync(CancellationToken ct = default);
     }
 }

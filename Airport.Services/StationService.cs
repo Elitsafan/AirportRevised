@@ -1,5 +1,4 @@
-﻿using Airport.Contracts.EventArgs;
-using Airport.Contracts.Helpers;
+﻿using Airport.Contracts.Helpers;
 using Airport.Domain.EventArgs;
 using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
@@ -63,7 +62,7 @@ namespace Airport.Services
             }
         }
 
-        public async Task<ObjectId> SaveStationAsync(
+        public async Task<ObjectId> AddStationAsync(
             StationForCreationDTO stationForCreationDTO,
             CancellationToken cancellationToken = default)
         {
@@ -72,8 +71,9 @@ namespace Airport.Services
 
             var stationDto = _mapper.Map<StationDTO>(stationForCreationDTO);
             var stationSaved = await _repositoryManager.StationRepository
-                .SaveStationAsync(_mapper.Map<Station>(stationDto), cancellationToken);
-            await _domainEvents.RaiseStationCreatedAsync(new StationCreatedEventArgs(stationDto.StationId));
+                .AddStationAsync(_mapper.Map<Station>(stationDto), cancellationToken);
+            await _domainEvents.RaiseStationCreatedAsync(
+                new StationCreatedEventArgs { StationId = stationDto.StationId });
             return stationSaved.StationId;
         }
 
@@ -83,9 +83,10 @@ namespace Airport.Services
             CancellationToken cancellationToken = default)
         {
             var modifiedStation = _mapper.Map<Station>(stationForUpdate);
-            var updateResult =  await _repositoryManager.StationRepository
+            var updateResult = await _repositoryManager.StationRepository
                 .UpdateStationAsync(id, modifiedStation, cancellationToken);
-            await _domainEvents.RaiseStationUpdatedAsync(new StationUpdatedEventArgs(id));
+            await _domainEvents.RaiseStationUpdatedAsync(
+                new StationUpdatedEventArgs { StationId = id });
             return updateResult;
         }
 
@@ -100,11 +101,12 @@ namespace Airport.Services
                 throw new InvalidOperationException(
                     $"Station can't be removed for it exists on routes: {string.Join(", ", routesContainId)}");
             var result = await _repositoryManager.StationRepository
-                .DeleteStationAsync(stationId, cancellationToken);
+                .DeleteOneAsync(stationId, cancellationToken);
             if (!result)
                 _logger.LogInformation($"Route with id: {stationId} not found");
             else
-                await _domainEvents.RaiseStationDeletedAsync(new StationDeletedEventArgs(stationId));
+                await _domainEvents.RaiseStationDeletedAsync(
+                    new StationDeletedEventArgs { StationId = stationId });
             return result;
         }
     }

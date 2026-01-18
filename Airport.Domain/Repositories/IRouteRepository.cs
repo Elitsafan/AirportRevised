@@ -4,18 +4,21 @@ namespace Airport.Domain.Repositories
 {
     public interface IRouteRepository : IRepository<Route>
     {
-        Task<Route> GetRouteByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
+        Task<Route> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default);
         Task<IEnumerable<Station>> GetStationsBetweenAsync(
             Route route,
             ObjectId start,
             ObjectId end,
-            CancellationToken cancellationToken = default);
-        Task<Route> SaveRouteAsync(Route route, CancellationToken cancellationToken = default);
-        Task<bool> DeleteRouteAsync(ObjectId id, CancellationToken cancellationToken);
+            CancellationToken ct = default);
+        Task<Route> AddRouteAsync(Route route, CancellationToken ct = default);
         Task<UpdateResult> UpdateRouteAsync(
             ObjectId id, 
             Route modifiedRoute, 
-            CancellationToken cancellationToken = default);
-        Task<IEnumerable<Route>> GetRoutesContainStationAsync(ObjectId stationId, CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
+        Task<IEnumerable<Route>> GetRoutesContainStationAsync(ObjectId stationId, CancellationToken ct = default);
+        Task<bool> IsExistOnAnyRoutesAsync(
+            ObjectId stationId,
+            int limit = 1,
+            CancellationToken ct = default);
     }
 }
