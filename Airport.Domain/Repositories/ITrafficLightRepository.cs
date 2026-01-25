@@ -2,7 +2,6 @@
 {
     public interface ITrafficLightRepository : IRepository<TrafficLight>
     {
-        Task<TrafficLight> AddTrafficLightAsync(TrafficLight trafficLight, CancellationToken ct = default);
         Task<IEnumerable<TrafficLight>> GetTrafficLightsByRouteIdAsync(
             ObjectId routeId,
             CancellationToken ct = default);

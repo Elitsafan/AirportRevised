@@ -46,9 +46,6 @@ namespace OnionArchitecture.Simulator.Tests
         }
 
         [Fact]
-        public void Created_NotNull() => Assert.NotNull(_service);
-
-        [Fact]
         public async Task StartAsync_WhenCalled_StartsLauncherAsync()
         {
             var mockedProtected = _mockHttpMessageHandler.Protected();

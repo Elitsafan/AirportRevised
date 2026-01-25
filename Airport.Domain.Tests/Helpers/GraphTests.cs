@@ -27,6 +27,21 @@ namespace Airport.Domain.Tests.Helpers
         }
 
         [Fact]
+        public void IsCircular_WhenSelfLoopExists_ReturnsTrue()
+        {
+            // Arrange
+            var vs = new List<ObjectId>
+            {
+                ObjectId.GenerateNewId(),
+            };
+            var graph = new Graph<ObjectId>(vs);
+            graph.AddEdge(vs[0], vs[0]); // Create cycle
+
+            // Act & Assert
+            Assert.True(graph.IsCircular());
+        }
+
+        [Fact]
         public void IsCircular_WhenCycleExists_ReturnsTrue()
         {
             // Arrange

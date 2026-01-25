@@ -8,7 +8,10 @@
         private readonly ILogger<FlightLogic> _logger;
         #endregion
 
-        public DepartureLogicCreator(Departure departure, IRouteLogic routeLogic, ILogger<FlightLogic> logger)
+        public DepartureLogicCreator(
+            Departure departure, 
+            IRouteLogic routeLogic, 
+            ILogger<FlightLogic> logger)
         {
             _departure = departure;
             _logger = logger;

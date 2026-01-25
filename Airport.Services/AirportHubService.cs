@@ -14,28 +14,38 @@ namespace Airport.Services
     public class AirportHubService : IAirportHubService
     {
         #region Fields
-        private readonly IHubContext<AirportHub> _hub = null!;
-        private readonly IStationLogicProvider _stationLogicProvider = null!;
-        private readonly ILogger<AirportHubService> _logger = null!;
-        private readonly JsonSerializerSettings _jsonSerializerSettings = null!;
+        private readonly IStationLogicProvider _stationLogicProvider;
+        private readonly IHubContext<AirportHub> _hub;
+        private readonly ILogger<AirportHubService> _logger;
+        private readonly JsonSerializerSettings _jsonSerializerSettings;
         #endregion
 
         public AirportHubService(
+            IDomainEvents domainEvents,
             IStationLogicProvider stationLogicProvider,
             ILogger<AirportHubService> logger,
             IHubContext<AirportHub> hub)
         {
             _hub = hub;
-            _stationLogicProvider = stationLogicProvider;
             _logger = logger;
+            _stationLogicProvider = stationLogicProvider;
             _jsonSerializerSettings = new()
             {
                 Formatting = Formatting.Indented,
                 ContractResolver = new DefaultContractResolver { NamingStrategy = new CamelCaseNamingStrategy() },
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
             };
+
+            //domainEvents.DataRefreshed += OnDataRefreshedAsync;
+            stationLogicProvider.AnyStationOccupied += OnStationOccupiedAsync;
+            stationLogicProvider.AnyStationCleared += OnStationClearedAsync;
+        }
+
+        private Task OnDataRefreshedAsync()
+        {
             _stationLogicProvider.AnyStationOccupied += OnStationOccupiedAsync;
             _stationLogicProvider.AnyStationCleared += OnStationClearedAsync;
+            return Task.CompletedTask;
         }
 
         public void RegisterFlightRunDone(IFlightLogic flightLogic) =>
@@ -80,20 +90,13 @@ namespace Airport.Services
 
         private async Task OnStationChangedAsync(string name, IQueryable<IStationChangedData> data)
         {
-            try
-            {
-                await _hub.Clients.All.SendCoreAsync(
-                    name,
-                    new object[]
-                    {
-                        JsonConvert.SerializeObject(data, _jsonSerializerSettings)
-                    });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error while sending message to clients");
-                throw;
-            }
+            var snapshot = data.ToList();
+            await _hub.Clients.All.SendCoreAsync(
+                name,
+                new[]
+                {
+                    JsonConvert.SerializeObject(snapshot, _jsonSerializerSettings)
+                });
         }
     }
 }

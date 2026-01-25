@@ -1,14 +1,12 @@
 ﻿using Airport.Contracts.Providers;
-using Airport.Domain.Providers;
 using Airport.Domain.Repositories;
 using Airport.Models;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Services.Abstractions;
+using Airport.Services.Extensions;
 using AutoMapper;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.Threading;
 using MongoDB.Driver;
 
 namespace Airport.Services
@@ -31,14 +29,17 @@ namespace Airport.Services
             ILogger<AirportService> logger)
         {
             _airportStateProvider = airportStateProvider;
-            _stationLogicProvider = stationLogicProvider ?? throw new ArgumentNullException(nameof(stationLogicProvider));
-            _repositoryManager = repositoryManager ?? throw new ArgumentNullException(nameof(repositoryManager));
-            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _stationLogicProvider = stationLogicProvider;
+            _repositoryManager = repositoryManager;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<string> StartAsync(CancellationToken ct = default)
         {
+            if (_airportStateProvider.HasStarted)
+                return "Already started";
+
             using var releaser = await _airportStateProvider.StartLock.EnterAsync(ct);
 
             if (_airportStateProvider.HasStarted)
@@ -52,6 +53,8 @@ namespace Airport.Services
 
         public async Task<IAirportStatus> GetStatusAsync(CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             List<StationDTO> stations = (await _stationLogicProvider.GetAllAsync(ct))
                 .Select(_mapper.Map<StationDTO>)
                 .ToList();
@@ -70,13 +73,17 @@ namespace Airport.Services
             GetSummaryParameters parameters,
             CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
+            if (parameters is null)
+                throw new ArgumentNullException(nameof(parameters));
             var summary = await GetPagedSummaryAsync(parameters, ct);
-            var (landings, departures) = await GetFlightsCountAsync(summary.ItemsProcessed, ct);
+            var (landingsCount, departuresCount) = await GetFlightsCountAsync(summary.ItemsProcessed, ct);
             return new SummaryWithMetadata
             {
                 Summary = summary,
-                LandingsCount = landings,
-                DeparturesCount = departures
+                LandingsCount = landingsCount,
+                DeparturesCount = departuresCount
             };
         }
 
@@ -94,7 +101,7 @@ namespace Airport.Services
                 })
                 .ToPagedList(parameters.PageNumber, parameters.PageSize);
 
-        private async Task<(int LandingsCount, int DeparturesCount)> GetFlightsCountAsync(
+        private async Task<(int landingsCount, int departuresCount)> GetFlightsCountAsync(
             int count,
             CancellationToken ct = default)
         {

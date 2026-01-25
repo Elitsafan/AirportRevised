@@ -1,5 +1,4 @@
 ﻿using Airport.Models.DTOs;
-using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
@@ -9,7 +8,6 @@ namespace Airport.Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [ServiceFilter(typeof(AirportNotStartedFilter))]
     public class FlightsController : ControllerBase
     {
         private readonly IFlightService _flightSvc;
@@ -36,28 +34,26 @@ namespace Airport.Presentation.Controllers
                 : Ok(flightDto);
         }
 
-        // POST: api/Flights/Landing/...
+        // POST: api/Flights/AddLanding/...
         [HttpPost("[action]/{id}")]
-        [ServiceFilter(typeof(ValidateParametersExistsFilter))]
-        public async Task<IActionResult> LandingAsync(
+        public async Task<IActionResult> AddLandingAsync(
             ObjectId id,
             [FromBody] LandingForCreationDTO flightForCreation,
             CancellationToken ct = default)
         {
-            await _flightSvc.ProcessFlightAsync(id, flightForCreation, ct);
-            return CreatedAtRoute("FlightById", new { id }, flightForCreation);
+            var flightDto = await _flightSvc.AddFlightAsync(id, flightForCreation, ct);
+            return CreatedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
         }
 
-        // POST: api/Flights/Departure/...
+        // POST: api/Flights/AddDeparture/...
         [HttpPost("[action]/{id}")]
-        [ServiceFilter(typeof(ValidateParametersExistsFilter))]
-        public async Task<IActionResult> DepartureAsync(
+        public async Task<IActionResult> AddDepartureAsync(
             ObjectId id,
             [FromBody] DepartureForCreationDTO flightForCreation,
             CancellationToken ct = default)
         {
-            await _flightSvc.ProcessFlightAsync(id, flightForCreation, ct);
-            return CreatedAtRoute("FlightById", new { id }, flightForCreation);
+            var flightDto = await _flightSvc.AddFlightAsync(id, flightForCreation, ct);
+            return CreatedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
         }
 
         // DELETE: api/Flights/{id}

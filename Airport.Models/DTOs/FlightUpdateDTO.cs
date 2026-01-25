@@ -1,20 +1,11 @@
-﻿using MongoDB.Bson;
-using Airport.Models.Entities;
+﻿using Airport.Models.Entities;
+using MongoDB.Bson;
 
 namespace Airport.Models.DTOs
 {
     public class FlightUpdateDTO
     {
-        private List<OccupationDetails>? _stationOccupationDetails;
-        public List<OccupationDetails> StationOccupationDetails
-        {
-            get
-            {
-                _stationOccupationDetails ??= new List<OccupationDetails>();
-                return _stationOccupationDetails;
-            }
-            set => _stationOccupationDetails = value;
-        }
+        public List<OccupationDetails> StationOccupationDetails { get; set; } = new();
         public ObjectId? RouteId { get; set; }
     }
 }

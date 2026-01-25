@@ -3,7 +3,7 @@
 namespace Airport.Domain.Helpers
 {
     public sealed class Graph<T> : IEnumerable<T>
-        where T : notnull
+        where T : notnull, IComparable<T>, IEquatable<T>
     {
         #region Fields
         private readonly Dictionary<T, int> _idToIndex;
@@ -42,9 +42,9 @@ namespace Airport.Domain.Helpers
         public void AddEdge(T from, T to)
         {
             if (!_idToIndex.TryGetValue(from, out int fromIndex))
-                throw new ArgumentException($"Id {from} not found in route", nameof(from));
+                throw new ArgumentException($"Id {from} not found.", nameof(from));
             if (!_idToIndex.TryGetValue(to, out int toIndex))
-                throw new ArgumentException($"Id {to} not found in route", nameof(to));
+                throw new ArgumentException($"Id {to} not found.", nameof(to));
 
             _adj[fromIndex].Add(toIndex);
         }

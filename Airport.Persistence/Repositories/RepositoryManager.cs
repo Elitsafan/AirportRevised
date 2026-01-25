@@ -23,7 +23,7 @@ namespace Airport.Persistence.Repositories
 
             _lazyStationRepository = new Lazy<IStationRepository>(() => new StationRepository(client, dbConfiguration));
             _lazyRouteRepository = new Lazy<IRouteRepository>(() => new RouteRepository(client, dbConfiguration));
-            _lazyFlightRepository = new Lazy<IFlightRepository>(() => new FlightRepository(flightRepositoryLogger, client, dbConfiguration));
+            _lazyFlightRepository = new Lazy<IFlightRepository>(() => new FlightRepository(client, dbConfiguration));
             _lazyTrafficLightRepository = new Lazy<ITrafficLightRepository>(() => new TrafficLightRepository(client, dbConfiguration));
         }
 

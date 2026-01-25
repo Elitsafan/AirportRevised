@@ -2,18 +2,19 @@ namespace OnionArchitecture.Simulator.Tests
 {
     public class FlightGeneratorTests
     {
-
-
-        [Fact]
-        public void Created_NotNull() => Assert.NotNull(new FlightGenerator());
-
         [Fact]
         public void GenerateFlight_WhenCalled_ReturnsValue()
         {
+            // Arrange
             IFlightGenerator generator = new FlightGenerator();
+
+            // Act
             var departureForCreationDto = generator.GenerateFlight(FlightType.Departure);
             var landingForCreationDto = generator.GenerateFlight(FlightType.Landing);
 
+            // Assert
+            Assert.IsAssignableFrom<FlightForCreationDTO>(departureForCreationDto);
+            Assert.IsAssignableFrom<FlightForCreationDTO>(landingForCreationDto);
             Assert.NotNull(departureForCreationDto);
             Assert.NotNull(landingForCreationDto);
         }
@@ -24,10 +25,19 @@ namespace OnionArchitecture.Simulator.Tests
         [InlineData(5)]
         public void GenerateFlights_WhenCalled_ReturnsCollection(int n)
         {
+            // Arrange
             IFlightGenerator generator = new FlightGenerator();
-            var flightsForCreation = generator.GenerateFlights(n);
 
-            Assert.True(flightsForCreation.Count() == n);
+            // Act
+            var flights = generator.GenerateFlights(n);
+
+            // Assert
+            Assert.True(flights.Count() == n);
+            foreach (var flight in flights)
+            {
+                Assert.NotNull(flight);
+                Assert.IsAssignableFrom<FlightForCreationDTO>(flight);
+            }
         }
     }
 }

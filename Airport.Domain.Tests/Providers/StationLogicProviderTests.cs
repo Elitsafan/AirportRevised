@@ -1,172 +1,270 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Generic;
+﻿using Airport.Models.Entities;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Airport.Domain.Tests.Providers
 {
     public class StationLogicProviderTests
     {
         #region Fields
-        private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<StationLogicProvider> _loggerStationLogicProvider;
-        private readonly IMemoryCache _cache;
-        private readonly Mock<IDomainEvents> _mockDomainEvents;
-        private readonly Mock<IStationLogicFactory> _mockStationLogicFactory;
+        private StationLogicProvider? _sut;
+        private readonly Mock<IServiceProvider> _mockServiceProvider;
+        private readonly Mock<IServiceScopeFactory> _mockScopeFactory;
+        private readonly Mock<IServiceScope> _mockScope;
         private readonly Mock<IRepositoryManager> _mockRepositoryManager;
-        private readonly Mock<IStationRepository> _mockStationRepository;
         private readonly Mock<IRouteRepository> _mockRouteRepository;
+        private readonly Mock<IStationRepository> _mockStationRepository;
+        private readonly Mock<ITrafficLightRepository> _mockTrafficLightRepository;
+        private readonly MemoryCache _cache;
+        private readonly ILogger<StationLogicProvider> _mockLogger;
+        private readonly Mock<IStationLogicFactory> _mockStationLogicFactory;
         private readonly Mock<IStationLogicCreator> _mockStationLogicCreator;
         private readonly Mock<IStationLogic> _mockStationLogic;
-        private IStationLogicProvider _stationLogicProvider = null!;
-        private Station _station;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
         #endregion
 
         public StationLogicProviderTests()
         {
-            _mockDomainEvents = new Mock<IDomainEvents>();
-            _loggerStationLogicProvider = Mock.Of<ILogger<StationLogicProvider>>();
-            _mockStationLogicFactory = new Mock<IStationLogicFactory>();
+            _mockServiceProvider = new Mock<IServiceProvider>();
+            _mockScopeFactory = new Mock<IServiceScopeFactory>();
+            _mockScope = new Mock<IServiceScope>();
             _mockRepositoryManager = new Mock<IRepositoryManager>();
-            _mockStationRepository = new Mock<IStationRepository>();
             _mockRouteRepository = new Mock<IRouteRepository>();
+            _mockStationRepository = new Mock<IStationRepository>();
+            _mockTrafficLightRepository = new Mock<ITrafficLightRepository>();
+            _cache = new MemoryCache(new MemoryCacheOptions());
+            _mockLogger = Mock.Of<ILogger<StationLogicProvider>>();
+            _mockStationLogicFactory = new Mock<IStationLogicFactory>();
             _mockStationLogicCreator = new Mock<IStationLogicCreator>();
             _mockStationLogic = new Mock<IStationLogic>();
-            _station = new Station
-            {
-                StationId = ObjectId.GenerateNewId(),
-            };
+            _mockDomainEvents = new Mock<IDomainEvents>();
 
+            _mockServiceProvider
+                .Setup(x => x.GetService(typeof(IServiceScopeFactory)))
+                .Returns(_mockScopeFactory.Object);
+            _mockScopeFactory
+                .Setup(x => x.CreateScope())
+                .Returns(_mockScope.Object);
+            _mockScope
+                .Setup(x => x.ServiceProvider)
+                .Returns(_mockServiceProvider.Object);
+            _mockServiceProvider
+                .Setup(x => x.GetService(typeof(IRepositoryManager)))
+                .Returns(_mockRepositoryManager.Object);
+            _mockRepositoryManager
+                .SetupGet(x => x.RouteRepository)
+                .Returns(_mockRouteRepository.Object);
             _mockRepositoryManager
                 .SetupGet(x => x.StationRepository)
                 .Returns(_mockStationRepository.Object);
             _mockRepositoryManager
-                .SetupGet(x => x.RouteRepository)
-                .Returns(_mockRouteRepository.Object);
+                .SetupGet(x => x.TrafficLightRepository)
+                .Returns(_mockTrafficLightRepository.Object);
             _mockStationLogicFactory
-                .Setup(x => x.GetCreator(_station))
+                .Setup(x => x.GetCreator(It.IsAny<Station>()))
                 .Returns(_mockStationLogicCreator.Object);
             _mockStationLogicCreator
                 .Setup(x => x.Create())
                 .Returns(_mockStationLogic.Object);
-            _mockStationLogic
-                .SetupGet(x => x.StationId)
-                .Returns(_station.StationId);
-
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddScoped<IRepositoryManager>(factory => _mockRepositoryManager.Object);
-            serviceCollection.AddSingleton<IStationLogicFactory>(_mockStationLogicFactory.Object);
-            serviceCollection.AddMemoryCache(options =>
-             {
-                 options.SizeLimit = 1024;
-             });
-            _serviceProvider = serviceCollection.BuildServiceProvider();
-            using var scope = _serviceProvider.CreateScope();
-            _cache = scope
-                .ServiceProvider
-                .GetRequiredService<IMemoryCache>();
         }
 
         [Fact]
-        public async Task GetAllAsync_ReturnsNotNullAsync()
+        public async Task GetAllAsync_WhenCalled_ReturnsCorrectValues()
         {
+            // Arrange
+            var station = new Station
+            {
+                StationId = ObjectId.GenerateNewId(),
+                EstimatedWaitingTime = TimeSpan.FromSeconds(123)
+            };
             _mockStationRepository
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync([_station]);
-            _stationLogicProvider = new StationLogicProvider(
-                _serviceProvider, 
+                .ReturnsAsync(new List<Station> { station });
+            _mockStationLogic
+                .SetupGet(x => x.StationId)
+                .Returns(station.StationId);
+            _mockStationLogic
+                .SetupGet(x => x.EstimatedWaitingTime)
+                .Returns(station.EstimatedWaitingTime);
+            _sut = new StationLogicProvider(
+                _mockServiceProvider.Object,
+                _mockStationLogicFactory.Object,
                 _cache,
                 _mockDomainEvents.Object,
-                _loggerStationLogicProvider);
-            var result = await _stationLogicProvider.GetAllAsync();
+                _mockLogger);
 
-            Assert.NotNull(result);
+            // Act
+            var result = await _sut.GetAllAsync();
+
+            // Assert
             Assert.Single(result);
+            Assert.Equal(station.StationId, result.First().StationId);
+            Assert.Equal(station.EstimatedWaitingTime, result.First().EstimatedWaitingTime);
         }
 
         [Fact]
-        public void Created_WithNoStations_ThrowsInvalidOperationException() => 
-            Assert.Throws<InvalidOperationException>(
-                () => new StationLogicProvider(
-                    _serviceProvider,
-                    _cache,
-                    _mockDomainEvents.Object,
-                    _loggerStationLogicProvider));
-
-        [Fact]
-        public async Task GetStationLogicByIdAsync_StationLogicNotFound_ThrowsLogicNotFoundExceptionAsync()
+        public async Task GetStationLogicByIdAsync_StationNotExists_ThrowsLogicNotFoundException()
         {
+            // Arrange
+            var id = ObjectId.GenerateNewId();
+            var station = new Station
+            {
+                StationId = ObjectId.GenerateNewId(),
+                EstimatedWaitingTime = TimeSpan.FromSeconds(123)
+            };
             _mockStationRepository
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync([_station]);
+                .ReturnsAsync(new List<Station> { station });
 
-            _stationLogicProvider = new StationLogicProvider(
-                _serviceProvider,
+            _sut = new StationLogicProvider(
+                _mockServiceProvider.Object,
+                _mockStationLogicFactory.Object,
                 _cache,
                 _mockDomainEvents.Object,
-                _loggerStationLogicProvider);
-            await Assert.ThrowsAsync<LogicNotFoundException>(
-                () => _stationLogicProvider.GetStationLogicByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()));
+                _mockLogger);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<LogicNotFoundException>(
+                () => _sut.GetStationLogicByIdAsync(id));
+            Assert.Equal($"Station logic not found for Id: {id}", ex.Message);
         }
 
         [Fact]
-        public async Task GetStationLogicByIdAsync_ReturnsValidValueAsync()
+        public async Task GetStationLogicByIdAsync_NoStationExists_ThrowsInvalidOperationException()
         {
+            // Arrange
+            var id = ObjectId.GenerateNewId();
+
+            _sut = new StationLogicProvider(
+                _mockServiceProvider.Object,
+                _mockStationLogicFactory.Object,
+                _cache,
+                _mockDomainEvents.Object,
+                _mockLogger);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _sut.GetStationLogicByIdAsync(id));
+            Assert.Equal("There are no stations.", ex.Message);
+        }
+
+        [Fact]
+        public async Task GetStationLogicByIdAsync_WhenCalled_ReturnsCorrectValues()
+        {
+            // Arrange
+            var station = new Station
+            {
+                StationId = ObjectId.GenerateNewId(),
+                EstimatedWaitingTime = TimeSpan.FromSeconds(123)
+            };
             _mockStationRepository
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync([_station]);
+                .ReturnsAsync(new List<Station> { station });
             _mockStationLogic
                 .SetupGet(x => x.StationId)
-                .Returns(_station.StationId);
+                .Returns(station.StationId);
 
-            _stationLogicProvider = new StationLogicProvider(
-                _serviceProvider,
+            _sut = new StationLogicProvider(
+                _mockServiceProvider.Object,
+                _mockStationLogicFactory.Object,
                 _cache,
                 _mockDomainEvents.Object,
-                _loggerStationLogicProvider);
-            var actual = await _stationLogicProvider.GetStationLogicByIdAsync(_station.StationId);
+                _mockLogger);
 
+            // Act
+            var actual = await _sut.GetStationLogicByIdAsync(station.StationId);
+
+            // Assert
             Assert.Equal(_mockStationLogic.Object.StationId, actual.StationId);
+            Assert.Equal(_mockStationLogic.Object.EstimatedWaitingTime, actual.EstimatedWaitingTime);
         }
 
         [Fact]
-        public async Task FindByRouteIdAsync_WhenCalled_ReturnsValueAsync()
+        public async Task FindByRouteIdAsync_WhenCalled_ReturnsCorrectValues()
         {
-            _mockStationRepository
-                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync([_station]);
-            _mockStationRepository
-                .Setup(x => x.GetStationsByRouteAsync(It.IsAny<Route>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync([_station]);
-            _stationLogicProvider = new StationLogicProvider(
-                _serviceProvider,
-                _cache,
-                _mockDomainEvents.Object,
-                _loggerStationLogicProvider);
-            var result = await _stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>());
-
-            Assert.NotEmpty(result);
-        }
-
-        [Fact]
-        public async Task FindByRouteIdAsync_RouteNotFound_ThrowsArgumentExceptionAsync()
-        {
-            _mockStationRepository
-                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync([_station]);
-            _mockStationRepository
-                .Setup(x => x.GetStationsByRouteAsync(It.IsAny<Route>(), It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new ArgumentNullException());
+            // Arrange
+            var route = new Route
+            {
+                RouteId = ObjectId.GenerateNewId(),
+                RouteName = "TestRoute",
+                Directions = new List<Direction>
+                {
+                    new Direction
+                    {
+                        From = ObjectId.GenerateNewId(),
+                        To = ObjectId.GenerateNewId()
+                    }
+                }
+            };
+            var stations = new List<Station>
+            {
+                new Station
+                {
+                    StationId = route.Directions[0].From,
+                    EstimatedWaitingTime = TimeSpan.FromSeconds(123)
+                },
+                new Station
+                {
+                    StationId = route.Directions[0].To,
+                    EstimatedWaitingTime = TimeSpan.FromSeconds(456)
+                }
+            };
             _mockRouteRepository
                 .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(It.IsAny<Route>());
-
-            _stationLogicProvider = new StationLogicProvider(
-                _serviceProvider,
+                .ReturnsAsync(route);
+            _mockStationRepository
+                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(stations);
+            _mockStationRepository
+                .Setup(x => x.GetStationsByRouteAsync(It.IsAny<Route>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(stations);
+            _sut = new StationLogicProvider(
+                _mockServiceProvider.Object,
+                _mockStationLogicFactory.Object,
                 _cache,
                 _mockDomainEvents.Object,
-                _loggerStationLogicProvider);
-            await Assert.ThrowsAsync<ArgumentException>(
-                () => _stationLogicProvider.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>()));
+                _mockLogger);
+
+            // Act
+            var result = await _sut.FindStationLogicsByRouteIdAsync(route.RouteId);
+
+            // Assert
+            foreach (var item in result)
+                Assert.Contains(item.StationId, stations.Select(s => s.StationId));
+        }
+
+        [Fact]
+        public async Task FindStationLogicsByRouteIdAsync_RouteNotFound_ThrowsLogicProvisionFailedException()
+        {
+            // Arrange
+            var stations = new List<Station>
+            {
+                new Station
+                {
+                    StationId = ObjectId.GenerateNewId(),
+                    EstimatedWaitingTime = TimeSpan.FromSeconds(123)
+                },
+                new Station
+                {
+                    StationId = ObjectId.GenerateNewId(),
+                    EstimatedWaitingTime = TimeSpan.FromSeconds(456)
+                }
+            };
+            _mockStationRepository
+                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(stations);
+            _mockRouteRepository
+                .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new EntityNotFoundException());
+            _sut = new StationLogicProvider(
+                _mockServiceProvider.Object,
+                _mockStationLogicFactory.Object,
+                _cache,
+                _mockDomainEvents.Object,
+                _mockLogger);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<LogicProvisionFailedException>(
+                () => _sut.FindStationLogicsByRouteIdAsync(ObjectId.Empty));
         }
     }
 }

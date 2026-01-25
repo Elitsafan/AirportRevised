@@ -4,7 +4,7 @@ namespace Airport.Domain.Repositories
 {
     public interface IFlightRepository : IRepository<Flight>
     {
-        Task AddFlightAsync(Flight flight, CancellationToken ct = default);
+        Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default);
         Task<UpdateResult> UpdateFlightAsync(Flight flight, bool upsert = true, CancellationToken ct = default);
         /// <summary>
         /// Oreders flight by the earliest entrance
@@ -19,6 +19,5 @@ namespace Airport.Domain.Repositories
         /// <param name="ct"></param>
         /// <returns></returns>
         Task<IEnumerable<Flight>> FilterByTimePassedAsync(TimeSpan timePassed, CancellationToken ct = default);
-        Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default);
     }
 }

@@ -10,7 +10,7 @@ namespace Airport.Services.MappingConfigurations
         {
             CreateMap<Route, RouteDTO>();
             CreateMap<RouteDTO, Route>();
-            CreateMap<RouteForCreationDTO, RouteDTO>();
+            CreateMap<RouteForCreationDTO, Route>();
             CreateMap<RouteForUpdateDTO, Route>();
         }
     }

@@ -1,11 +1,7 @@
 ﻿using Airport.Models;
 using Airport.Presentation.Extensions;
-using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 
 namespace Airport.Presentation.Controllers
 {
@@ -13,7 +9,7 @@ namespace Airport.Presentation.Controllers
     [ApiController]
     public class AirportController : ControllerBase
     {
-        private readonly IAirportService _airportService; 
+        private readonly IAirportService _airportService;
 
         public AirportController(IAirportService airportservice) => _airportService = airportservice;
 
@@ -24,14 +20,11 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Airport/Status
         [HttpGet]
-        [ServiceFilter(typeof(AirportNotStartedFilter))]
         public async Task<IActionResult> StatusAsync(CancellationToken ct = default) =>
             Ok(await _airportService.GetStatusAsync(ct));
 
         // GET: api/Airport/Summary
         [HttpGet]
-        [ServiceFilter(typeof(AirportNotStartedFilter))]
-        [ServiceFilter(typeof(ValidateParametersExistsFilter))]
         public async Task<IActionResult> SummaryAsync(
             [FromQuery] GetSummaryParameters parameters,
             CancellationToken ct = default)

@@ -6,15 +6,13 @@ namespace Airport.Services.Abstractions
 {
     public interface IRouteService
     {
-        IAsyncEnumerable<RouteDTO> GetAllRoutesAsync(CancellationToken cancellationToken = default);
-        Task<RouteDTO?> GetRouteByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
-        Task<ObjectId> AddRouteAsync(
-            RouteForCreationDTO routeForCreationDTO,
-            CancellationToken cancellationToken = default);
-        Task<bool> DeleteRouteAsync(ObjectId id, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<RouteDTO> GetAllRoutesAsync(CancellationToken ct = default);
+        Task<RouteDTO?> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default);
+        Task<RouteDTO> AddRouteAsync(RouteForCreationDTO routeForCreationDTO, CancellationToken ct = default);
+        Task<bool> DeleteRouteAsync(ObjectId id, CancellationToken ct = default);
         Task<UpdateResult> UpdateRouteAsync(
             ObjectId id,
             RouteForUpdateDTO routeForUpdate,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
     }
 }

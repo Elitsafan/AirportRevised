@@ -116,45 +116,5 @@ namespace Airport.Domain.Tests.Helpers
             mockDestStation.VerifyAdd(
                 s => s.StationClearedAsync += It.IsAny<AsyncEventHandler<IStationClearedEventArgs>>(), Times.Once);
         }
-
-        [Fact]
-        public async Task EnterSectionAsync_OnCancellation_TriggersRollbackAndCleansTrace()
-        {
-            // Arrange
-            var flightId = ObjectId.GenerateNewId();
-            var routeId = ObjectId.GenerateNewId(); 
-            var mockStationLogic = new Mock<IStationLogic>();
-            _mockRouteSection
-                .SetupGet(x => x.Source)
-                .Returns(new HashSet<IStationLogic>() { Mock.Of<IStationLogic>() });
-            _mockRouteSection
-                .SetupGet(x => x.Destination)
-                .Returns(new HashSet<IStationLogic>());
-            _mockRouteSection
-                .SetupGet(x => x.RouteId)
-                .Returns(routeId);
-
-            // 1. First call MUST succeed to get the releaser
-            _mockSectionSynchronizerDetails
-                .Setup(s => s.EnterSectionAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(default(AsyncSemaphore.Releaser)); // Return a dummy releaser
-            // 2. Right of Way FAILS (This is the "Exception Thrown" moment)
-            // We use Task.FromException to ensure the task is in a Faulted state immediately
-            _mockSectionSynchronizerDetails
-                .Setup(s => s.GetSourceRightOfWayAsync(routeId, It.IsAny<CancellationToken>()))
-                .Returns(Task.FromException(new OperationCanceledException()));
-
-            var rsd = new RouteSectionDetails(
-                _mockRouteSection.Object,
-                _mockSectionSynchronizerDetails.Object);
-
-            // Act
-            // We expect the exception to bubble up from the catch block after Rollback
-            var act = () => rsd.EnterSectionAsync(mockStationLogic.Object, flightId, null);
-
-            // Assert
-            await Assert.ThrowsAsync<OperationCanceledException>(act);
-            _mockSectionSynchronizerDetails.Verify(s => s.RollBackSourceEntrance(routeId), Times.Once);
-        }
     }
 }

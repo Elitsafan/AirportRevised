@@ -32,15 +32,8 @@
                 .SelectMany(s => s.RouteSection.AllTrafficLights)
                 .Distinct() ?? Enumerable.Empty<IStationLogic>());
 
-            try
-            {
-                stations = new List<IStationLogic>(await _stationLogicProvider.FindStationLogicsByRouteIdAsync(_route.RouteId));
-                directions = new List<IDirectionLogic>(await _directionLogicProvider.GetDirectionsByRouteIdAsync(_route.RouteId));
-            }
-            catch (EntityNotFoundException)
-            {
-                throw new InvalidOperationException("Route not found. Cannot create route logic.");
-            }
+            stations = new List<IStationLogic>(await _stationLogicProvider.FindStationLogicsByRouteIdAsync(_route.RouteId));
+            directions = new List<IDirectionLogic>(await _directionLogicProvider.GetDirectionsByRouteIdAsync(_route.RouteId));
 
             return new RouteLogic(
                 _route,

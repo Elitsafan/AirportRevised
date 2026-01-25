@@ -1,7 +1,7 @@
 ﻿using Airport.Models.Entities;
 using Airport.Models.Enums;
 
-namespace Airport.Services
+namespace Airport.Services.Extensions
 {
     internal static class FlightExtensions
     {

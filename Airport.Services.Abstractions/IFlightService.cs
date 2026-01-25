@@ -5,14 +5,12 @@ namespace Airport.Services.Abstractions
 {
     public interface IFlightService : IAsyncDisposable
     {
-        Task ProcessFlightAsync(
+        Task<FlightDTO> AddFlightAsync(
             ObjectId id,
             FlightForCreationDTO flightForCreation,
-            CancellationToken cancellationToken = default);
-        IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
-            int? minutesPassed,
-            CancellationToken cancellationToken = default);
-        Task<FlightDTO?> GetFlightByIdAsync(ObjectId id, CancellationToken cancellationToken = default);
-        Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
+        IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(int? minutesPassed, CancellationToken ct = default);
+        Task<FlightDTO?> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default);
+        Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken ct = default);
     }
 }

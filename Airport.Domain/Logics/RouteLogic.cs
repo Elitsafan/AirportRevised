@@ -92,10 +92,11 @@ namespace Airport.Domain.Logics
                         catch (Exception e)
                         {
                             if (e is not OperationCanceledException && e is not ObjectDisposedException)
-                                _logger.LogError(e, $"Attempt to enter station #{s.StationId}");
+                                _logger.LogError(e, $"Attempt to enter station #{s.StationId} failed");
                             throw;
                         }
-                    }, cts.GetToken()))
+                    },
+                    cts.GetToken()))
                 .ToList();
             return await EnterStationAsync(attempts);
         }
@@ -109,10 +110,10 @@ namespace Airport.Domain.Logics
                 if (enteredStation.IsCompletedSuccessfully)
                     return await enteredStation;
                 // Eliminates failures
-                if (enteredStation.Status == TaskStatus.Canceled || enteredStation.Status == TaskStatus.Faulted)
+                if (enteredStation.IsCanceled || enteredStation.IsFaulted)
                     attempts.Remove(enteredStation);
             }
-            throw new Exception("Couldn't enter any of the stations");
+            throw new StationEntranceFailedException("Couldn't enter any of the stations");
         }
 
         private async Task GetRightOfWayAsync(

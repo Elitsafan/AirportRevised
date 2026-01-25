@@ -2,6 +2,7 @@
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Models.Enums;
+using Airport.Services.Extensions;
 
 namespace Airport.Services.MappingConfigurations
 {

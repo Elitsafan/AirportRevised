@@ -35,7 +35,7 @@ namespace Airport.Domain.Logics
         public event AsyncEventHandler<IFlightRunDoneEventArgs>? FlightRunDone;
         public ObjectId RouteId { get; }
         public ObjectId FlightId => _flight.FlightId;
-        public IStationLogic? CurrentStation { get; private set; } = null;
+        public IStationLogic? CurrentStation { get; private set; }
         public FlightType FlightType { get; private set; }
         #endregion
 

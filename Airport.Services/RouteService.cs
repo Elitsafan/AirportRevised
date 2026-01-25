@@ -1,10 +1,12 @@
-﻿using Airport.Domain.Exceptions;
+﻿using Airport.Contracts.Providers;
+using Airport.Domain.Exceptions;
 using Airport.Domain.Helpers;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Models.Enums;
 using Airport.Services.Abstractions;
+using Airport.Services.Extensions;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -15,16 +17,19 @@ namespace Airport.Services
     public class RouteService : IRouteService
     {
         #region Fields
+        private readonly IAirportStateProvider _airportStateProvider;
         private readonly IRepositoryManager _repositoryManager;
         private readonly ILogger<RouteService> _logger;
         private readonly IMapper _mapper;
         #endregion
 
         public RouteService(
+            IAirportStateProvider airportStateProvider,
             IRepositoryManager repositoryManager,
             IMapper mapper,
             ILogger<RouteService> logger)
         {
+            _airportStateProvider = airportStateProvider;
             _repositoryManager = repositoryManager;
             _logger = logger;
             _mapper = mapper;
@@ -33,6 +38,8 @@ namespace Airport.Services
         public async IAsyncEnumerable<RouteDTO> GetAllRoutesAsync(
             [EnumeratorCancellation] CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             var routes = await _repositoryManager.RouteRepository
                 .GetAllAsync(ct);
 
@@ -42,31 +49,31 @@ namespace Airport.Services
 
         public async Task<RouteDTO?> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default)
         {
-            try
-            {
-                var route = await _repositoryManager.RouteRepository
-                    .GetRouteByIdAsync(id, ct);
+            _airportStateProvider.ThrowIfNotStarted();
 
-                return _mapper.Map<RouteDTO>(route);
-            }
-            catch (EntityNotFoundException e)
-            {
-                _logger.LogError($"Route id: {id} not found", e);
-                return null;
-            }
+            var route = await _repositoryManager.RouteRepository
+                .GetRouteByIdAsync(id, ct);
+
+            return _mapper.Map<RouteDTO>(route);
         }
 
-        public async Task<ObjectId> AddRouteAsync(RouteForCreationDTO routeForCreationDTO, CancellationToken ct = default)
+        public async Task<RouteDTO> AddRouteAsync(
+            RouteForCreationDTO routeForCreationDTO,
+            CancellationToken ct = default)
         {
-            await ValidateRouteAsync(routeForCreationDTO, ct);
+            _airportStateProvider.ThrowIfNotStarted();
 
-            var routeDto = _mapper.Map<RouteDTO>(routeForCreationDTO);
-            var routeSaved = await _repositoryManager.RouteRepository
-                .AddRouteAsync(_mapper.Map<Route>(routeDto), ct);
+            if (routeForCreationDTO is null)
+                throw new ArgumentNullException(nameof(routeForCreationDTO));
+            await ValidateRouteAsync(routeForCreationDTO.Directions, ct);
+            await AreAnyStationsBetweenTrafficLightsAsync(routeForCreationDTO.Directions);
 
-            await AddTrafficLightsAsync(routeSaved, ct);
+            var route = _mapper.Map<Route>(routeForCreationDTO);
+            route = await _repositoryManager.RouteRepository
+                .AddOneAsync(route, ct);
+            await AddRouteTrafficLightsAsync(route, ct);
 
-            return routeSaved.RouteId;
+            return _mapper.Map<RouteDTO>(route);
         }
 
         // TODO: tests for all UpdateResult values
@@ -75,7 +82,12 @@ namespace Airport.Services
             RouteForUpdateDTO routeForUpdate,
             CancellationToken ct = default)
         {
-            await ValidateRouteAsync(routeForUpdate, ct);
+            _airportStateProvider.ThrowIfNotStarted();
+
+            if (routeForUpdate is null)
+                throw new ArgumentNullException(nameof(routeForUpdate));
+            await ValidateRouteAsync(routeForUpdate.Directions, ct);
+            await AreAnyStationsBetweenTrafficLightsAsync(routeForUpdate.Directions);
 
             var modifiedRoute = _mapper.Map<Route>(routeForUpdate);
             var updateResult = await _repositoryManager.RouteRepository
@@ -88,6 +100,8 @@ namespace Airport.Services
 
         public async Task<bool> DeleteRouteAsync(ObjectId id, CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             var route = await _repositoryManager.RouteRepository.GetRouteByIdAsync(id);
             if (route is null)
             {
@@ -100,32 +114,54 @@ namespace Airport.Services
             return result;
         }
 
-        private async Task ValidateRouteAsync(RouteForOperationDTO route, CancellationToken ct)
+        private async Task AreAnyStationsBetweenTrafficLightsAsync(IEnumerable<DirectionDTO> directions)
         {
-            IEnumerable<ObjectId> ids = await ValidateStationsExistenceAsync(route, ct);
-            ValidateIfRouteCircular(route, ids);
+            var existOnRoutes = new Dictionary<ObjectId, int>(directions
+                .SelectMany(d => new[] { d.From, d.To })
+                .GroupBy(
+                    id => id,
+                    (id, ids) => new KeyValuePair<ObjectId, int>(id, ids.Count())));
+            foreach (var direction in directions)
+            {
+                if (!await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(direction.From))
+                    continue;
+                var fromCount = ++existOnRoutes[direction.From];
+                if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(direction.To))
+                {
+                    var toCount = ++existOnRoutes[direction.To];
+                    if (fromCount > 1 && toCount > 1)
+                        throw new InvalidRouteStructureException(
+                            "Route must have least one station that is not a traffic light" +
+                            $"between two traffic lights:\n{direction.From}\n{direction.To}");
+                }
+            }
         }
 
-        private static void ValidateIfRouteCircular(
-            RouteForOperationDTO route,
-            IEnumerable<ObjectId> ids)
+        private async Task ValidateRouteAsync(IEnumerable<DirectionDTO> directions, CancellationToken ct)
+        {
+            IEnumerable<ObjectId> ids = await ValidateStationsExistenceAsync(directions, ct);
+            ValidateIfCircularRoute(directions, ids);
+        }
+
+        private void ValidateIfCircularRoute(IEnumerable<DirectionDTO> directions, IEnumerable<ObjectId> ids)
         {
             var graph = new Graph<ObjectId>(ids);
 
-            foreach (var direction in route.Directions)
+            foreach (var direction in directions)
                 graph.AddEdge(direction.From, direction.To);
+
             if (graph.IsCircular())
-                throw new InvalidRouteStructureException("Route is a circular route.");
+                throw new InvalidRouteStructureException("A circular route is forbidden.");
         }
 
         private async Task<IEnumerable<ObjectId>> ValidateStationsExistenceAsync(
-            RouteForOperationDTO route,
+            IEnumerable<DirectionDTO> directions,
             CancellationToken ct)
         {
-            var froms = route.Directions
+            var froms = directions
                 .Select(d => d.From)
                 .Distinct();
-            var tos = route.Directions
+            var tos = directions
                 .Select(d => d.To)
                 .Distinct();
             var ids = froms.Union(tos);
@@ -142,7 +178,7 @@ namespace Airport.Services
             return ids;
         }
 
-        private async Task AddTrafficLightsAsync(Route route, CancellationToken ct)
+        private async Task AddRouteTrafficLightsAsync(Route route, CancellationToken ct)
         {
             IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
             var addedIds = new List<ObjectId>();
@@ -150,7 +186,7 @@ namespace Airport.Services
                 if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, ct: ct))
                 {
                     var tl = new TrafficLight { StationId = id };
-                    await _repositoryManager.TrafficLightRepository.AddTrafficLightAsync(tl, ct);
+                    await _repositoryManager.TrafficLightRepository.AddOneAsync(tl, ct);
                     addedIds.Add(id);
                 }
             if (addedIds.Count > 0)
@@ -180,7 +216,7 @@ namespace Airport.Services
                 if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, 2, ct))
                 {
                     var tl = new TrafficLight { StationId = id };
-                    await _repositoryManager.TrafficLightRepository.AddTrafficLightAsync(tl, ct);
+                    await _repositoryManager.TrafficLightRepository.AddOneAsync(tl, ct);
                     updatedIds.Add(id);
                 }
                 else

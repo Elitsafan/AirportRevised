@@ -1,5 +1,4 @@
 ﻿using Airport.Models.DTOs;
-using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +9,6 @@ namespace Airport.Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [ServiceFilter(typeof(AirportNotStartedFilter))]
     public class RoutesController : ControllerBase
     {
         private readonly IRouteService _routeSvc;
@@ -28,25 +26,26 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Routes/{id}
         [HttpGet("{id}", Name = "RouteById")]
-        public async Task<IActionResult> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default) => 
-            await _routeSvc.GetRouteByIdAsync(id, ct) is null
-            ? NotFound()
-            : Ok(await _routeSvc.GetRouteByIdAsync(id, ct));
+        public async Task<IActionResult> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default)
+        {
+            var routeDto = await _routeSvc.GetRouteByIdAsync(id, ct);
+            return routeDto is null
+                ? NotFound()
+                : Ok(routeDto);
+        }
 
-        // POST: api/Routes/{id}
-        [HttpPost("[action]/{id}")]
-        [ServiceFilter(typeof(ValidateParametersExistsFilter))]
-        public async Task<IActionResult> PostRouteAsync(
+        // POST: api/Routes
+        [HttpPost("[action]")]
+        public async Task<IActionResult> AddRouteAsync(
             [FromBody] RouteForCreationDTO routeForCreationDTO,
             CancellationToken ct = default)
         {
-            var routeId = await _routeSvc.AddRouteAsync(routeForCreationDTO, ct);
-            return CreatedAtRoute("RouteById", new { id = routeId }, routeForCreationDTO);
+            var routeDto = await _routeSvc.AddRouteAsync(routeForCreationDTO, ct);
+            return CreatedAtRoute("RouteById", new { id = routeDto.RouteId }, routeDto);
         }
 
         // PUT: api/Routes/{id}
         [HttpPut("[action]/{id}")]
-        [ServiceFilter(typeof(ValidateParametersExistsFilter))]
         public async Task<IActionResult> UpdateRouteAsync(
             ObjectId id,
             [FromBody] RouteForUpdateDTO routeForUpdate,

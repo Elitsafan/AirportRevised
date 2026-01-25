@@ -1,26 +1,17 @@
 ﻿using Microsoft.VisualStudio.Threading;
 
-namespace Airport.Presentation.Tests
+namespace Airport.Presentation.Tests.Controllers
 {
     public class FlightsControllerTests
     {
-        #region Fields
-        private readonly FlightsController _flightsController;
         private readonly Mock<IFlightService> _mockFlightService;
-        #endregion
 
-        public FlightsControllerTests()
-        {
-            _mockFlightService = new Mock<IFlightService>();
-            _flightsController = new FlightsController(_mockFlightService.Object);
-        }
-
-        [Fact]
-        public void Created_NotNull() => Assert.NotNull(_flightsController);
+        public FlightsControllerTests() => _mockFlightService = new Mock<IFlightService>();
 
         [Fact]
         public async Task GetAllFlightsAsync_WhenCalled_ReturnsAllFlights()
         {
+            // Arrange
             var flights = new FlightDTO[]
             {
                 new DepartureDTO(),
@@ -30,66 +21,76 @@ namespace Airport.Presentation.Tests
             _mockFlightService
                 .Setup(x => x.GetAllFlightsAsync(It.IsAny<int?>(), It.IsAny<CancellationToken>()))
                 .Returns(flights.ToAsyncEnumerable());
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController
-                .GetAllFlightsAsync(null)
-                .ToListAsync();
-
-            var okResult = Assert.IsType<List<FlightDTO>>(result);
-            Assert.Equal(flights, okResult);
+            // Act & Assert
+            var result = flightsController.GetAllFlightsAsync(null);
+            await foreach (var flight in result)
+                Assert.Contains(flight, flights);
         }
 
         [Fact]
-        public async Task LandingAsync_WhenCalled_Returns201()
+        public async Task AddLandingAsync_WhenCalled_Returns201()
         {
+            // Arrange
             var flightForCreationDto = new LandingForCreationDTO();
             var id = ObjectId.GenerateNewId();
+            var flightDto = new LandingDTO { FlightId = id };
 
             _mockFlightService
-                .Setup(x => x.ProcessFlightAsync(
+                .Setup(x => x.AddFlightAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<LandingForCreationDTO>(),
                     It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(flightDto);
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController.LandingAsync(
+            // Act
+            var result = await flightsController.AddLandingAsync(id, flightForCreationDto);
+
+            // Assert
+            _mockFlightService.Verify(x => x.AddFlightAsync(
                 id,
                 flightForCreationDto,
-                It.IsAny<CancellationToken>());
-
+                It.IsAny<CancellationToken>()), Times.Once);
             var createdResult = Assert.IsType<CreatedAtRouteResult>(result);
             Assert.Equal(id, createdResult.RouteValues["id"]);
-            Assert.Equal(flightForCreationDto, createdResult.Value);
-            Assert.Equal(StatusCodes.Status201Created, createdResult.StatusCode);
+            Assert.Equal(flightDto, createdResult.Value);
         }
 
         [Fact]
-        public async Task DepartureAsync_WhenCalled_Returns201()
+        public async Task AddDepartureAsync_WhenCalled_Returns201()
         {
+            // Arrange
             var flightForCreationDto = new DepartureForCreationDTO();
             var id = ObjectId.GenerateNewId();
+            var flightDto = new DepartureDTO { FlightId = id };
 
             _mockFlightService
-                .Setup(x => x.ProcessFlightAsync(
+                .Setup(x => x.AddFlightAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<DepartureForCreationDTO>(),
                     It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(flightDto);
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController.DepartureAsync(
+            // Act
+            var result = await flightsController.AddDepartureAsync(id, flightForCreationDto);
+
+            // Assert
+            _mockFlightService.Verify(x => x.AddFlightAsync(
                 id,
                 flightForCreationDto,
-                It.IsAny<CancellationToken>());
-
+                It.IsAny<CancellationToken>()), Times.Once);
             var createdResult = Assert.IsType<CreatedAtRouteResult>(result);
             Assert.Equal(id, createdResult.RouteValues["id"]);
-            Assert.Equal(flightForCreationDto, createdResult.Value);
-            Assert.Equal(StatusCodes.Status201Created, createdResult.StatusCode);
+            Assert.Equal(flightDto, createdResult.Value);
         }
 
         [Fact]
         public async Task GetFlightByIdAsync_WhenCalled_Returns200WithFlightRequested()
         {
+            // Arrange
             var flightDto = new DepartureDTO { FlightId = ObjectId.GenerateNewId() };
 
             _mockFlightService
@@ -97,11 +98,14 @@ namespace Airport.Presentation.Tests
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(flightDto);
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController.GetFlightByIdAsync(
+            // Act
+            var result = await flightsController.GetFlightByIdAsync(
                 It.IsAny<ObjectId>(),
                 It.IsAny<CancellationToken>());
 
+            // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             Assert.Equal(StatusCodes.Status200OK, okResult.StatusCode);
             Assert.Equal(flightDto.FlightId, (okResult.Value as FlightDTO)!.FlightId);
@@ -110,49 +114,60 @@ namespace Airport.Presentation.Tests
         [Fact]
         public async Task GetFlightByIdAsync_FlightNotExists_Returns404()
         {
+            // Arrange
             _mockFlightService
                 .Setup(x => x.GetFlightByIdAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(default(FlightDTO?));
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController.GetFlightByIdAsync(
+            // Act
+            var result = await flightsController.GetFlightByIdAsync(
                 It.IsAny<ObjectId>(),
                 It.IsAny<CancellationToken>());
 
-            var okResult = Assert.IsType<NotFoundResult>(result);
-            Assert.Equal(StatusCodes.Status404NotFound, okResult.StatusCode);
+            // Assert
+            Assert.IsType<NotFoundResult>(result);
         }
 
         [Fact]
         public async Task DeleteFlightAsync_WhenCalled_Returns204()
         {
+            // Arrange
             _mockFlightService
                 .Setup(x => x.DeleteFlightAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController.DeleteFlightAsync(
+            // Act
+            var result = await flightsController.DeleteFlightAsync(
                 It.IsAny<ObjectId>(),
                 It.IsAny<CancellationToken>());
 
+            // Assert
             Assert.IsType<NoContentResult>(result);
         }
 
         [Fact]
         public async Task DeleteFlightAsync_FlightNotExists_Returns404()
         {
+            // Arrange
             _mockFlightService
                 .Setup(x => x.DeleteFlightAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(false);
+            var flightsController = new FlightsController(_mockFlightService.Object);
 
-            var result = await _flightsController.DeleteFlightAsync(
+            // Act
+            var result = await flightsController.DeleteFlightAsync(
                 It.IsAny<ObjectId>(),
                 It.IsAny<CancellationToken>());
 
+            // Assert
             Assert.IsType<NotFoundResult>(result);
         }
     }

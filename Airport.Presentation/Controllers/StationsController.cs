@@ -1,5 +1,4 @@
 ﻿using Airport.Models.DTOs;
-using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +9,6 @@ namespace Airport.Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [ServiceFilter(typeof(AirportNotStartedFilter))]
     public class StationsController : ControllerBase
     {
         private readonly IStationService _stationSvc;
@@ -36,14 +34,14 @@ namespace Airport.Presentation.Controllers
                 : Ok(stationDto);
         }
 
-        // POST: api/Stations/{id}
-        [HttpPost("[action]/{id}")]
-        public async Task<IActionResult> PostStationAsync(
+        // POST: api/Stations
+        [HttpPost("[action]")]
+        public async Task<IActionResult> AddStationAsync(
             [FromBody] StationForCreationDTO stationForCreationDTO,
             CancellationToken ct = default)
         {
-            var stationId = await _stationSvc.AddStationAsync(stationForCreationDTO, ct);
-            return CreatedAtRoute("StationById", new { id = stationId }, stationForCreationDTO);
+            var stationDto = await _stationSvc.AddStationAsync(stationForCreationDTO, ct);
+            return CreatedAtRoute("StationById", new { id = stationDto.StationId }, stationDto);
         }
 
         // PUT: api/Stations/{id}

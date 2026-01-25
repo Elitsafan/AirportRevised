@@ -18,10 +18,7 @@
             _stationLogicProvider = stationLogicProvider;
         }
 
-        public IRouteLogicCreator GetCreator(
-            Route route,
-            IEnumerable<IRouteSectionDetails>? sections,
-            CancellationToken ct = default)
+        public IRouteLogicCreator GetCreator(Route route, IEnumerable<IRouteSectionDetails>? sections)
         {
             if (route is null)
                 throw new ArgumentNullException(nameof(route));

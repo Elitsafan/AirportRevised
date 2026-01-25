@@ -3,8 +3,8 @@
     internal class RouteSection : IRouteSection
     {
         #region Fields
-        private HashSet<IStationLogic> _source = null!;
-        private HashSet<IStationLogic> _destination = null!;
+        private readonly HashSet<IStationLogic> _source;
+        private readonly HashSet<IStationLogic> _destination;
         private readonly HashSet<IStationLogic> _allStations;
         private readonly HashSet<IStationLogic> _allTrafficLights;
         #endregion
@@ -27,7 +27,8 @@
                 throw new ArgumentException("Collection cannot be empty.", nameof(destination));
             if (!stations.Any())
                 throw new ArgumentException("Collection cannot be empty.", nameof(stations));
-            // Keeps an ordered sets for comparing
+
+            // Keep an ordered sets for comparing
             _source = new HashSet<IStationLogic>(source.OrderBy(sl => sl.StationId));
             _destination = new HashSet<IStationLogic>(destination.OrderBy(sl => sl.StationId));
             _allStations = new HashSet<IStationLogic>(stations.OrderBy(sl => sl.StationId));

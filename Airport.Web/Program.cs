@@ -1,5 +1,7 @@
 using Airport.Contracts.Helpers;
+using Airport.Models.DTOs;
 using Airport.Persistence;
+using Airport.Presentation.Converters;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
 using Microsoft.Extensions.Options;
@@ -7,6 +9,7 @@ using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Runtime.Serialization;
 
 namespace Airport.Web
 {
@@ -29,7 +32,8 @@ namespace Airport.Web
             //#endif
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
-            {// This tells Swagger to treat ObjectId as a simple string schema
+            {
+                // This tells Swagger to treat ObjectId as a simple string schema
                 options.MapType<ObjectId>(() => new OpenApiSchema
                 {
                     Type = "string",
@@ -55,7 +59,11 @@ namespace Airport.Web
                     });
             });
             builder.Services.AddControllers()
-                .AddNewtonsoftJson()
+                .AddNewtonsoftJson(options =>
+                {
+                    options.SerializerSettings.Converters.Add(new ObjectIdConverter());
+                    options.SerializerSettings.Converters.Add(new TimeSpanConverter());
+                })
                 .AddApplicationPart(typeof(Presentation.AssemblyReference).Assembly);
             builder.Services.AddAirportServices(builder.Configuration);
             builder.Services.AddSingleton<IMongoClient>(provider =>

@@ -44,18 +44,18 @@ namespace Airport.Domain.Helpers
             _lastWaiter = Task.CompletedTask;
         }
 
-        public async Task<AsyncSemaphore.Releaser> EnterSectionAsync(CancellationToken cancellationToken = default) =>
-            await _sourceSynchronizer.EnterAsync(cancellationToken);
+        public async Task<AsyncSemaphore.Releaser> EnterSectionAsync(CancellationToken ct = default) =>
+            await _sourceSynchronizer.EnterAsync(ct);
 
-        public async Task GetSourceRightOfWayAsync(ObjectId routeId, CancellationToken cancellationToken = default)
+        public async Task GetSourceRightOfWayAsync(ObjectId routeId, CancellationToken ct = default)
         {
-            var releaser = await _syncWaiters.EnterAsync(cancellationToken);
+            var releaser = await _syncWaiters.EnterAsync(ct);
             try
             {
                 IncrementOccupied(routeId);
                 if (WaitForRightOfWay(routeId))
                 {
-                    _lastWaiter = _routeSynchronizer.WaitAsync(cancellationToken);
+                    _lastWaiter = _routeSynchronizer.WaitAsync(ct);
                     await _lastWaiter;
                 }
             }

@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using Airport.Domain.Exceptions;
+using MongoDB.Driver;
+using System.Text.Json;
 
 namespace Airport.Web
 {
@@ -16,7 +18,7 @@ namespace Airport.Web
             }
             catch (Exception e)
             {
-                _logger.LogError(e, e.Message);
+                _logger.LogError(e, "An unhandled exception occurred during the request execution.");
 
                 await HandleExceptionAsync(context, e);
             }
@@ -28,15 +30,44 @@ namespace Airport.Web
 
             httpContext.Response.StatusCode = exception switch
             {
+                MongoClientException => StatusCodes.Status500InternalServerError,
+                MongoWriteException => StatusCodes.Status500InternalServerError,
+                MongoConnectionException => StatusCodes.Status500InternalServerError,
+                InvalidRouteStructureException => StatusCodes.Status400BadRequest,
+                MissingRouteStationsException => StatusCodes.Status400BadRequest,
+                ArgumentNullException => StatusCodes.Status400BadRequest,
+                AirportNotStartedException => StatusCodes.Status400BadRequest,
+                EntityNotFoundException => StatusCodes.Status404NotFound,
+                LogicProvisionFailedException => StatusCodes.Status404NotFound,
                 OperationCanceledException => 444,
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
-                InvalidOperationException => StatusCodes.Status500InternalServerError,
+                // TODO: fix invalidoperationexception
+                //InvalidOperationException => StatusCodes.Status500InternalServerError,
                 _ => StatusCodes.Status500InternalServerError
+            };
+
+            var displayMessage = exception switch
+            {
+                // Whitelist safe messages
+                AirportNotStartedException or
+                EntityNotFoundException or
+                ArgumentNullException or
+                OperationCanceledException or
+                InvalidOperationException or
+                LogicProvisionFailedException or
+                MissingRouteStationsException or
+                InvalidRouteStructureException or
+                TimeoutException => exception.Message,
+                // Internal details
+                MongoConnectionException or
+                MongoClientException or
+                MongoWriteException => "Error while connecting to source.",
+                _ => "An internal server error occurred. Please contact support."
             };
 
             var response = new
             {
-                error = exception.Message
+                error = displayMessage
             };
 
             await httpContext.Response.WriteAsync(JsonSerializer.Serialize(response));

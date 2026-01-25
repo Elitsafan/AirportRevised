@@ -1,11 +1,12 @@
 ﻿using Airport.Contracts.Helpers;
+using Airport.Contracts.Providers;
 using Airport.Domain.EventArgs;
-using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Models.Enums;
 using Airport.Services.Abstractions;
+using Airport.Services.Extensions;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -16,6 +17,7 @@ namespace Airport.Services
     public class StationService : IStationService
     {
         #region Fields
+        private readonly IAirportStateProvider _airportStateProvider;
         private readonly IRepositoryManager _repositoryManager;
         private readonly IMapper _mapper;
         private readonly IDomainEvents _domainEvents;
@@ -23,11 +25,13 @@ namespace Airport.Services
         #endregion
 
         public StationService(
+            IAirportStateProvider airportStateProvider,
             IRepositoryManager repositoryManager,
             IMapper mapper,
             IDomainEvents domainEvents,
             ILogger<StationService> logger)
         {
+            _airportStateProvider = airportStateProvider;
             _repositoryManager = repositoryManager;
             _mapper = mapper;
             _domainEvents = domainEvents;
@@ -35,73 +39,74 @@ namespace Airport.Services
         }
 
         public async IAsyncEnumerable<StationDTO> GetAllStationsAsync(
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             var stations = await _repositoryManager.StationRepository
-                .GetAllAsync(cancellationToken);
+                .GetAllAsync(ct);
 
             foreach (var station in stations.Select(_mapper.Map<StationDTO>))
                 yield return station;
         }
 
-        public async Task<StationDTO?> GetStationByIdAsync(
-            ObjectId id,
-            CancellationToken cancellationToken = default)
+        public async Task<StationDTO?> GetStationByIdAsync(ObjectId id, CancellationToken ct = default)
         {
-            try
-            {
-                var station = await _repositoryManager.StationRepository
-                    .GetStationByIdAsync(id, cancellationToken);
+            _airportStateProvider.ThrowIfNotStarted();
 
-                return _mapper.Map<StationDTO>(station);
-            }
-            catch (EntityNotFoundException)
-            {
-                _logger.LogInformation($"Station id: {id} not found");
-                return null;
-            }
+            var station = await _repositoryManager.StationRepository
+                .GetStationByIdAsync(id, ct);
+
+            return _mapper.Map<StationDTO>(station);
         }
 
-        public async Task<ObjectId> AddStationAsync(
+        public async Task<StationDTO> AddStationAsync(
             StationForCreationDTO stationForCreationDTO,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             if (stationForCreationDTO is null)
                 throw new ArgumentNullException(nameof(stationForCreationDTO));
+            var station = _mapper.Map<Station>(stationForCreationDTO);
+            station = await _repositoryManager.StationRepository
+                .AddOneAsync(station, ct);
 
-            var stationDto = _mapper.Map<StationDTO>(stationForCreationDTO);
-            var stationSaved = await _repositoryManager.StationRepository
-                .AddStationAsync(_mapper.Map<Station>(stationDto), cancellationToken);
             await _domainEvents.RaiseStationCreatedAsync(
-                new StationCreatedEventArgs { StationId = stationDto.StationId });
-            return stationSaved.StationId;
+                new StationCreatedEventArgs { StationId = station.StationId });
+
+            return _mapper.Map<StationDTO>(station);
         }
 
         public async Task<UpdateResult> UpdateStationAsync(
             ObjectId id,
             StationForUpdateDTO stationForUpdate,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
+            if (stationForUpdate is null)
+                throw new ArgumentNullException(nameof(stationForUpdate));
             var modifiedStation = _mapper.Map<Station>(stationForUpdate);
             var updateResult = await _repositoryManager.StationRepository
-                .UpdateStationAsync(id, modifiedStation, cancellationToken);
+                .UpdateStationAsync(id, modifiedStation, ct);
             await _domainEvents.RaiseStationUpdatedAsync(
                 new StationUpdatedEventArgs { StationId = id });
             return updateResult;
         }
 
-        public async Task<bool> DeleteStationAsync(
-            ObjectId stationId,
-            CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteStationAsync(ObjectId stationId, CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             var routesContainId = (await _repositoryManager.RouteRepository
-                .GetRoutesContainStationAsync(stationId, cancellationToken))
+                .GetRoutesContainStationAsync(stationId, ct))
                 .ToList();
             if (routesContainId.Count > 0)
                 throw new InvalidOperationException(
                     $"Station can't be removed for it exists on routes: {string.Join(", ", routesContainId)}");
             var result = await _repositoryManager.StationRepository
-                .DeleteOneAsync(stationId, cancellationToken);
+                .DeleteOneAsync(stationId, ct);
             if (!result)
                 _logger.LogInformation($"Route with id: {stationId} not found");
             else

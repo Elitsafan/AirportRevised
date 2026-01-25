@@ -110,7 +110,7 @@ namespace Airport.Domain.Tests.Creators
                 .Setup(x => x.FindStationLogicsByRouteIdAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new EntityNotFoundException());
+                .ThrowsAsync(new LogicProvisionFailedException());
 
             // Act
             var routeLogicCreator = new RouteLogicCreator(
@@ -122,7 +122,7 @@ namespace Airport.Domain.Tests.Creators
 
             // Assert
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(routeLogicCreator.CreateAsync);
-            Assert.Equal("Route not found. Cannot create route logic.", ex.Message);
+            Assert.Equal($"Route Id: {route.RouteId} not found. Cannot create route logic.", ex.Message);
         }
 
         [Fact]
@@ -134,7 +134,7 @@ namespace Airport.Domain.Tests.Creators
                 .Setup(x => x.GetDirectionsByRouteIdAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new EntityNotFoundException());
+                .ThrowsAsync(new LogicProvisionFailedException());
 
             // Act
             var routeLogicCreator = new RouteLogicCreator(
@@ -146,7 +146,7 @@ namespace Airport.Domain.Tests.Creators
 
             // Assert
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(routeLogicCreator.CreateAsync);
-            Assert.Equal("Route not found. Cannot create route logic.", ex.Message);
+            Assert.Equal($"Route Id: {route.RouteId} not found. Cannot create route logic.", ex.Message);
         }
     }
 }

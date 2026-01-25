@@ -29,7 +29,7 @@
             // Arrange
             _stationLogicFactory = new StationLogicFactory(_logger);
 
-            // Assert
+            // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() => _stationLogicFactory.GetCreator(null!));
             Assert.Equal("station", ex.ParamName);
         }

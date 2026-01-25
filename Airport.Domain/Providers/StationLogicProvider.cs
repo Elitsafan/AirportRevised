@@ -10,6 +10,7 @@ namespace Airport.Domain.Providers
     {
         #region Fields
         private readonly IServiceProvider _serviceProvider;
+        private readonly IStationLogicFactory _stationLogicFactory;
         private readonly IMemoryCache _cache;
         private readonly IDomainEvents _domainEvents;
         private readonly ILogger<StationLogicProvider> _logger;
@@ -29,11 +30,13 @@ namespace Airport.Domain.Providers
 
         public StationLogicProvider(
             IServiceProvider serviceProvider,
+            IStationLogicFactory stationLogicFactory,
             IMemoryCache cache,
             IDomainEvents domainEvents,
             ILogger<StationLogicProvider> logger)
         {
             _serviceProvider = serviceProvider;
+            _stationLogicFactory = stationLogicFactory;
             _cache = cache;
             _domainEvents = domainEvents;
             _logger = logger;
@@ -63,7 +66,7 @@ namespace Airport.Domain.Providers
                     entry.Size = 1; // For memory cache size tracking
 
                     _logger.LogDebug("Caching all station logics ({Count} items)", _stationLogics.Count);
-                    return await Task.FromResult(_stationLogics.Values.ToList().AsEnumerable());
+                    return await Task.FromResult(_stationLogics.Values.ToList());
                 }) ?? [];
         }
 
@@ -76,8 +79,7 @@ namespace Airport.Domain.Providers
             if (_stationLogics.TryGetValue(id, out var stationLogic))
                 return stationLogic;
 
-            _logger.LogWarning("Station logic not found for ID: {StationId}", id);
-            throw new LogicNotFoundException($"Station logic not found for ID: {id}");
+            throw new LogicNotFoundException($"Station logic not found for Id: {id}");
         }
 
         public async Task<IEnumerable<IStationLogic>> FindStationLogicsByRouteIdAsync(
@@ -93,30 +95,33 @@ namespace Airport.Domain.Providers
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
                 entry.Size = 1;
 
+                await using var repositoryManager = _serviceProvider
+                    .CreateAsyncScope()
+                    .ServiceProvider
+                    .GetRequiredService<IRepositoryManager>();
+
+                IEnumerable<Station> stations;
+                Route route;
+
                 try
                 {
-                    await using var repositoryManager = _serviceProvider
-                        .CreateAsyncScope()
-                        .ServiceProvider
-                        .GetRequiredService<IRepositoryManager>();
-
-                    var route = await repositoryManager.RouteRepository.GetRouteByIdAsync(routeId, ct);
-                    var stations = await repositoryManager.StationRepository.GetStationsByRouteAsync(route, ct);
-
-                    var result = stations.Join(
-                        _stationLogics.Values,
-                        s => s.StationId,
-                        sl => sl.StationId,
-                        (station, stationLogic) => stationLogic).ToList();
-
-                    _logger.LogDebug("Cached {Count} station logics for route {RouteId}", result.Count, routeId);
-                    return result.AsEnumerable();
+                    route = await repositoryManager.RouteRepository.GetRouteByIdAsync(routeId, ct);
+                    stations = await repositoryManager.StationRepository.GetStationsByRouteAsync(route, ct);
                 }
-                catch (ArgumentNullException ex)
+                catch (EntityNotFoundException e)
                 {
-                    _logger.LogError(ex, "Route not found: {RouteId}", routeId);
-                    throw new ArgumentException($"Route not found with ID: {routeId}", ex);
+                    throw new LogicProvisionFailedException($"Route with id: {routeId} not found.", e);
                 }
+
+                var result = stations.Join(
+                    _stationLogics.Values,
+                    s => s.StationId,
+                    sl => sl.StationId,
+                    (station, stationLogic) => stationLogic)
+                    .ToList();
+
+                _logger.LogDebug($"Cached {result.Count} station logics for route {routeId}");
+                return result;
             }) ?? [];
         }
 
@@ -145,10 +150,11 @@ namespace Airport.Domain.Providers
                     trafficLights,
                     s => s.StationId,
                     tl => tl.StationId,
-                    (stationLogic, trafficLight) => stationLogic).ToList();
+                    (stationLogic, trafficLight) => stationLogic)
+                    .ToList();
 
-                _logger.LogDebug("Cached {Count} traffic light logics for route {RouteId}", result.Count, routeId);
-                return result.AsEnumerable();
+                _logger.LogDebug($"Cached {result.Count} traffic light logics for route {routeId}");
+                return result;
             }) ?? [];
         }
 
@@ -180,15 +186,16 @@ namespace Airport.Domain.Providers
                         nextTrafficLights,
                         s => s.StationId,
                         tl => tl.StationId,
-                        (stationLogic, trafficLight) => stationLogic).ToList();
+                        (stationLogic, trafficLight) => stationLogic)
+                        .ToList();
 
-                    _logger.LogDebug("Cached {Count} next traffic light logics for route {RouteId}, traffic light {TrafficLightId}",
-                        result.Count, routeId, trafficLightId);
-                    return result.AsEnumerable();
+                    _logger.LogDebug($"Cached {result.Count} next traffic light logics " +
+                        $"for route {routeId}, traffic light {trafficLightId}");
+                    return result;
                 }
                 catch (EntityNotFoundException ex)
                 {
-                    _logger.LogError(ex, "Route not found when getting next traffic lights: {RouteId}", routeId);
+                    _logger.LogError(ex, $"Route not found when getting next traffic lights: {routeId}");
                     throw new InvalidOperationException($"Route not found. Cannot get next traffic lights for route: {routeId}", ex);
                 }
             }) ?? [];
@@ -217,6 +224,7 @@ namespace Airport.Domain.Providers
             // Re-initialize
             _isInitialized = false;
             await InitializeAsync(ct);
+            _isInitialized = true;
 
             _logger.LogInformation("Station logics refreshed successfully");
         }
@@ -251,20 +259,21 @@ namespace Airport.Domain.Providers
 
         private async Task InitializeAsync(CancellationToken ct = default)
         {
-            _logger.LogInformation("Initializing station logics from database");
+            _logger.LogInformation("Initializing station logics from repository");
 
             await using var scope = _serviceProvider.CreateAsyncScope();
-            var stationLogicFactory = scope.ServiceProvider.GetRequiredService<IStationLogicFactory>();
             var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
 
             var stations = await repositoryManager.StationRepository.GetAllAsync(ct);
             if (!stations.Any())
             {
-                _logger.LogError("No stations found in database during initialization");
-                throw new InvalidOperationException("There are no stations in the database.");
+                _logger.LogError("No stations found during initialization");
+                throw new InvalidOperationException("There are no stations.");
             }
 
-            var stationLogics = stations.Select(station => stationLogicFactory.GetCreator(station).Create());
+            var stationLogics = stations.Select(station => _stationLogicFactory
+                .GetCreator(station)
+                .Create());
 
             foreach (var stationLogic in stationLogics)
             {
@@ -281,7 +290,7 @@ namespace Airport.Domain.Providers
                 _stationLogics.TryAdd(stationLogic.StationId, stationLogic);
             }
 
-            _logger.LogInformation("Successfully initialized {Count} station logics", _stationLogics.Count);
+            _logger.LogInformation($"Successfully initialized {_stationLogics.Count} station logics");
         }
 
         private async Task OnInternalStationOccupiedAsync(object? sender, IStationOccupiedEventArgs args)

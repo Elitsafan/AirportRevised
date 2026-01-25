@@ -11,6 +11,7 @@ namespace Airport.Domain.Providers
         private readonly IMemoryCache _cache;
         private readonly IDomainEvents _domainEvents;
         private readonly ILogger<DirectionLogicProvider> _logger;
+        private readonly IDirectionLogicFactory _directionLogicFactory;
         private readonly AsyncSemaphore _initializationSemaphore;
         private bool _isInitialized;
         private HashSet<IDirectionLogic> _directionLogics = null!;
@@ -19,18 +20,19 @@ namespace Airport.Domain.Providers
         // Cache configuration
         private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan ShortCacheExpiration = TimeSpan.FromMinutes(5);
-
         private const string ALL_DIRECTIONS_KEY = "all_direction_logics";
         private const string ROUTE_DIRECTIONS_PREFIX = "route_directions_";
         #endregion
 
         public DirectionLogicProvider(
             IServiceProvider serviceProvider,
+            IDirectionLogicFactory directionLogicFactory,
             IMemoryCache cache,
             IDomainEvents domainEvents,
             ILogger<DirectionLogicProvider> logger)
         {
             _serviceProvider = serviceProvider;
+            _directionLogicFactory = directionLogicFactory;
             _cache = cache;
             _domainEvents = domainEvents;
             _logger = logger;
@@ -50,37 +52,28 @@ namespace Airport.Domain.Providers
             await EnsureInitializedAsync(ct);
 
             var cacheKey = $"{ROUTE_DIRECTIONS_PREFIX}{routeId}";
-
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-                entry.Size = 1;
+                await using var scope = _serviceProvider.CreateAsyncScope();
 
-                try
-                {
-                    await using var scope = _serviceProvider.CreateAsyncScope();
+                Route route = await scope
+                    .ServiceProvider
+                    .GetRequiredService<IRepositoryManager>()
+                    .RouteRepository
+                    .GetRouteByIdAsync(routeId, ct);
 
-                    var route = await scope
-                        .ServiceProvider
-                        .GetRequiredService<IRepositoryManager>()
-                        .RouteRepository
-                        .GetRouteByIdAsync(routeId, ct);
+                var result = route.Directions.Join(
+                    _directionLogics,
+                    dLeft => new { dLeft.From, dLeft.To },
+                    dRight => new { dRight.From, dRight.To },
+                    (l, r) => r)
+                    .ToList();
 
-                    var result = route.Directions.Join(
-                        _directionLogics,
-                        dLeft => new { dLeft.From, dLeft.To },
-                        dRight => new { dRight.From, dRight.To },
-                        (l, r) => r)
-                        .ToList();
+                entry.Size = result.Count;
 
-                    _logger.LogDebug($"Cached {result.Count} direction logics for route {routeId}");
-                    return result;
-                }
-                catch (ArgumentNullException ex)
-                {
-                    _logger.LogError(ex, $"Route not found: {routeId}");
-                    throw new ArgumentException($"Route not found with ID: {routeId}", ex);
-                }
+                _logger.LogDebug($"Cached {result.Count} direction logics for route {routeId}");
+                return result;
             }) ?? [];
         }
 
@@ -99,9 +92,6 @@ namespace Airport.Domain.Providers
                 .ServiceProvider
                 .GetRequiredService<IRepositoryManager>()
                 .RouteRepository;
-            var directionLogicFactory = scope
-                .ServiceProvider
-                .GetRequiredService<IDirectionLogicFactory>();
 
             var allRoutes = await routeRepository.GetAllAsync(ct);
             _routeIdToDirectionLogics = new ConcurrentDictionary<ObjectId, List<IDirectionLogic>>();
@@ -110,7 +100,7 @@ namespace Airport.Domain.Providers
             {
                 // Creates the direction logics
                 var directionLogics = route.Directions.Select(
-                    d => directionLogicFactory.GetCreator(
+                    d => _directionLogicFactory.GetCreator(
                         d).Create());
                 // Store for searching 
                 _routeIdToDirectionLogics.TryAdd(route.RouteId, new(directionLogics));
@@ -154,6 +144,7 @@ namespace Airport.Domain.Providers
             // Re-initialize
             _isInitialized = false;
             await InitializeAsync(ct);
+            _isInitialized = true;
 
             _logger.LogInformation("Direction logics refreshed successfully");
         }
@@ -166,17 +157,19 @@ namespace Airport.Domain.Providers
             _cache.Remove(ALL_DIRECTIONS_KEY);
         }
 
-        private async Task OnDataRefreshedAsync() => await RefreshAsync();
+        #region Event Handlers
+        protected virtual async Task OnDataRefreshedAsync() => await RefreshAsync();
 
-        private async Task OnSystemResetRequestedAsync() => await RefreshAsync();
+        protected virtual async Task OnSystemResetRequestedAsync() => await RefreshAsync();
 
-        private async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args) =>
+        protected virtual async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args) =>
             await RefreshAsync();
 
-        private async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args) =>
+        protected virtual async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args) =>
             await RefreshAsync();
 
-        private async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args) =>
-            await RefreshAsync();
+        protected virtual async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args) =>
+            await RefreshAsync(); 
+        #endregion
     }
 }

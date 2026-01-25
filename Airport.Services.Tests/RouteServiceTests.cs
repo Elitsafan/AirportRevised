@@ -6,17 +6,19 @@ namespace Airport.Services.Tests
     public class RouteServiceTests
     {
         #region Fields
-        private Mock<IRouteLogicFactory> _mockRouteLogicFactory;
-        private Mock<IRepositoryManager> _mockRepositoryManager;
-        private Mock<IMapper> _mockMapper;
-        private Mock<IRouteLogicCreator> _mockRouteLogicCreator;
-        private Mock<IRouteLogic> _mockRouteLogic;
-        private RouteService _routeService;
+        private readonly Mock<IRouteLogicFactory> _mockRouteLogicFactory;
+        private readonly Mock<IRepositoryManager> _mockRepositoryManager;
+        private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<IRouteLogicCreator> _mockRouteLogicCreator;
+        private readonly Mock<IRouteLogic> _mockRouteLogic;
+        private readonly Mock<IAirportStateProvider> _mockAirportStateProvider;
         private readonly ILogger<RouteService> _mockLogger;
+        private RouteService _routeService;
         #endregion
 
         public RouteServiceTests()
         {
+            _mockAirportStateProvider = new Mock<IAirportStateProvider>();
             _mockRouteLogicFactory = new Mock<IRouteLogicFactory>();
             _mockRepositoryManager = new Mock<IRepositoryManager>();
             _mockMapper = new Mock<IMapper>();
@@ -30,6 +32,7 @@ namespace Airport.Services.Tests
         public void RouteServiceCreated_NotNull()
         {
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -60,6 +63,7 @@ namespace Airport.Services.Tests
                 .Returns(routeDto);
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -73,6 +77,7 @@ namespace Airport.Services.Tests
             var mockRouteRepository = new Mock<IRouteRepository>();
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -95,6 +100,7 @@ namespace Airport.Services.Tests
             var routeDto = new RouteDTO();
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -136,6 +142,7 @@ namespace Airport.Services.Tests
                 .Returns(mockStationRepository.Object);
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -189,6 +196,7 @@ namespace Airport.Services.Tests
                 .ReturnsAsync(stationIds);
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -204,6 +212,7 @@ namespace Airport.Services.Tests
         public async Task UpdateRouteAsync_RouteIsNull_ThrowsArgumentNullException()
         {
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -225,6 +234,7 @@ namespace Airport.Services.Tests
                 .ReturnsAsync(true);
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);
@@ -247,6 +257,7 @@ namespace Airport.Services.Tests
                 .ReturnsAsync(false);
 
             _routeService = new RouteService(
+                _mockAirportStateProvider.Object,
                 _mockRepositoryManager.Object,
                 _mockMapper.Object,
                 _mockLogger);

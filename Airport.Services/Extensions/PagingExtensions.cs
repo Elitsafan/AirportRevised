@@ -1,6 +1,6 @@
 ﻿using Airport.Models;
 
-namespace Airport.Services
+namespace Airport.Services.Extensions
 {
     public static class PagingExtensions
     {
@@ -11,7 +11,7 @@ namespace Airport.Services
                 : source.Count();
             if (count == 0)
                 return new PagedList<T>([], 0, 0, 0);
-            if (pageSize * pageNumber > count && (pageNumber != Math.Ceiling((double)count / pageSize)))
+            if (pageSize * pageNumber > count && pageNumber != Math.Ceiling((double)count / pageSize))
                 throw new InvalidOperationException("No such a page number for a such page size.");
             var items = source
                 .Skip((pageNumber - 1) * pageSize)
