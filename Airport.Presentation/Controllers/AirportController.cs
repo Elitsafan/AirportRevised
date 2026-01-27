@@ -1,5 +1,4 @@
 ﻿using Airport.Models;
-using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -17,26 +16,24 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Airport/Start
         [HttpGet]
-        public async Task<IActionResult> StartAsync(CancellationToken cancellationToken) =>
-            Ok(await _airportService.StartAsync(cancellationToken));
+        public async Task<IActionResult> StartAsync(CancellationToken ct) =>
+            Ok(await _airportService.StartAsync(ct));
 
         // GET: api/Airport/Status
         [HttpGet]
-        [TypeFilter(typeof(AirportNotStartedFilter))]
-        public async Task<IActionResult> StatusAsync(CancellationToken cancellationToken) =>
-            Ok(await _airportService.GetStatusAsync(cancellationToken));
+        public async Task<IActionResult> StatusAsync(CancellationToken ct) =>
+            Ok(await _airportService.GetStatusAsync(ct));
 
         // GET: api/Airport/Summary
         [HttpGet]
-        [TypeFilter(typeof(AirportNotStartedFilter))]
         public async Task<IActionResult> SummaryAsync(
             [FromQuery] GetSummaryParameters parameters,
-            CancellationToken cancellationToken)
+            CancellationToken ct)
         {
-            var summary = await _airportService.GetPagedSummaryAsync(parameters, cancellationToken);
+            var summary = await _airportService.GetPagedSummaryAsync(parameters, ct);
             (int LandingsCount, int DeparturesCount) = await _airportService.GetFlightsCountAsync(
                 summary.CurrentPage * summary.PageSize,
-                cancellationToken);
+                ct);
             var metadata = new
             {
                 summary.TotalCount,
@@ -51,9 +48,9 @@ namespace Airport.Presentation.Controllers
             var paginationHeader = "X-Pagination";
             Response.Headers.Add("Access-Control-Expose-Headers", paginationHeader);
             Response.Headers.Add(
-                paginationHeader, 
+                paginationHeader,
                 JsonConvert.SerializeObject(
-                    metadata, 
+                    metadata,
                     new JsonSerializerSettings()
                     {
                         ContractResolver = new DefaultContractResolver

@@ -1,5 +1,4 @@
 ﻿using Airport.Models.DTOs;
-using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
@@ -9,7 +8,6 @@ namespace Airport.Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [TypeFilter(typeof(AirportNotStartedFilter))]
     public class FlightsController : ControllerBase
     {
         private readonly IFlightService _flightSvc;
@@ -33,7 +31,7 @@ namespace Airport.Presentation.Controllers
             [FromBody] LandingForCreationDTO flightForCreation,
             CancellationToken cancellationToken = default)
         {
-            await _flightSvc.ProcessFlightAsync(id, flightForCreation, cancellationToken);
+            await _flightSvc.AddFlightAsync(id, flightForCreation, cancellationToken);
             return CreatedAtRoute("GetAllFlights", new { id, flightForCreation.FlightType });
         }
 
@@ -44,7 +42,7 @@ namespace Airport.Presentation.Controllers
             [FromBody] DepartureForCreationDTO flightForCreation,
             CancellationToken cancellationToken = default)
         {
-            await _flightSvc.ProcessFlightAsync(id, flightForCreation, cancellationToken);
+            await _flightSvc.AddFlightAsync(id, flightForCreation, cancellationToken);
             return CreatedAtRoute("GetAllFlights", new { id, flightForCreation.FlightType });
         }
     }
