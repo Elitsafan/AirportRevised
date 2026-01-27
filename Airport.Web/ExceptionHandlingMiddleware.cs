@@ -42,7 +42,7 @@ namespace Airport.Web
                 OperationCanceledException => 444,
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
                 // TODO: fix invalidoperationexception
-                //InvalidOperationException => StatusCodes.Status500InternalServerError,
+                InvalidOperationException => StatusCodes.Status500InternalServerError,
                 _ => StatusCodes.Status500InternalServerError
             };
 
