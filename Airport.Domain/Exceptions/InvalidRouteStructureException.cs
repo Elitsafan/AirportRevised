@@ -3,18 +3,12 @@
     public class InvalidRouteStructureException : InvalidOperationException
     {
         public InvalidRouteStructureException()
-            : base()
-        {
-        }
+            : base() { }
 
         public InvalidRouteStructureException(string? message)
-            : base(message)
-        {
-        }
+            : base(message) { }
 
         public InvalidRouteStructureException(string? message, Exception? innerException)
-            : base(message, innerException)
-        {
-        }
+            : base(message, innerException) { }
     }
 }
