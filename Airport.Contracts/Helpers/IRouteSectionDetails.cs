@@ -12,12 +12,12 @@ namespace Airport.Contracts.Helpers
         /// <param name="station"></param>
         /// <param name="flightId"></param>
         /// <param name="trafficLightsCts"></param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="ct"></param>
         /// <returns></returns>
         Task EnterSectionAsync(
             IStationLogic station,
             ObjectId flightId,
             CancellationTokenSource? trafficLightsCts,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
     }
 }
