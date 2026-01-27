@@ -10,7 +10,11 @@ namespace Airport.Services.MappingConfigurations
     {
         public StationProfile()
         {
-            CreateMap<Station, StationDTO>();
+            CreateMap<Station, StationDTO>()
+                .ForMember(dest => dest.WaitingTime, opt => opt.MapFrom(src => src.EstimatedWaitingTime));
+            CreateMap<StationDTO, Station>();
+            CreateMap<StationForCreationDTO, Station>();
+            CreateMap<StationForUpdateDTO, Station>();
             CreateMap<IStationLogic, StationDTO>()
                 .ForMember(dest => dest.StationId, opt => opt.MapFrom(src => src.StationId))
                 .ForMember(dest => dest.WaitingTime, opt => opt.MapFrom(src => src.EstimatedWaitingTime))
