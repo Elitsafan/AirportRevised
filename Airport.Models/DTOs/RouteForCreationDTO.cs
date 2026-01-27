@@ -1,12 +1,9 @@
-﻿using MongoDB.Bson;
-
-namespace Airport.Models.DTOs
+﻿namespace Airport.Models.DTOs
 {
-    public class RouteDTO
+    public class RouteForCreationDTO
     {
         private List<DirectionDTO>? _directions;
 
-        public ObjectId RouteId { get; set; }
         public string RouteName { get; set; } = string.Empty;
         public List<DirectionDTO> Directions
         {

@@ -1,9 +1,9 @@
-﻿using MongoDB.Bson;
-using Airport.Models.Entities;
+﻿using Airport.Models.Entities;
+using MongoDB.Bson;
 
 namespace Airport.Models.DTOs
 {
-    public class FlightUpdateDTO
+    public class FlightForUpdateDTO
     {
         private List<OccupationDetails>? _stationOccupationDetails;
         public List<OccupationDetails> StationOccupationDetails
