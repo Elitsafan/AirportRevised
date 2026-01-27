@@ -21,9 +21,8 @@ namespace Airport.Web
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            Configuration = builder.Configuration;
             builder.Services.Configure<AirportDbConfiguration>(
-                Configuration.GetSection(nameof(AirportDbConfiguration)));
+                builder.Configuration.GetSection(nameof(AirportDbConfiguration)));
             //#if DEBUG
             //            builder.Logging
             //                .ClearProviders()
@@ -40,14 +39,14 @@ namespace Airport.Web
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(
-                    builder =>
+                    config =>
                     {
-                        var clientOrigins = Configuration
+                        var clientOrigins = builder.Configuration
                             .GetSection("ClientOrigins")
                             .GetChildren()
                             .Select(cs => cs.Value)!
                             .ToArray()!;
-                        builder.WithOrigins(clientOrigins!)
+                        config.WithOrigins(clientOrigins!)
                             .AllowAnyHeader()
                             .WithMethods("GET", "POST")
                             .AllowCredentials();
@@ -59,6 +58,7 @@ namespace Airport.Web
             builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
             builder.Services.AddScoped<IFlightService, FlightService>();
             builder.Services.AddScoped<IAirportService, AirportService>();
+            builder.Services.AddSingleton<IAirportStateProvider, AirportStateProvider>();
             builder.Services.AddSingleton<IStationLogicProvider>(serviceProvider =>
             {
                 var cache = serviceProvider.GetRequiredService<IMemoryCache>();
@@ -95,7 +95,7 @@ namespace Airport.Web
             });
             builder.Services.AddAutoMapper(cfg =>
             {
-                var autoMapperKey = Configuration.GetSection("AutoMapper")["Key"];
+                var autoMapperKey = builder.Configuration.GetSection("AutoMapper")["Key"];
                 cfg.LicenseKey = autoMapperKey;
                 cfg.AddProfile<FlightProfile>();
                 cfg.AddProfile<StationProfile>();
@@ -132,8 +132,6 @@ namespace Airport.Web
             await app.StartAsync();
             await app.WaitForShutdownAsync();
         }
-
-        private static ConfigurationManager Configuration { get; set; } = null!;
 
         private static async Task SeedDatabaseAsync(WebApplication app)
         {

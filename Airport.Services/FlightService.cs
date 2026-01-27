@@ -2,10 +2,12 @@
 using Airport.Contracts.EventArgs;
 using Airport.Contracts.Factories;
 using Airport.Contracts.Logics;
+using Airport.Contracts.Providers;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Services.Abstractions;
+using Airport.Services.Extensions;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -16,6 +18,7 @@ namespace Airport.Services
     public class FlightService : IFlightService
     {
         #region Fields
+        private readonly IAirportStateProvider _airportStateProvider;
         private readonly IFlightLogicFactory _flightLogicFactory;
         private readonly IRepositoryManager _repositoryManager;
         private readonly IAirportHubService _airportHubService;
@@ -25,12 +28,14 @@ namespace Airport.Services
         #endregion
 
         public FlightService(
+            IAirportStateProvider airportStateProvider,
             IFlightLogicFactory flightLogicFactory,
             IRepositoryManager repositoryManager,
             IAirportHubService airportHubService,
             IMapper mapper,
             ILogger<FlightService> logger)
         {
+            _airportStateProvider = airportStateProvider;
             _flightLogicFactory = flightLogicFactory;
             _repositoryManager = repositoryManager;
             _airportHubService = airportHubService;
@@ -38,12 +43,14 @@ namespace Airport.Services
             _logger = logger;
         }
 
-        public async Task ProcessFlightAsync(
+        public async Task AddFlightAsync(
             ObjectId id,
             FlightForCreationDTO flightForCreation,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            _airportStateProvider.ThrowIfNotStarted();
+
+            ct.ThrowIfCancellationRequested();
             if (flightForCreation is null)
                 throw new ArgumentNullException(nameof(flightForCreation));
             Flight flight;
@@ -74,13 +81,15 @@ namespace Airport.Services
 
         public async IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
             int? minutesPassed,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
+            _airportStateProvider.ThrowIfNotStarted();
+
             var flights = minutesPassed.HasValue
                 ? (await _repositoryManager.FlightRepository.FilterByTimePassedAsync(
                     TimeSpan.FromMinutes(minutesPassed.Value),
-                    cancellationToken))
-                : (await _repositoryManager.FlightRepository.OrderByEntranceAsync(cancellationToken));
+                    ct))
+                : (await _repositoryManager.FlightRepository.OrderByEntranceAsync(ct));
 
             foreach (var flight in flights.Select(_mapper.Map<FlightDTO>))
                 yield return flight;

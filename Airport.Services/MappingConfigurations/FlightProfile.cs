@@ -1,7 +1,8 @@
-﻿using AutoMapper;
+﻿using Airport.Domain.Helpers;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
 using Airport.Models.Enums;
+using AutoMapper;
 
 namespace Airport.Services.MappingConfigurations
 {
@@ -16,7 +17,7 @@ namespace Airport.Services.MappingConfigurations
             CreateMap<Landing, LandingDTO>();
             CreateMap<Departure, DepartureDTO>();
             CreateMap<Flight, FlightDTO>()
-                .ConstructUsing(f => f.ConvertToFlightType() == FlightType.Landing
+                .ConstructUsing(f => f.ToFlightType() == FlightType.Landing
                     ? new LandingDTO()
                     : new DepartureDTO());
         }
