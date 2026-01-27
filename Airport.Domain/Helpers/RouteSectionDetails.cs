@@ -20,17 +20,17 @@ namespace Airport.Domain.Helpers
             _trafficLightSynchronizer = new(1);
         }
 
-        public IRouteSection RouteSection { get; } = null!;
+        public IRouteSection RouteSection { get; }
 
         public async Task EnterSectionAsync(
             IStationLogic station,
             ObjectId flightId,
             CancellationTokenSource? cts,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             if (!RouteSection.Source.Contains(station))
                 throw new ArgumentException("Station not found on source.", nameof(station));
-            await EnterSourceAsync(flightId, cts, cancellationToken);
+            await EnterSourceAsync(flightId, cts, ct);
         }
 
         protected virtual async Task OnExitSectionAsync(object? sender, IStationClearedEventArgs args)
@@ -45,13 +45,13 @@ namespace Airport.Domain.Helpers
         private async Task EnterSourceAsync(
             ObjectId flightId,
             CancellationTokenSource? cts,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             await _trafficLightSynchronizer.ThrowIfCancellationRequestedAsync(cts);
-            var releaser = await _synchronizer.EnterSectionAsync(cancellationToken);
+            var releaser = await _synchronizer.EnterSectionAsync(ct);
             try
             {
-                await _synchronizer.GetSourceRightOfWayAsync(RouteSection.RouteId, cancellationToken)
+                await _synchronizer.GetSourceRightOfWayAsync(RouteSection.RouteId, ct)
                     .AppendAction(() => _flightsTrace.TryAdd(flightId, releaser));
             }
             catch (OperationCanceledException)
