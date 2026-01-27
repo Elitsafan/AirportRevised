@@ -11,9 +11,7 @@
             {
                 cts?.Token.ThrowIfCancellationRequested();
                 if (cts != null)
-                {
                     await cts.CancelAsync();
-                }
             }
             finally { releaser.Dispose(); }
         }

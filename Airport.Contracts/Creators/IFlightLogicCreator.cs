@@ -2,7 +2,7 @@
 
 namespace Airport.Contracts.Creators
 {
-    public interface IFlightLogicCreator : ILogicCreatorAsync<IFlightLogic>
+    public interface IFlightLogicCreator : ILogicCreator<IFlightLogic>
     {
     }
 }
