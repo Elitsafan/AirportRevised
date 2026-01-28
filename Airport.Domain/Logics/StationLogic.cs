@@ -4,7 +4,7 @@ using Airport.Models.Enums;
 
 namespace Airport.Domain.Logics
 {
-    internal class StationLogic : IStationLogic
+    public class StationLogic : IStationLogic
     {
         #region Fields
         private readonly AsyncSemaphore _semaphore;
@@ -76,7 +76,7 @@ namespace Airport.Domain.Logics
 
         public void Dispose() => _semaphore?.Dispose();
 
-        public override bool Equals(object? obj) => obj is StationLogic stationLogic && 
+        public override bool Equals(object? obj) => obj is StationLogic stationLogic &&
             _station.StationId.Equals(stationLogic._station.StationId);
 
         public override int GetHashCode() => _station.StationId.GetHashCode();
@@ -84,19 +84,38 @@ namespace Airport.Domain.Logics
         protected virtual async Task RaiseStationOccupiedAsync()
         {
             if (StationOccupiedAsync is not null)
-                await StationOccupiedAsync.InvokeAsync(this, new StationOccupiedEventArgs(_flightLogic!.FlightId));
+                await StationOccupiedAsync.InvokeAsync(
+                    this,
+                    new StationOccupiedEventArgs
+                    {
+                        StationLogic = this,
+                        FlightId = _flightLogic!.FlightId
+                    });
         }
 
         protected virtual async Task RaiseStationClearingAsync()
         {
             if (StationClearingAsync is not null)
-                await StationClearingAsync.InvokeAsync(this, new StationClearingEventArgs(_flightLogic!.FlightId));
+                await StationClearingAsync.InvokeAsync(
+                    this,
+                    new StationClearingEventArgs
+                    {
+                        StationLogic = this,
+                        FlightId = _flightLogic!.FlightId
+                    });
         }
 
         protected virtual async Task RaiseStationClearedAsync(ObjectId routeId, ObjectId flightId)
         {
             if (StationClearedAsync is not null)
-                await StationClearedAsync.InvokeAsync(this, new StationClearedEventArgs(routeId, flightId));
+                await StationClearedAsync.InvokeAsync(
+                    this,
+                    new StationClearedEventArgs
+                    {
+                        StationLogic = this,
+                        RouteId = routeId,
+                        FlightId = flightId
+                    });
         }
     }
 }

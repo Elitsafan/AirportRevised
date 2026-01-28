@@ -2,8 +2,7 @@
 {
     internal class StationClearingEventArgs : System.EventArgs, IStationClearingEventArgs
     {
-        public StationClearingEventArgs(ObjectId flightId) => FlightId = flightId;
-
-        public ObjectId FlightId { get; }
+        public required IStationLogic StationLogic { get; init; }
+        public ObjectId FlightId { get; init; }
     }
 }

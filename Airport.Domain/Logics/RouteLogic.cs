@@ -1,43 +1,56 @@
 ﻿using Airport.Domain.Helpers;
+using Airport.Models.Entities;
+using Microsoft.Extensions.Logging;
+using static System.Collections.Specialized.BitVector32;
 
 namespace Airport.Domain.Logics
 {
     internal class RouteLogic : IRouteLogic
     {
         #region Fields
-        private Route _route = null!;
-        private AsyncSemaphore _syncStartStations = null!;
-        private List<IRouteSectionDetails>? _sections;
-        private ILogger<RouteLogic> _logger = null!;
-        private List<IStationLogic> _trafficLights = null!;
-        private List<IStationLogic> _stations = null!;
-        private List<IDirectionLogic> _directions = null!;
+        private readonly Route _route;
+        private readonly AsyncSemaphore _syncStartStations;
+        private readonly List<IRouteSectionDetails>? _sections;
+        private readonly ILogger<RouteLogic> _logger;
+        private readonly List<IStationLogic> _trafficLights;
+        private readonly List<IStationLogic> _stations;
+        private readonly List<IDirectionLogic> _directions;
         #endregion
+
+        public RouteLogic(
+            Route route,
+            ILogger<RouteLogic> logger,
+            IEnumerable<IRouteSectionDetails>? sections,
+            IEnumerable<IStationLogic> stations,
+            IEnumerable<IDirectionLogic> directions,
+            IEnumerable<IStationLogic> trafficLights)
+        {
+            _route = route;
+            _logger = logger;
+            _stations = stations.ToList();
+            _directions = directions.ToList();
+            _trafficLights = trafficLights.ToList();
+            _sections = sections?.ToList();
+            var countStartStations = GetNextLeg().TryGetNonEnumeratedCount(out int count)
+                ? count
+                : GetNextLeg().Count();
+            // Limits the number of flights that can enter the first stations,
+            // that is, the number of flights that can start the run
+            _syncStartStations = new AsyncSemaphore(countStartStations);
+        }
 
         public ObjectId RouteId => _route.RouteId;
         public string RouteName => _route.RouteName;
 
-        public static async Task<RouteLogic> CreateAsync(
-            Route route,
-            IEnumerable<IRouteSectionDetails>? sections,
-            ILogger<RouteLogic> logger,
-            IDirectionLogicProvider directionLogicProvider,
-            IStationLogicProvider stationLogicProvider) => await new RouteLogic().InitializeAsync(
-                route,
-                sections,
-                logger,
-                directionLogicProvider,
-                stationLogicProvider);
-
-        public async Task<AsyncSemaphore.Releaser> StartRunAsync(CancellationToken cancellationToken = default) =>
-            await _syncStartStations.EnterAsync(cancellationToken);
+        public async Task<AsyncSemaphore.Releaser> StartRunAsync(CancellationToken ct = default) =>
+            await _syncStartStations.EnterAsync(ct);
 
         public async Task<IStationLogic> EnterLegAsync(
             IFlightLogic flightLogic,
             IEnumerable<IStationLogic> leg,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
             if (leg.Except(_stations).Any())
                 throw new InvalidOperationException("Not all stations belong to the route.");
             var stations = leg.ToArray();
@@ -62,41 +75,6 @@ namespace Airport.Domain.Logics
         public override bool Equals(object? obj) => obj is RouteLogic routeLogic && _route.RouteId == routeLogic.RouteId;
 
         public override int GetHashCode() => _route.RouteId.GetHashCode();
-
-        private RouteLogic()
-        {
-        }
-
-        private async Task<RouteLogic> InitializeAsync(
-            Route route,
-            IEnumerable<IRouteSectionDetails>? sections,
-            ILogger<RouteLogic> logger,
-            IDirectionLogicProvider directionLogicProvider,
-            IStationLogicProvider stationLogicProvider)
-        {
-            _route = route;
-            _sections = sections?.ToList();
-            _logger = logger;
-            _trafficLights = new List<IStationLogic>(_sections?
-                .SelectMany(s => s.RouteSection.AllTrafficLights)
-                .Distinct() ?? Enumerable.Empty<IStationLogic>());
-            try
-            {
-                _stations = new List<IStationLogic>(await stationLogicProvider.FindStationLogicsByRouteIdAsync(RouteId));
-                _directions = new List<IDirectionLogic>(await directionLogicProvider.GetDirectionsByRouteIdAsync(RouteId));
-            }
-            catch (EntityNotFoundException)
-            {
-                throw new InvalidOperationException("Route not found. Cannot create route logic.");
-            }
-            var countStartStations = GetNextLeg().TryGetNonEnumeratedCount(out int count)
-                ? count
-                : GetNextLeg().Count();
-            // Limits the number of flights that can enter the first stations,
-            // that is, the number of flights that can start the run
-            _syncStartStations = new AsyncSemaphore(countStartStations);
-            return this;
-        }
 
         private async Task<IStationLogic> StationsEntranceAttemptAsync(
             IFlightLogic flightLogic,
@@ -134,23 +112,23 @@ namespace Airport.Domain.Logics
                 if (enteredStation.IsCompletedSuccessfully)
                     return await enteredStation;
                 // Eliminates failures
-                if (enteredStation.Status == TaskStatus.Canceled || enteredStation.Status == TaskStatus.Faulted)
+                if (enteredStation.IsCanceled || enteredStation.IsFaulted)
                     attempts.Remove(enteredStation);
             }
-            throw new Exception("Couldn't enter any of the stations");
+            throw new StationEntranceFailedException("Couldn't enter any of the stations");
         }
 
         private async Task GetRightOfWayAsync(
             IStationLogic station,
             ObjectId flightId,
             CancellationTokenSource? trafficLightsCts,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
             IRouteSectionDetails? sourceSectionDetails = _sections!.Find(
                 section => section.RouteSection.Source.Contains(station));
             if (sourceSectionDetails is not null)
-                await sourceSectionDetails.EnterSectionAsync(station, flightId, trafficLightsCts, cancellationToken);
+                await sourceSectionDetails.EnterSectionAsync(station, flightId, trafficLightsCts, ct);
         }
     }
 }
