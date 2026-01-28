@@ -3,10 +3,10 @@ using Airport.Models.Enums;
 
 namespace Airport.Contracts.Providers
 {
-    public interface IRouteLogicProvider
+    public interface IRouteLogicProvider : IDisposable
     {
-        IEnumerable<IRouteLogic> LandingRoutes { get; }
-        IEnumerable<IRouteLogic> DepartureRoutes { get; }
-        IRouteLogic? GetNextRoute(FlightType flightType);
+        Task<IEnumerable<IRouteLogic>> GetDepartureRoutesAsync(CancellationToken ct = default);
+        Task<IEnumerable<IRouteLogic>> GetLandingRoutesAsync(CancellationToken ct = default);
+        Task<IRouteLogic?> GetNextRouteAsync(FlightType flightType, CancellationToken ct = default);
     }
 }

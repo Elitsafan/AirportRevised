@@ -3,10 +3,10 @@ using MongoDB.Bson;
 
 namespace Airport.Contracts.Providers
 {
-    public interface IDirectionLogicProvider
+    public interface IDirectionLogicProvider : IDisposable
     {
         Task<IEnumerable<IDirectionLogic>> GetDirectionsByRouteIdAsync(
             ObjectId routeId,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
     }
 }

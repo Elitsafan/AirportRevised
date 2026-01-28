@@ -1,6 +1,6 @@
 ﻿namespace Airport.Contracts.EventArgs
 {
-    public interface IStationClearingEventArgs : IStationEventArgs
+    public interface IStationClearingEventArgs : IStationFlightChangedEventArgs
     {
     }
 }
