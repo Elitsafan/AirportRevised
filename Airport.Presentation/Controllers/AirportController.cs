@@ -1,8 +1,7 @@
 ﻿using Airport.Models;
+using Airport.Presentation.Extensions;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 
 namespace Airport.Presentation.Controllers
 {
@@ -16,49 +15,23 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Airport/Start
         [HttpGet]
-        public async Task<IActionResult> StartAsync(CancellationToken ct) =>
+        public async Task<IActionResult> StartAsync(CancellationToken ct = default) =>
             Ok(await _airportService.StartAsync(ct));
 
         // GET: api/Airport/Status
         [HttpGet]
-        public async Task<IActionResult> StatusAsync(CancellationToken ct) =>
+        public async Task<IActionResult> StatusAsync(CancellationToken ct = default) =>
             Ok(await _airportService.GetStatusAsync(ct));
 
         // GET: api/Airport/Summary
         [HttpGet]
         public async Task<IActionResult> SummaryAsync(
             [FromQuery] GetSummaryParameters parameters,
-            CancellationToken ct)
+            CancellationToken ct = default)
         {
-            var summary = await _airportService.GetPagedSummaryAsync(parameters, ct);
-            (int LandingsCount, int DeparturesCount) = await _airportService.GetFlightsCountAsync(
-                summary.CurrentPage * summary.PageSize,
-                ct);
-            var metadata = new
-            {
-                summary.TotalCount,
-                summary.PageSize,
-                summary.CurrentPage,
-                summary.TotalPages,
-                summary.HasNext,
-                summary.HasPrevious,
-                LandingsCount,
-                DeparturesCount
-            };
-            var paginationHeader = "X-Pagination";
-            Response.Headers.Add("Access-Control-Expose-Headers", paginationHeader);
-            Response.Headers.Add(
-                paginationHeader,
-                JsonConvert.SerializeObject(
-                    metadata,
-                    new JsonSerializerSettings()
-                    {
-                        ContractResolver = new DefaultContractResolver
-                        {
-                            NamingStrategy = new CamelCaseNamingStrategy()
-                        },
-                    }));
-            return Ok(summary);
+            var result = await _airportService.GetSummaryWithMetadataAsync(parameters, ct);
+            Response.AddPaginationMetadata(result);
+            return Ok(result.Summary);
         }
     }
 }
