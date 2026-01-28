@@ -18,8 +18,8 @@ namespace Airport.Services
         private readonly IMapper _mapper;
         private readonly ILogger<AirportService> _logger;
         private readonly IRepositoryManager _repositoryManager;
-        private readonly IAirportStateProvider _airportStateProvider;
         private readonly IStationLogicProvider _stationLogicProvider;
+        private readonly IAirportStateProvider _airportStateProvider;
         #endregion
 
         public AirportService(
@@ -70,13 +70,29 @@ namespace Airport.Services
             };
         }
 
-        public async Task<IPagedList<FlightSummary>> GetPagedSummaryAsync(
+        public async Task<SummaryWithMetadata> GetSummaryWithMetadataAsync(
             GetSummaryParameters parameters,
             CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            return (await _repositoryManager.FlightRepository
+            if (parameters is null)
+                throw new ArgumentNullException(nameof(parameters));
+            var summary = await GetPagedSummaryAsync(parameters, ct);
+            var (landingsCount, departuresCount) = await GetFlightsCountAsync(summary.ItemsProcessed, ct);
+            return new SummaryWithMetadata
+            {
+                Summary = summary,
+                LandingsCount = landingsCount,
+                DeparturesCount = departuresCount
+            };
+        }
+
+        public async ValueTask DisposeAsync() => await _repositoryManager.DisposeAsync();
+
+        private async Task<IPagedList<FlightSummary>> GetPagedSummaryAsync(
+            GetSummaryParameters parameters,
+            CancellationToken ct = default) => (await _repositoryManager.FlightRepository
                 .OrderByEntranceAsync(ct))
                 .Select(f => new FlightSummary
                 {
@@ -85,9 +101,8 @@ namespace Airport.Services
                     FlightType = f.ToFlightType()
                 })
                 .ToPagedList(parameters.PageNumber, parameters.PageSize);
-        }
 
-        public async Task<(int LandingsCount, int DeparturesCount)> GetFlightsCountAsync(
+        private async Task<(int landingsCount, int departuresCount)> GetFlightsCountAsync(
             int count,
             CancellationToken ct = default)
         {
@@ -103,7 +118,5 @@ namespace Airport.Services
                     .OfType<Departure>()
                     .Count());
         }
-
-        public async ValueTask DisposeAsync() => await _repositoryManager.DisposeAsync();
     }
 }

@@ -43,31 +43,31 @@ namespace Airport.Services
             _logger = logger;
         }
 
-        public async Task AddFlightAsync(
+        public async Task<FlightDTO> AddFlightAsync(
             ObjectId id,
             FlightForCreationDTO flightForCreation,
             CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            ct.ThrowIfCancellationRequested();
             if (flightForCreation is null)
                 throw new ArgumentNullException(nameof(flightForCreation));
-            Flight flight;
-            using var cts = new CancellationTokenSource();
-            flight = _mapper.Map<Flight>(flightForCreation);
+            ct.ThrowIfCancellationRequested();
+
+            Flight flight = _mapper.Map<Flight>(flightForCreation);
             flight.FlightId = id;
-            _flightLogic = await _flightLogicFactory
-                .GetCreator(flight)
-                .CreateAsync();
+            _flightLogic = (await _flightLogicFactory
+                .GetCreatorAsync(flight, ct))
+                .Create();
             _flightLogic.FlightRunStarted += OnFlightRunStartedAsync;
             _airportHubService.RegisterFlightRunDone(_flightLogic);
             // Starts the run
+            using var cts = new CancellationTokenSource();
             await _flightLogic.RunAsync(cts.Token);
             try
             {
                 // Updates flight after the run has ended
-                await _repositoryManager.FlightRepository.UpdateFlightAsync(flight, cancellationToken: cts.Token);
+                await _repositoryManager.FlightRepository.UpdateFlightAsync(flight, ct: cts.Token);
             }
             catch (OperationCanceledException e)
             {
@@ -77,6 +77,7 @@ namespace Airport.Services
             _logger.LogInformation($"{_flightLogic.FlightType} ID: {_flightLogic.FlightId} -----> Unegistered");
 #endif
             await _flightLogic.RaiseFlightRunDoneAsync(cts.Token);
+            return _mapper.Map<FlightDTO>(flight);
         }
 
         public async IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
@@ -95,6 +96,27 @@ namespace Airport.Services
                 yield return flight;
         }
 
+        public async Task<FlightDTO?> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default)
+        {
+            _airportStateProvider.ThrowIfNotStarted();
+
+            var flight = await _repositoryManager.FlightRepository
+                    .GetFlightByIdAsync(id, ct);
+
+            return _mapper.Map<FlightDTO>(flight);
+        }
+
+        public async Task<bool> DeleteFlightAsync(ObjectId id, CancellationToken ct = default)
+        {
+            _airportStateProvider.ThrowIfNotStarted();
+
+            var result = await _repositoryManager.FlightRepository.DeleteOneAsync(id, ct);
+            if (!result)
+                _logger.LogInformation($"Flight with id: {id} not found");
+            return result;
+        }
+
+
         public async ValueTask DisposeAsync()
         {
             if (_flightLogic != null)
@@ -107,7 +129,7 @@ namespace Airport.Services
         {
             (sender as IFlightLogic)!.FlightRunStarted -= OnFlightRunStartedAsync;
             args.Flight.RouteId = args.RouteId;
-            await _repositoryManager.FlightRepository.AddFlightAsync(args.Flight);
+            await _repositoryManager.FlightRepository.AddOneAsync(args.Flight);
 #if TEST
             _logger.LogInformation($"{args.Flight.ConvertToFlightType()} ID: {args.Flight.FlightId} -----> Registered");
 #endif

@@ -6,9 +6,8 @@ namespace Airport.Services.Abstractions
     {
         Task<IAirportStatus> GetStatusAsync(CancellationToken ct = default);
         Task<string> StartAsync(CancellationToken ct = default);
-        Task<IPagedList<FlightSummary>> GetPagedSummaryAsync(
+        Task<SummaryWithMetadata> GetSummaryWithMetadataAsync(
             GetSummaryParameters parameters,
             CancellationToken ct = default);
-        Task<(int LandingsCount, int DeparturesCount)> GetFlightsCountAsync(int count, CancellationToken ct = default);
     }
 }
