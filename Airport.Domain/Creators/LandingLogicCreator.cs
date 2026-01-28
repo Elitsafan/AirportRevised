@@ -15,7 +15,7 @@
             _routeLogic = routeLogic;
         }
 
-        public async Task<IFlightLogic> CreateAsync() =>
-            await Task.FromResult<IFlightLogic>(new FlightLogic(_landing, _routeLogic, _logger));
+        public IFlightLogic Create() =>
+           new FlightLogic(_landing, _routeLogic, _logger);
     }
 }

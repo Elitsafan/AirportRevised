@@ -1,28 +1,35 @@
-﻿namespace Airport.Domain.Factories
+﻿using Airport.Models.Enums;
+
+namespace Airport.Domain.Factories
 {
     public class FlightLogicFactory : IFlightLogicFactory
     {
-        private readonly IServiceProvider _serviceProvider;
+        #region Fields
+        private readonly IRouteLogicProvider _routeLogicProvider;
+        private readonly ILogger<FlightLogic> _logger;
+        #endregion
 
-        public FlightLogicFactory(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
+        public FlightLogicFactory(IRouteLogicProvider routeLogicProvider, ILogger<FlightLogic> logger)
+        {
+            _routeLogicProvider = routeLogicProvider;
+            _logger = logger;
+        }
 
-        public IFlightLogicCreator GetCreator(Flight flight)
+        public async Task<IFlightLogicCreator> GetCreatorAsync(Flight flight, CancellationToken ct = default)
         {
             if (flight is null)
                 throw new ArgumentNullException(nameof(flight));
-            var logger = _serviceProvider.GetRequiredService<ILogger<FlightLogic>>();
-            var routeLogicProvider = _serviceProvider.GetRequiredService<IRouteLogicProvider>();
 
             return flight switch
             {
                 Departure => new DepartureLogicCreator(
                     (Departure)flight,
-                    routeLogicProvider.GetNextRoute(Models.Enums.FlightType.Departure)!,
-                    logger),
+                    (await _routeLogicProvider.GetNextRouteAsync(FlightType.Departure, ct))!,
+                    _logger),
                 Landing => new LandingLogicCreator(
                     (Landing)flight,
-                    routeLogicProvider.GetNextRoute(Models.Enums.FlightType.Landing)!,
-                    logger),
+                    (await _routeLogicProvider.GetNextRouteAsync(FlightType.Landing, ct))!,
+                    _logger),
                 _ => throw new ArgumentException("Unknown type of flight.")
             };
         }

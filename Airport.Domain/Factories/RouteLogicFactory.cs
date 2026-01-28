@@ -16,8 +16,8 @@
 
             return new RouteLogicCreator(
                 route,
-                sections,
                 logger,
+                sections,
                 directionLogicProvider,
                 stationLogicProvider);
         }

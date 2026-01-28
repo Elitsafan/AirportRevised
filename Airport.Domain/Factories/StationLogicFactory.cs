@@ -2,16 +2,15 @@
 {
     public class StationLogicFactory : IStationLogicFactory
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<StationLogic> _logger;
 
-        public StationLogicFactory(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
+        public StationLogicFactory(ILogger<StationLogic> logger) => _logger = logger;
 
         public IStationLogicCreator GetCreator(Station station)
         {
             if (station is null)
                 throw new ArgumentNullException(nameof(station));
-            var logger = _serviceProvider.GetRequiredService<ILogger<StationLogic>>();
-            return new StationLogicCreator(station, logger);
+            return new StationLogicCreator(station, _logger);
         }
     }
 }
