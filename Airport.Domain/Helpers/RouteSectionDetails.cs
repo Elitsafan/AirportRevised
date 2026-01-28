@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Airport.Domain.Extensions;
+using System.Collections.Concurrent;
 
 namespace Airport.Domain.Helpers
 {
