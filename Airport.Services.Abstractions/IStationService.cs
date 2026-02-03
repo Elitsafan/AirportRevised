@@ -7,12 +7,12 @@ namespace Airport.Services.Abstractions
     public interface IStationService
     {
         IAsyncEnumerable<StationDTO> GetAllStationsAsync(CancellationToken ct = default);
-        Task<StationDTO?> GetStationByIdAsync(ObjectId id, CancellationToken ct = default);
+        Task<StationDTO> GetStationByIdAsync(ObjectId id, CancellationToken ct = default);
+        Task<StationDTO> AddStationAsync(StationForCreationDTO stationToCreate, CancellationToken ct = default);
         Task<UpdateResult> UpdateStationAsync(
-            ObjectId id, 
-            StationForUpdateDTO stationForUpdate, 
+            ObjectId id,
+            StationForUpdateDTO stationToUpdate,
             CancellationToken ct = default);
-        Task<StationDTO> AddStationAsync(StationForCreationDTO stationForCreationDTO, CancellationToken ct = default);
         Task<bool> DeleteStationAsync(ObjectId id, CancellationToken ct = default);
     }
 }

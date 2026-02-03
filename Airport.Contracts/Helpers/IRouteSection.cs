@@ -27,7 +27,7 @@ namespace Airport.Contracts.Helpers
         int AllStationsCount { get; }
         /// <summary>
         /// Adds the <paramref name="stationLogic"/> to <see cref="IRouteSection.Source"/>
-        /// and updates <see cref="IRouteSection.AllStationsCount"/>
+        /// and updates <see cref="IRouteSection.AllTrafficLights"/> and <see cref="IRouteSection.AllStationsCount"/>
         /// </summary>
         /// <param name="stationLogic"></param>
         void AddToSource(IStationLogic stationLogic);

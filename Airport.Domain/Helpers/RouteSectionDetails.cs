@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using Airport.Contracts.EventArgs.StationEventArgs;
+using System.Collections.Concurrent;
 
 namespace Airport.Domain.Helpers
 {
@@ -8,14 +9,19 @@ namespace Airport.Domain.Helpers
         private readonly ConcurrentDictionary<ObjectId, AsyncSemaphore.Releaser> _flightsTrace;
         private readonly AsyncSemaphore _trafficLightSynchronizer;
         private readonly ISectionSynchronizerDetails _synchronizer;
+        private readonly ILogger<RouteSectionDetails> _logger;
         #endregion
 
-        public RouteSectionDetails(IRouteSection routeSection, ISectionSynchronizerDetails synchronizer)
+        public RouteSectionDetails(
+            IRouteSection routeSection,
+            ISectionSynchronizerDetails synchronizer,
+            IDomainEvents domainEvents,
+            ILogger<RouteSectionDetails> logger)
         {
             RouteSection = routeSection;
             _synchronizer = synchronizer;
-            foreach (var station in RouteSection.Destination)
-                station.StationClearedAsync += OnExitSectionAsync;
+            _logger = logger;
+            domainEvents.StationCleared += OnExitSectionAsync;
             _flightsTrace = new();
             _trafficLightSynchronizer = new(1);
         }
@@ -37,9 +43,18 @@ namespace Airport.Domain.Helpers
         {
             if (RouteSection.RouteId != args.RouteId)
                 return;
+
+            if (!RouteSection.Destination.Any(s => s.StationId == args.StationLogic.StationId))
+                return;
+
             await _synchronizer.ExitSectionAsync(RouteSection.RouteId);
-            _flightsTrace.Remove(args.FlightId, out var releaser);
-            releaser.Dispose();
+            if (_flightsTrace.TryRemove(args.FlightId, out var releaser))
+                releaser.Dispose();
+            else
+            {
+                _logger.LogCritical("ERROR WHILE EXITING SECTION.");
+                throw new InvalidOperationException();
+            }
         }
 
         private async Task EnterSourceAsync(

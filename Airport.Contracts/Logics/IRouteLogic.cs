@@ -25,7 +25,8 @@ namespace Airport.Contracts.Logics
             IEnumerable<IStationLogic> nextLeg,
             CancellationToken ct = default);
         /// <summary>
-        /// Gets the stations collection whose source station is <paramref name="stationLogic"/>
+        /// Get the next stations collection whose source station is <paramref name="stationLogic"/>.
+        /// If no source provided, return the first leg.
         /// </summary>
         /// <param name="stationLogic"></param>
         /// <returns></returns>

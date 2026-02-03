@@ -12,7 +12,7 @@ namespace Airport.Presentation.Converters
             return result;
         }
 
-        public override void WriteJson(JsonWriter writer, ObjectId value, JsonSerializer serializer) => 
+        public override void WriteJson(JsonWriter writer, ObjectId value, JsonSerializer serializer) =>
             writer.WriteValue(value.ToString());
     }
 }

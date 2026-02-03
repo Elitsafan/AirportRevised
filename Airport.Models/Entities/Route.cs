@@ -20,7 +20,11 @@ namespace Airport.Models.Entities
         [JsonProperty("directions")]
         public List<Direction> Directions
         {
-            get => _directions ?? new List<Direction>();
+            get
+            {
+                _directions ??= new();
+                return _directions;
+            }
             set => _directions = value;
         }
     }

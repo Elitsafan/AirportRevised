@@ -10,6 +10,9 @@ using Airport.Simulator.Services;
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Retry;
+#if TEST
+using Microsoft.VisualStudio.Threading; 
+#endif
 
 namespace Airport.Simulator
 {
@@ -58,12 +61,13 @@ namespace Airport.Simulator
                 .GetRequiredService<IFlightLauncherService>();
             _logger.LogInformation("Starting Airport Simulator...");
             var startResponse = await flightLauncherService.StartAsync();
-            _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
+            _logger.LogInformation($"Start response received with status: {startResponse.StatusCode}");
 #if TEST
             await Console.Out.WriteLineAsync(startResponse.StatusCode.ToString());
-            await flightLauncherService
+            flightLauncherService
                 .LaunchManyAsync(args)
-                .ToListAsync();
+                .ToListAsync()
+                .Forget();
 #else
             await flightLauncherService.SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/);
 #endif

@@ -3,7 +3,9 @@
     public class StationEntranceFailedException : Exception
     {
         public StationEntranceFailedException() { }
-        public StationEntranceFailedException(string message) : base(message) { }
-        public StationEntranceFailedException(string message, Exception inner) : base(message, inner) { }
+        public StationEntranceFailedException(string message) 
+            : base(message) { }
+        public StationEntranceFailedException(string message, Exception inner) 
+            : base(message, inner) { }
     }
 }

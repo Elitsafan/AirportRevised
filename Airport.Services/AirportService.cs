@@ -1,8 +1,9 @@
 ﻿using Airport.Contracts.Providers;
+using Airport.Domain.Helpers;
 using Airport.Domain.Repositories;
 using Airport.Models;
 using Airport.Models.DTOs;
-using Airport.Models.Entities;
+using Airport.Models.Enums;
 using Airport.Services.Abstractions;
 using Airport.Services.Extensions;
 using AutoMapper;
@@ -17,19 +18,16 @@ namespace Airport.Services
         private readonly IMapper _mapper;
         private readonly ILogger<AirportService> _logger;
         private readonly IRepositoryManager _repositoryManager;
-        private readonly IStationLogicProvider _stationLogicProvider;
         private readonly IAirportStateProvider _airportStateProvider;
         #endregion
 
         public AirportService(
             IAirportStateProvider airportStateProvider,
-            IStationLogicProvider stationLogicProvider,
             IRepositoryManager repositoryManager,
             IMapper mapper,
             ILogger<AirportService> logger)
         {
             _airportStateProvider = airportStateProvider;
-            _stationLogicProvider = stationLogicProvider;
             _repositoryManager = repositoryManager;
             _mapper = mapper;
             _logger = logger;
@@ -55,7 +53,7 @@ namespace Airport.Services
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            List<StationDTO> stations = (await _stationLogicProvider.GetAllAsync(ct))
+            List<StationDTO> stations = (await _repositoryManager.StationRepository.GetAllAsync(ct))
                 .Select(_mapper.Map<StationDTO>)
                 .ToList();
             List<RouteDTO> routes = (await _repositoryManager.RouteRepository.GetAllAsync(ct))
@@ -78,12 +76,11 @@ namespace Airport.Services
             if (parameters is null)
                 throw new ArgumentNullException(nameof(parameters));
             var summary = await GetPagedSummaryAsync(parameters, ct);
-            var (landingsCount, departuresCount) = await GetFlightsCountAsync(summary.ItemsProcessed, ct);
             return new SummaryWithMetadata
             {
                 Summary = summary,
-                LandingsCount = landingsCount,
-                DeparturesCount = departuresCount
+                LandingsCount = summary.Count(f => f.FlightType == FlightType.Landing),
+                DeparturesCount = summary.Count(f => f.FlightType == FlightType.Departure)
             };
         }
 
@@ -91,31 +88,16 @@ namespace Airport.Services
 
         private async Task<IPagedList<FlightSummary>> GetPagedSummaryAsync(
             GetSummaryParameters parameters,
-            CancellationToken ct = default) => (await _repositoryManager.FlightRepository
-                .OrderByEntranceAsync(ct))
-                .Select(f => new FlightSummary
+            CancellationToken ct = default) => await _repositoryManager.FlightRepository
+            .GetPagedFlightsAsync(
+                f => new FlightSummary
                 {
-                    FlightId = f.FlightId,
                     Stations = f.OccupationDetails,
-                    FlightType = f.ConvertToFlightType()
-                })
-                .ToPagedList(parameters.PageNumber, parameters.PageSize);
-
-        private async Task<(int landingsCount, int departuresCount)> GetFlightsCountAsync(
-            int count,
-            CancellationToken ct = default)
-        {
-            var flights = await _repositoryManager.FlightRepository
-                .OrderByEntranceAsync(ct);
-            return (
-                flights
-                    .Take(count)
-                    .OfType<Landing>()
-                    .Count(),
-                flights
-                    .Take(count)
-                    .OfType<Departure>()
-                    .Count());
-        }
+                    FlightId = f.FlightId,
+                    FlightType = f.ToFlightType()
+                },
+                parameters.PageNumber,
+                parameters.PageSize,
+                ct);
     }
 }

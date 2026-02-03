@@ -7,33 +7,33 @@
         private readonly ILogger<RouteLogic> _logger;
         private readonly IDirectionLogicProvider _directionLogicProvider;
         private readonly IStationLogicProvider _stationLogicProvider;
-        private readonly List<IRouteSectionDetails>? _sections;
+        private readonly List<IRouteSectionDetails> _sections;
         #endregion
 
         public RouteLogicCreator(
             Route route,
-            ILogger<RouteLogic> logger,
             IEnumerable<IRouteSectionDetails>? sections,
             IDirectionLogicProvider directionLogicProvider,
-            IStationLogicProvider stationLogicProvider)
+            IStationLogicProvider stationLogicProvider,
+            ILogger<RouteLogic> logger)
         {
             _route = route;
-            _logger = logger;
-            _sections = sections?.ToList();
+            _sections = sections is null
+                ? new()
+                : sections.ToList();
             _directionLogicProvider = directionLogicProvider;
             _stationLogicProvider = stationLogicProvider;
+            _logger = logger;
         }
 
-        public async Task<IRouteLogic> CreateAsync()
+        public async Task<IRouteLogic> CreateAsync(CancellationToken ct = default)
         {
-            List<IStationLogic> stations;
-            List<IDirectionLogic> directions;
-            var trafficLights = new List<IStationLogic>(_sections?
-                .SelectMany(s => s.RouteSection.AllTrafficLights)
-                .Distinct() ?? Enumerable.Empty<IStationLogic>());
-
-            stations = new List<IStationLogic>(await _stationLogicProvider.FindStationLogicsByRouteIdAsync(_route.RouteId));
-            directions = new List<IDirectionLogic>(await _directionLogicProvider.GetDirectionsByRouteIdAsync(_route.RouteId));
+            var stations = (await _stationLogicProvider.GetByRouteIdAsync(_route.RouteId)).ToList();
+            var directions = (await _directionLogicProvider.GetByRouteIdAsync(_route.RouteId)).ToList();
+            var trafficLights = _sections.SelectMany(
+                s => s.RouteSection.AllTrafficLights)
+                .Distinct()
+                .ToList();
 
             return new RouteLogic(
                 _route,

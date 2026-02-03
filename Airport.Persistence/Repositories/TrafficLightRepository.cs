@@ -11,26 +11,30 @@ namespace Airport.Persistence.Repositories
     internal sealed class TrafficLightRepository : ITrafficLightRepository
     {
         #region Fields
-        private readonly IOptions<AirportDbConfiguration> _dbConfiguration;
         private readonly IMongoCollection<TrafficLight> _trafficLightsCollection;
         private readonly IMongoCollection<Route> _routesCollection;
         #endregion
 
         public TrafficLightRepository(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
-            _dbConfiguration = dbConfiguration;
             _trafficLightsCollection = client
                 .GetDatabase(dbConfiguration.Value.DatabaseName)
                 .GetCollection<TrafficLight>(dbConfiguration.Value.TrafficLightsCollectionName);
-            _routesCollection = client!
-                .GetDatabase(_dbConfiguration.Value.DatabaseName)
-                .GetCollection<Route>(_dbConfiguration.Value.RoutesCollectionName);
+            _routesCollection = client
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
         }
 
         public async Task<IEnumerable<TrafficLight>> GetAllAsync(CancellationToken ct = default) =>
             await _trafficLightsCollection
-                .Find(Builders<TrafficLight>.Filter.Empty)
+                .Find(FilterDefinition<TrafficLight>.Empty)
                 .ToListAsync(ct);
+
+        public async Task<TrafficLight> GetByIdAsync(ObjectId id, CancellationToken ct = default) =>
+            await _trafficLightsCollection
+            .Find(tl => tl.TrafficLightId == id)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new EntityNotFoundException($"Traffic light Id: {id} not found.");
 
         public async Task<TrafficLight> AddOneAsync(TrafficLight trafficLight, CancellationToken ct = default)
         {
@@ -49,7 +53,7 @@ namespace Airport.Persistence.Repositories
             var route = await _routesCollection
                 .Find(r => r.RouteId == routeId)
                 .FirstOrDefaultAsync(ct)
-                ?? throw new EntityNotFoundException($"Route with Id: {routeId} not found.");
+                ?? throw new EntityNotFoundException($"Route Id: {routeId} not found.");
 
             var tls = await GetTrafficLightsByRouteIdAsync(routeId, ct);
             var trafficLight = await _trafficLightsCollection
@@ -62,30 +66,33 @@ namespace Airport.Persistence.Repositories
                         nameof(id));
                 // If id provided is a station id 
                 else return (await GetNextTrafficLightsAsync(route, id, ct))
-                    .ToArray();
+                    .ToList();
             // If id provided is a trafficlight id 
             return (await GetNextTrafficLightsAsync(route, trafficLight.StationId, ct))
-                .ToArray();
+                .ToList();
         }
 
         public async Task<IEnumerable<TrafficLight>> GetTrafficLightsByRouteIdAsync(
             ObjectId routeId,
             CancellationToken ct = default)
         {
-            var directionIds = _routesCollection.AsQueryable()
+            var stationIds = await _routesCollection.AsQueryable()
                 .Where(r => r.RouteId == routeId)
                 .SelectMany(r => r.Directions
                     .SelectMany(d => new[] { d.From, d.To })
-                    .Distinct());
+                    .Distinct())
+                .Distinct()
+                .ToListAsync();
             var result = await _trafficLightsCollection
-                .AsQueryable()
-                .Where(tl => directionIds.Contains(tl.StationId))
+                .Find(Builders<TrafficLight>.Filter.In(
+                    tl => tl.StationId,
+                    stationIds))
                 .ToListAsync(ct);
 
             if (result.Count == 0 && !await _routesCollection
                 .Find(r => r.RouteId == routeId)
                 .AnyAsync(ct))
-                throw new EntityNotFoundException($"Route with Id: {routeId} not found.");
+                throw new EntityNotFoundException($"Route Id: {routeId} not found.");
 
             return result;
         }
@@ -99,7 +106,7 @@ namespace Airport.Persistence.Repositories
                 .Where(d => d.From == stationId)
                 .ToArray();
             if (nextDirections.Length == 0)
-                return Array.Empty<TrafficLight>();
+                return Enumerable.Empty<TrafficLight>();
 
             var targetStationsIds = nextDirections
                 .Select(d => d.To)
@@ -114,7 +121,8 @@ namespace Airport.Persistence.Repositories
             return (await Task.WhenAll(nextDirections
                 .Select(async d => await GetNextTrafficLightsAsync(route, d.To, ct))))
                 .SelectMany(x => x)
-                .ToArray();
+                .Distinct()
+                .ToList();
         }
     }
 }

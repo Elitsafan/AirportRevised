@@ -56,25 +56,25 @@ namespace Airport.Domain.Helpers
             // This performs a BFS traversal starting from nodes with no incoming edges 
             var visited = new HashSet<int>();
             var queue = new Queue<int>();
-            
+
             // Start with nodes that have no parents (roots)
             var hasInbound = new bool[_adj.Length];
             foreach (var neighbors in _adj)
                 foreach (var neighbor in neighbors)
-                    hasInbound[neighbor] = true; 
-            
+                    hasInbound[neighbor] = true;
+
             for (int i = 0; i < hasInbound.Length; i++)
-                if (!hasInbound[i]) 
+                if (!hasInbound[i])
                     queue.Enqueue(i);
 
             // If everything is a cycle, just start at 0
-            if (queue.Count == 0 && _adj.Length > 0) 
+            if (queue.Count == 0 && _adj.Length > 0)
                 queue.Enqueue(0);
 
             while (queue.Count > 0)
             {
                 var current = queue.Dequeue();
-                if (!visited.Add(current)) 
+                if (!visited.Add(current))
                     continue;
 
                 yield return _indexToId[current];
@@ -99,7 +99,6 @@ namespace Airport.Domain.Helpers
                 if (!visited[i])
                     if (IsCyclicUtil(i, visited, recStack))
                         return true;
-
             return false;
         }
 

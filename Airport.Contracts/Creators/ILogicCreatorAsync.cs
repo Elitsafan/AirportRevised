@@ -2,6 +2,6 @@
 {
     public interface ILogicCreatorAsync<T>
     {
-        Task<T> CreateAsync();
+        Task<T> CreateAsync(CancellationToken ct = default);
     }
 }

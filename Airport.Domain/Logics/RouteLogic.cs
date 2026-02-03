@@ -17,7 +17,7 @@ namespace Airport.Domain.Logics
         public RouteLogic(
             Route route,
             ILogger<RouteLogic> logger,
-            IEnumerable<IRouteSectionDetails>? sections,
+            IEnumerable<IRouteSectionDetails> sections,
             IEnumerable<IStationLogic> stations,
             IEnumerable<IDirectionLogic> directions,
             IEnumerable<IStationLogic> trafficLights)
@@ -28,9 +28,7 @@ namespace Airport.Domain.Logics
             _directions = directions.ToList();
             _trafficLights = trafficLights.ToList();
             _sections = sections?.ToList();
-            var countStartStations = GetNextLeg().TryGetNonEnumeratedCount(out int count)
-                ? count
-                : GetNextLeg().Count();
+            var countStartStations = GetNextLeg().Count();
             // Limits the number of flights that can enter the first stations,
             // that is, the number of flights that can start the run
             _syncStartStations = new AsyncSemaphore(countStartStations);
@@ -59,14 +57,18 @@ namespace Airport.Domain.Logics
         public IEnumerable<IStationLogic> GetNextLeg(IStationLogic? stationLogic = null)
         {
             if (stationLogic is null)
-                return _stations.ExceptBy(_route.Directions.Select(d => d.To), s => s.StationId);
+                return _stations
+                    .ExceptBy(_route.Directions.Select(
+                        d => d.To), s => s.StationId)
+                    .ToList();
             return _stations.Contains(stationLogic)
                 ? _stations.Join(
                     _directions,
                     s => new { IdFrom = stationLogic.StationId, IdTo = s.StationId },
                     d => new { IdFrom = d.From, IdTo = d.To },
                     (l, r) => l)
-                : throw new LogicNotFoundException("Station not found");
+                .ToList()
+                : throw new LogicNotFoundException("Station not found.");
         }
 
         public override bool Equals(object? obj) => obj is RouteLogic routeLogic && _route.RouteId == routeLogic.RouteId;

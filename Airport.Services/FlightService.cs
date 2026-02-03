@@ -1,8 +1,11 @@
 ﻿//#define TEST
-using Airport.Contracts.EventArgs;
 using Airport.Contracts.Factories;
+using Airport.Contracts.Helpers;
 using Airport.Contracts.Logics;
 using Airport.Contracts.Providers;
+#if TEST
+using Airport.Domain.Helpers;
+#endif
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
@@ -21,41 +24,35 @@ namespace Airport.Services
         private readonly IAirportStateProvider _airportStateProvider;
         private readonly IFlightLogicFactory _flightLogicFactory;
         private readonly IRepositoryManager _repositoryManager;
-        private readonly IAirportHubService _airportHubService;
         private readonly IMapper _mapper;
         private readonly ILogger<FlightService> _logger;
-        private IFlightLogic? _flightLogic = null!;
+        private IFlightLogic _flightLogic = null!;
         #endregion
 
         public FlightService(
             IAirportStateProvider airportStateProvider,
             IFlightLogicFactory flightLogicFactory,
             IRepositoryManager repositoryManager,
-            IAirportHubService airportHubService,
             IMapper mapper,
             ILogger<FlightService> logger)
         {
             _airportStateProvider = airportStateProvider;
             _flightLogicFactory = flightLogicFactory;
             _repositoryManager = repositoryManager;
-            _airportHubService = airportHubService;
             _mapper = mapper;
             _logger = logger;
         }
 
-        public async Task<FlightDTO> AddFlightAsync(
-            ObjectId id,
-            FlightForCreationDTO flightForCreation,
-            CancellationToken ct = default)
+        public async Task<FlightDTO> AddFlightAsync(FlightForCreationDTO flightToCreate, CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            if (flightForCreation is null)
-                throw new ArgumentNullException(nameof(flightForCreation));
+            if (flightToCreate is null)
+                throw new ArgumentNullException(nameof(flightToCreate));
 
             ct.ThrowIfCancellationRequested();
-            Flight flight = _mapper.Map<Flight>(flightForCreation);
-            flight.FlightId = id;
+            Flight flight = _mapper.Map<Flight>(flightToCreate);
+            flight.FlightId = ObjectId.GenerateNewId(DateTime.Now);
             await RunFlightAsync(flight, ct);
             return _mapper.Map<FlightDTO>(flight);
         }
@@ -76,12 +73,11 @@ namespace Airport.Services
                 yield return flight;
         }
 
-        public async Task<FlightDTO?> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default)
+        public async Task<FlightDTO> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            var flight = await _repositoryManager.FlightRepository
-                    .GetFlightByIdAsync(id, ct);
+            var flight = await _repositoryManager.FlightRepository.GetByIdAsync(id, ct);
 
             return _mapper.Map<FlightDTO>(flight);
         }
@@ -103,12 +99,11 @@ namespace Airport.Services
             GC.SuppressFinalize(this);
         }
 
-        private async Task RunFlightAsync(Flight flight, CancellationToken ct)
+        private async Task RunFlightAsync(Flight flight, CancellationToken ct = default)
         {
-            _flightLogic = await (await _flightLogicFactory
+            _flightLogic = (await _flightLogicFactory
                 .GetCreatorAsync(flight, ct))
-                .CreateAsync();
-            _flightLogic.FlightRunStarted += OnFlightRunStartedAsync;
+                .Create();
             using var cts = new CancellationTokenSource();
             await _flightLogic.RunAsync(cts.Token);
             await _repositoryManager.FlightRepository.UpdateFlightAsync(flight, ct: cts.Token);
@@ -116,17 +111,6 @@ namespace Airport.Services
             _logger.LogInformation($"{_flightLogic.FlightType} ID: {_flightLogic.FlightId} -----> Unegistered");
 #endif
             await _flightLogic.RaiseFlightRunDoneAsync(cts.Token);
-        }
-
-        private async Task OnFlightRunStartedAsync(object? sender, IFlightRunStartedEventArgs args)
-        {
-            _flightLogic!.FlightRunStarted -= OnFlightRunStartedAsync;
-            _airportHubService.RegisterFlightRunDone(_flightLogic);
-            args.Flight.RouteId = args.RouteId;
-            await _repositoryManager.FlightRepository.AddOneAsync(args.Flight);
-#if TEST
-            _logger.LogInformation($"{args.Flight.ConvertToFlightType()} ID: {args.Flight.FlightId} -----> Registered");
-#endif
         }
     }
 }

@@ -3,18 +3,10 @@
     public class MissingRouteStationsException : InvalidOperationException
     {
         public MissingRouteStationsException()
-            : base()
-        {
-        }
-
+            : base() { }
         public MissingRouteStationsException(string? message)
-            : base(message)
-        {
-        }
-
+            : base(message) { }
         public MissingRouteStationsException(string? message, Exception? innerException)
-            : base(message, innerException)
-        {
-        }
+            : base(message, innerException) { }
     }
 }

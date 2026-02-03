@@ -5,13 +5,18 @@ namespace Airport.Domain.Factories
     public class FlightLogicFactory : IFlightLogicFactory
     {
         #region Fields
-        private readonly IRouteLogicProvider _routeLogicProvider;
+        private readonly IRouteLogicProvider _routeProvider;
+        private readonly IDomainEvents _domainEvents;
         private readonly ILogger<FlightLogic> _logger;
         #endregion
 
-        public FlightLogicFactory(IRouteLogicProvider routeLogicProvider, ILogger<FlightLogic> logger)
+        public FlightLogicFactory(
+            IRouteLogicProvider routeProvider,
+            IDomainEvents domainEvents,
+            ILogger<FlightLogic> logger)
         {
-            _routeLogicProvider = routeLogicProvider;
+            _routeProvider = routeProvider;
+            _domainEvents = domainEvents;
             _logger = logger;
         }
 
@@ -24,13 +29,15 @@ namespace Airport.Domain.Factories
             {
                 Departure => new DepartureLogicCreator(
                     (Departure)flight,
-                    (await _routeLogicProvider.GetNextRouteAsync(FlightType.Departure, ct))!,
+                    (await _routeProvider.GetNextRouteAsync(FlightType.Departure, ct))!,
+                    _domainEvents,
                     _logger),
                 Landing => new LandingLogicCreator(
                     (Landing)flight,
-                    (await _routeLogicProvider.GetNextRouteAsync(FlightType.Landing, ct))!,
+                    (await _routeProvider.GetNextRouteAsync(FlightType.Landing, ct))!,
+                    _domainEvents,
                     _logger),
-                _ => throw new ArgumentException("Unknown type of flight.")
+                _ => throw new ArgumentException("Unknown flight type.")
             };
         }
     }

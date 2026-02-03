@@ -49,13 +49,13 @@ namespace Airport.Simulator.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 _logger.LogInformation($"Launching {flight.FlightType}...");
-                var id = ObjectId.GenerateNewId(DateTime.Now);
                 return flight.FlightType == FlightType.Landing
                     ? await _client.PostAsJsonAsync(
-                        $"{_flightsConfig.Landing}/{id}",
+                        _flightsConfig.Landing,
                         flight,
                         cancellationToken)
-                    : await _client.PostAsJsonAsync($"{_flightsConfig.Departure}/{id}",
+                    : await _client.PostAsJsonAsync(
+                        _flightsConfig.Departure,
                         flight,
                         cancellationToken);
             };
@@ -66,7 +66,7 @@ namespace Airport.Simulator.Services
         }
 
         // Launches multiple flights 
-        // Accepts args[0] is a number and args[1](optional) is "exit"
+        // Accepts args[0] is a number
         public async IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(params string[]? args)
         {
             // Input validation
@@ -93,15 +93,14 @@ namespace Airport.Simulator.Services
             FlightForCreationDTO flight,
             CancellationToken cancellationToken = default)
         {
-            var id = ObjectId.GenerateNewId(DateTime.Now);
             _logger.LogInformation($"Launching {flight.FlightType}...");
             return flight.FlightType == FlightType.Landing
                 ? await _client.PostAsJsonAsync(
-                    $"{_flightsConfig.Landing}/{id}",
+                    _flightsConfig.Landing,
                     flight,
                     cancellationToken)
                 : await _client.PostAsJsonAsync(
-                    $"{_flightsConfig.Departure}/{id}",
+                    _flightsConfig.Departure,
                     flight,
                     cancellationToken);
         }

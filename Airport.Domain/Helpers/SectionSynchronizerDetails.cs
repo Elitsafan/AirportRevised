@@ -77,9 +77,9 @@ namespace Airport.Domain.Helpers
             var releaser = await _syncReleasers.EnterAsync();
             try
             {
+                DecrementOccupied(routeId);
                 if (!WaitForRightOfWay(routeId) && !_lastWaiter.IsCompleted)
                     _routeSynchronizer.Set();
-                DecrementOccupied(routeId);
             }
             catch (KeyNotFoundException) { throw new InvalidOperationException("Route id not found."); }
             finally { releaser.Dispose(); }

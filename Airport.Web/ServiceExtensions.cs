@@ -23,7 +23,6 @@ namespace Airport.Web
             services.AddScoped<IAirportService, AirportService>();
 
             services.AddSingleton<IDomainEvents, DomainEvents>();
-            services.AddSingleton<IAirportHubService, AirportHubService>();
 
             services.AddSingleton<IFlightLogicFactory, FlightLogicFactory>();
             services.AddSingleton<IStationLogicFactory, StationLogicFactory>();
@@ -34,6 +33,9 @@ namespace Airport.Web
             services.AddSingleton<IStationLogicProvider, StationLogicProvider>();
             services.AddSingleton<IDirectionLogicProvider, DirectionLogicProvider>();
             services.AddSingleton<IRouteLogicProvider, RouteLogicProvider>();
+
+            services.AddHostedService<AirportHubService>();
+            services.AddHostedService<FlightEventHandlers>();
         }
     }
 }

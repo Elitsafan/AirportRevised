@@ -4,6 +4,7 @@ using Airport.Persistence;
 using Airport.Presentation.Converters;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
@@ -20,16 +21,6 @@ namespace Airport.Web
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.Configure<AirportDbConfiguration>(
                 builder.Configuration.GetSection(nameof(AirportDbConfiguration)));
-            //#if DEBUG
-            //            builder.Logging
-            //                .ClearProviders()
-            //                .AddEventLog(eventLogSettings =>
-            //                {
-            //                    eventLogSettings.SourceName = "AirportApplication";
-            //                    eventLogSettings.LogName = "AirportLog";
-            //                })
-            //                .AddConsole();
-            //#endif
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
@@ -97,7 +88,7 @@ namespace Airport.Web
             await using (var scope = app.Services.CreateAsyncScope())
             {
                 var domainEvents = scope.ServiceProvider.GetRequiredService<IDomainEvents>();
-                await domainEvents.RaiseSystemResetAsync();
+                await domainEvents.RaiseSystemResetRequestedAsync();
             }
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();

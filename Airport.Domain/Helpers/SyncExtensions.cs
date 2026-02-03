@@ -10,10 +10,8 @@
             try
             {
                 cts?.Token.ThrowIfCancellationRequested();
-                if (cts != null)
-                {
+                if (cts is not null)
                     await cts.CancelAsync();
-                }
             }
             finally { releaser.Dispose(); }
         }

@@ -6,19 +6,21 @@
         private readonly Departure _departure;
         private readonly IRouteLogic _routeLogic;
         private readonly ILogger<FlightLogic> _logger;
+        private readonly IDomainEvents _domainEvents;
         #endregion
 
         public DepartureLogicCreator(
-            Departure departure, 
-            IRouteLogic routeLogic, 
+            Departure departure,
+            IRouteLogic routeLogic,
+            IDomainEvents domainEvents,
             ILogger<FlightLogic> logger)
         {
             _departure = departure;
-            _logger = logger;
             _routeLogic = routeLogic;
+            _domainEvents = domainEvents;
+            _logger = logger;
         }
 
-        public Task<IFlightLogic> CreateAsync() => Task.FromResult<IFlightLogic>(
-            new FlightLogic(_departure, _routeLogic, _logger));
+        public IFlightLogic Create() => new FlightLogic(_departure, _routeLogic, _domainEvents, _logger);
     }
 }

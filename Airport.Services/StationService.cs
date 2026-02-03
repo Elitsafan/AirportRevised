@@ -1,6 +1,7 @@
 ﻿using Airport.Contracts.Helpers;
 using Airport.Contracts.Providers;
 using Airport.Domain.EventArgs;
+using Airport.Domain.EventArgs.StationEventArgs;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
@@ -50,27 +51,23 @@ namespace Airport.Services
                 yield return station;
         }
 
-        public async Task<StationDTO?> GetStationByIdAsync(ObjectId id, CancellationToken ct = default)
+        public async Task<StationDTO> GetStationByIdAsync(ObjectId id, CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            var station = await _repositoryManager.StationRepository
-                .GetStationByIdAsync(id, ct);
+            var station = await _repositoryManager.StationRepository.GetByIdAsync(id, ct);
 
             return _mapper.Map<StationDTO>(station);
         }
 
-        public async Task<StationDTO> AddStationAsync(
-            StationForCreationDTO stationForCreationDTO,
-            CancellationToken ct = default)
+        public async Task<StationDTO> AddStationAsync(StationForCreationDTO stationToCreate, CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            if (stationForCreationDTO is null)
-                throw new ArgumentNullException(nameof(stationForCreationDTO));
-            var station = _mapper.Map<Station>(stationForCreationDTO);
-            station = await _repositoryManager.StationRepository
-                .AddOneAsync(station, ct);
+            if (stationToCreate is null)
+                throw new ArgumentNullException(nameof(stationToCreate));
+            var station = await _repositoryManager.StationRepository
+                .AddOneAsync(_mapper.Map<Station>(stationToCreate), ct);
 
             await _domainEvents.RaiseStationCreatedAsync(
                 new StationCreatedEventArgs { StationId = station.StationId });
@@ -80,16 +77,17 @@ namespace Airport.Services
 
         public async Task<UpdateResult> UpdateStationAsync(
             ObjectId id,
-            StationForUpdateDTO stationForUpdate,
+            StationForUpdateDTO stationToUpdate,
             CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            if (stationForUpdate is null)
-                throw new ArgumentNullException(nameof(stationForUpdate));
-            var modifiedStation = _mapper.Map<Station>(stationForUpdate);
+            if (stationToUpdate is null)
+                throw new ArgumentNullException(nameof(stationToUpdate));
+            var modifiedStation = _mapper.Map<Station>(stationToUpdate);
+            modifiedStation.StationId = id;
             var updateResult = await _repositoryManager.StationRepository
-                .UpdateStationAsync(id, modifiedStation, ct);
+                .UpdateStationAsync(modifiedStation, ct: ct);
             await _domainEvents.RaiseStationUpdatedAsync(
                 new StationUpdatedEventArgs { StationId = id });
             return updateResult;
@@ -99,12 +97,19 @@ namespace Airport.Services
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            var routesContainId = (await _repositoryManager.RouteRepository
+            var routesContainIds = (await _repositoryManager.RouteRepository
                 .GetRoutesContainStationAsync(stationId, ct))
+                .Select(r => new
+                {
+                    r.RouteId,
+                    r.RouteName
+                })
                 .ToList();
-            if (routesContainId.Count > 0)
+            if (routesContainIds.Count > 0)
                 throw new InvalidOperationException(
-                    $"Station can't be removed for it exists on routes: {string.Join(", ", routesContainId)}");
+                    $"Station can't be removed for it exists on routes:\n" +
+                    $"{string.Join($",{Environment.NewLine}", routesContainIds)}");
+
             var result = await _repositoryManager.StationRepository
                 .DeleteOneAsync(stationId, ct);
             if (!result)

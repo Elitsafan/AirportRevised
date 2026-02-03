@@ -6,16 +6,21 @@
         private readonly Landing _landing;
         private readonly ILogger<FlightLogic> _logger;
         private readonly IRouteLogic _routeLogic;
+        private readonly IDomainEvents _domainEvents;
         #endregion
 
-        public LandingLogicCreator(Landing landing, IRouteLogic routeLogic, ILogger<FlightLogic> logger)
+        public LandingLogicCreator(
+            Landing landing,
+            IRouteLogic routeLogic,
+            IDomainEvents domainEvents,
+            ILogger<FlightLogic> logger)
         {
             _landing = landing;
-            _logger = logger;
             _routeLogic = routeLogic;
+            _domainEvents = domainEvents;
+            _logger = logger;
         }
 
-        public Task<IFlightLogic> CreateAsync() => Task.FromResult<IFlightLogic>(
-            new FlightLogic(_landing, _routeLogic, _logger));
+        public IFlightLogic Create() => new FlightLogic(_landing, _routeLogic, _domainEvents, _logger);
     }
 }

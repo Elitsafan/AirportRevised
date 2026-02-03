@@ -1,102 +1,80 @@
-﻿using Airport.Contracts.EventArgs;
+﻿using Airport.Contracts.EventArgs.FlightEventArgs;
+using Airport.Contracts.EventArgs.StationEventArgs;
 using Airport.Contracts.Helpers;
-using Airport.Contracts.Logics;
 using Airport.Contracts.Providers;
-using Airport.Services.Abstractions;
 using Airport.SignalR;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
 namespace Airport.Services
 {
-    public class AirportHubService : IAirportHubService
+    public class AirportHubService : IHostedService
     {
         #region Fields
-        private readonly IStationLogicProvider _stationLogicProvider;
         private readonly IHubContext<AirportHub> _hub;
+        private readonly IDomainEvents _domainEvents;
+        private readonly IStationLogicProvider _stationLogicProvider;
         private readonly ILogger<AirportHubService> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
         #endregion
 
         public AirportHubService(
-            IDomainEvents domainEvents,
             IStationLogicProvider stationLogicProvider,
+            IDomainEvents domainEvents,
             ILogger<AirportHubService> logger,
             IHubContext<AirportHub> hub)
         {
             _hub = hub;
+            _domainEvents = domainEvents;
             _logger = logger;
-            _stationLogicProvider = stationLogicProvider;
             _jsonSerializerSettings = new()
             {
                 Formatting = Formatting.Indented,
-                ContractResolver = new DefaultContractResolver { NamingStrategy = new CamelCaseNamingStrategy() },
+                ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
             };
-
-            //domainEvents.DataRefreshed += OnDataRefreshedAsync;
-            stationLogicProvider.AnyStationOccupied += OnStationOccupiedAsync;
-            stationLogicProvider.AnyStationCleared += OnStationClearedAsync;
+            _stationLogicProvider = stationLogicProvider;
         }
 
-        private Task OnDataRefreshedAsync()
+        public async Task StartAsync(CancellationToken ct)
         {
+            _domainEvents.FlightRunDone += OnFlightRunDoneAsync;
             _stationLogicProvider.AnyStationOccupied += OnStationOccupiedAsync;
             _stationLogicProvider.AnyStationCleared += OnStationClearedAsync;
-            return Task.CompletedTask;
+            await Task.CompletedTask;
         }
 
-        public void RegisterFlightRunDone(IFlightLogic flightLogic) =>
-            flightLogic.FlightRunDone += OnFlightRunDoneAsync;
-
-        /// <summary>
-        /// Sends the flight id when the flight run ends, and unregisters listener.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        /// <returns></returns>
-        private async Task OnFlightRunDoneAsync(object? sender, IFlightRunDoneEventArgs e)
+        public async Task StopAsync(CancellationToken ct)
         {
-            try
-            {
-                await _hub.Clients.All.SendCoreAsync(
-                    nameof(IFlightLogic.FlightRunDone),
-                    new object[]
-                    {
-                        JsonConvert.SerializeObject(e.Flight.FlightId, _jsonSerializerSettings)
-                    });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error while sending message to clients");
-                throw;
-            }
-            finally { e.Flight.FlightRunDone -= OnFlightRunDoneAsync; }
+            _domainEvents.FlightRunDone -= OnFlightRunDoneAsync;
+            _stationLogicProvider.AnyStationOccupied -= OnStationOccupiedAsync;
+            _stationLogicProvider.AnyStationCleared -= OnStationClearedAsync;
+            await Task.CompletedTask;
         }
 
-        private async Task OnStationOccupiedAsync(
-            object? sender,
-            IStationChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
-                nameof(IStationLogic.StationOccupiedAsync),
-                e.StationsState);
+        protected virtual async Task OnFlightRunDoneAsync(object? sender, IFlightRunDoneEventArgs e) =>
+            await _hub.Clients.All.SendCoreAsync(
+                nameof(IDomainEvents.FlightRunDone),
+                new[] { JsonConvert.SerializeObject(e.Flight.FlightId, _jsonSerializerSettings) });
 
-        private async Task OnStationClearedAsync(
+        protected virtual async Task OnStationOccupiedAsync(
             object? sender,
-            IStationChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
-                nameof(IStationLogic.StationClearedAsync),
-                e.StationsState);
+            IStationStateChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
+                nameof(IDomainEvents.StationOccupied),
+                e.StationsState.ToList());
 
-        private async Task OnStationChangedAsync(string name, IQueryable<IStationChangedData> data)
-        {
-            var snapshot = data.ToList();
+        protected virtual async Task OnStationClearedAsync(
+            object? sender,
+            IStationStateChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
+                nameof(IDomainEvents.StationCleared),
+                e.StationsState.ToList());
+
+        private async Task OnStationChangedAsync(string name, IEnumerable<IStationChangedData> data) =>
             await _hub.Clients.All.SendCoreAsync(
                 name,
-                new[]
-                {
-                    JsonConvert.SerializeObject(snapshot, _jsonSerializerSettings)
-                });
-        }
+                new[] { JsonConvert.SerializeObject(data, _jsonSerializerSettings) });
     }
 }

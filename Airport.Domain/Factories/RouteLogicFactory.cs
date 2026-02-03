@@ -3,19 +3,19 @@
     public class RouteLogicFactory : IRouteLogicFactory
     {
         #region Fields
+        private readonly IDirectionLogicProvider _directionProvider;
+        private readonly IStationLogicProvider _stationProvider;
         private readonly ILogger<RouteLogic> _logger;
-        private readonly IDirectionLogicProvider _directionLogicProvider;
-        private readonly IStationLogicProvider _stationLogicProvider;
         #endregion
 
         public RouteLogicFactory(
-            ILogger<RouteLogic> logger,
-            IDirectionLogicProvider directionLogicProvider,
-            IStationLogicProvider stationLogicProvider)
+            IDirectionLogicProvider directionProvider,
+            IStationLogicProvider stationProvider,
+            ILogger<RouteLogic> logger)
         {
+            _directionProvider = directionProvider;
+            _stationProvider = stationProvider;
             _logger = logger;
-            _directionLogicProvider = directionLogicProvider;
-            _stationLogicProvider = stationLogicProvider;
         }
 
         public IRouteLogicCreator GetCreator(Route route, IEnumerable<IRouteSectionDetails>? sections)
@@ -25,10 +25,10 @@
 
             return new RouteLogicCreator(
                 route,
-                _logger,
-                sections,
-                _directionLogicProvider,
-                _stationLogicProvider);
+                sections?.ToList(),
+                _directionProvider,
+                _stationProvider,
+                _logger);
         }
     }
 }

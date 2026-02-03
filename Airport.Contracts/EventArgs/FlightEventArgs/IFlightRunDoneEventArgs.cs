@@ -1,6 +1,6 @@
 ﻿using Airport.Contracts.Logics;
 
-namespace Airport.Contracts.EventArgs
+namespace Airport.Contracts.EventArgs.FlightEventArgs
 {
     public interface IFlightRunDoneEventArgs
     {

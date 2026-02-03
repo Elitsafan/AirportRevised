@@ -19,7 +19,7 @@ namespace Airport.Models.Entities
         {
             get
             {
-                _occupationDetails ??= new List<OccupationDetails>();
+                _occupationDetails ??= new();
                 return _occupationDetails;
             }
             set => _occupationDetails = value;

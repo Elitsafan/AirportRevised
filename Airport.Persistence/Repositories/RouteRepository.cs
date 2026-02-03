@@ -26,14 +26,14 @@ namespace Airport.Persistence.Repositories
         }
 
         public async Task<IEnumerable<Route>> GetAllAsync(CancellationToken ct = default) => await _routesCollection
-            .Find(Builders<Route>.Filter.Empty)
+            .Find(FilterDefinition<Route>.Empty)
             .ToListAsync(ct);
 
-        public async Task<Route> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default) =>
+        public async Task<Route> GetByIdAsync(ObjectId id, CancellationToken ct = default) =>
             await _routesCollection
-            .Find(r => r.RouteId == id)
-            .FirstOrDefaultAsync(ct)
-            ?? throw new EntityNotFoundException($"Route with Id: {id} not found.");
+                .Find(r => r.RouteId == id)
+                .FirstOrDefaultAsync(ct)
+            ?? throw new EntityNotFoundException($"Route Id: {id} not found.");
 
         public async Task<Route> AddOneAsync(Route route, CancellationToken ct = default)
         {
@@ -42,16 +42,16 @@ namespace Airport.Persistence.Repositories
         }
 
         public async Task<Models.Enums.UpdateResult> UpdateRouteAsync(
-            ObjectId id,
             Route modifiedRoute,
+            bool upsert = false,
             CancellationToken ct = default)
         {
             var updateResult = await _routesCollection.UpdateOneAsync(
-                r => r.RouteId == id,
+                r => r.RouteId == modifiedRoute.RouteId,
                 Builders<Route>.Update
                     .Set(r => r.RouteName, modifiedRoute.RouteName)
                     .Set(r => r.Directions, modifiedRoute.Directions),
-                new UpdateOptions { IsUpsert = false },
+                new UpdateOptions { IsUpsert = upsert },
                 ct);
             if (updateResult.MatchedCount < 1)
                 return Models.Enums.UpdateResult.Failed;
@@ -60,27 +60,8 @@ namespace Airport.Persistence.Repositories
             return Models.Enums.UpdateResult.Modified;
         }
 
-        public async Task<bool> DeleteOneAsync(
-            ObjectId id,
-            CancellationToken ct = default) =>
+        public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
             (await _routesCollection.DeleteOneAsync(r => r.RouteId == id, ct)).DeletedCount > 0;
-
-        public async Task<bool> IsExistOnAnyRoutesAsync(
-            ObjectId stationId,
-            int limit = 1,
-            CancellationToken ct = default)
-        {
-            if (limit < 0)
-                throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be non-negative.");
-            return await _routesCollection
-                .Find(Builders<Route>.Filter
-                    .ElemMatch(
-                        r => r.Directions,
-                        d => d.From == stationId || d.To == stationId))
-                .Project(r => r.RouteId)
-                .Limit(limit)
-                .AnyAsync(ct);
-        }
 
         public async Task<IEnumerable<Route>> GetRoutesContainStationAsync(
             ObjectId stationId,
@@ -108,6 +89,34 @@ namespace Airport.Persistence.Repositories
                     .Find(Builders<Station>.Filter.In(s => s.StationId, stationIds))
                     .ToListAsync(ct);
             return Enumerable.Empty<Station>();
+        }
+
+        public async Task<IEnumerable<Route>> GetIntersectedRoutesAsync(
+            IEnumerable<ObjectId> stationIds,
+            CancellationToken ct = default) => !stationIds.Any()
+                ? Enumerable.Empty<Route>()
+                : await _routesCollection
+                .Find(Builders<Route>.Filter.ElemMatch(
+                    r => r.Directions,
+                    d => stationIds.Contains(d.From) || stationIds.Contains(d.To)))
+                .ToListAsync(ct);
+
+        public async Task<IEnumerable<Route>> GetIntersectedRoutesAsync(
+            Route route,
+            CancellationToken ct = default)
+        {
+            var stationIds = route.Directions
+                .SelectMany(d => new[] { d.From, d.To })
+                .Distinct()
+                .ToList();
+
+            return stationIds.Count == 0
+                ? Enumerable.Empty<Route>()
+                : await _routesCollection
+                .Find(Builders<Route>.Filter.ElemMatch(
+                    r => r.Directions,
+                    d => stationIds.Contains(d.From) || stationIds.Contains(d.To)))
+                .ToListAsync(ct);
         }
 
         private async Task<bool> GetStationIdsBetweenAsync(

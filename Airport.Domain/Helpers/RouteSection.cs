@@ -29,9 +29,15 @@
                 throw new ArgumentException("Collection cannot be empty.", nameof(stations));
 
             // Keep an ordered sets for comparing
-            _source = new HashSet<IStationLogic>(source.OrderBy(sl => sl.StationId));
-            _destination = new HashSet<IStationLogic>(destination.OrderBy(sl => sl.StationId));
-            _allStations = new HashSet<IStationLogic>(stations.OrderBy(sl => sl.StationId));
+            _source = source
+                .OrderBy(sl => sl.StationId)
+                .ToHashSet();
+            _destination = destination
+                .OrderBy(sl => sl.StationId)
+                .ToHashSet();
+            _allStations = stations
+                .OrderBy(sl => sl.StationId)
+                .ToHashSet();
             _allTrafficLights = _source
                 .Concat(_destination)
                 .OrderBy(sl => sl.StationId)

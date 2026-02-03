@@ -1,6 +1,5 @@
 ﻿using Airport.Domain.Repositories;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -9,15 +8,14 @@ namespace Airport.Persistence.Repositories
     public sealed class RepositoryManager : IRepositoryManager
     {
         #region Fields
-        private readonly Lazy<IStationRepository> _lazyStationRepository = null!;
-        private readonly Lazy<IRouteRepository> _lazyRouteRepository = null!;
-        private readonly Lazy<IFlightRepository> _lazyFlightRepository = null!;
-        private readonly Lazy<ITrafficLightRepository> _lazyTrafficLightRepository = null!;
+        private readonly Lazy<IStationRepository> _lazyStationRepository;
+        private readonly Lazy<IRouteRepository> _lazyRouteRepository;
+        private readonly Lazy<IFlightRepository> _lazyFlightRepository;
+        private readonly Lazy<ITrafficLightRepository> _lazyTrafficLightRepository;
         #endregion
 
         public RepositoryManager(IServiceProvider serviceProvider)
         {
-            var flightRepositoryLogger = serviceProvider.GetRequiredService<ILogger<FlightRepository>>();
             var client = serviceProvider.GetRequiredService<IMongoClient>();
             var dbConfiguration = serviceProvider.GetRequiredService<IOptions<AirportDbConfiguration>>();
 
@@ -33,6 +31,8 @@ namespace Airport.Persistence.Repositories
         public IFlightRepository FlightRepository => _lazyFlightRepository.Value;
         public ITrafficLightRepository TrafficLightRepository => _lazyTrafficLightRepository.Value;
         #endregion
+
+        public void Dispose() { }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

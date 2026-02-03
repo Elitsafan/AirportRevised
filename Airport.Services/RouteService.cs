@@ -1,4 +1,6 @@
-﻿using Airport.Contracts.Providers;
+﻿using Airport.Contracts.Helpers;
+using Airport.Contracts.Providers;
+using Airport.Domain.EventArgs.RouteEventArgs;
 using Airport.Domain.Exceptions;
 using Airport.Domain.Helpers;
 using Airport.Domain.Repositories;
@@ -19,6 +21,7 @@ namespace Airport.Services
         #region Fields
         private readonly IAirportStateProvider _airportStateProvider;
         private readonly IRepositoryManager _repositoryManager;
+        private readonly IDomainEvents _domainEvents;
         private readonly ILogger<RouteService> _logger;
         private readonly IMapper _mapper;
         #endregion
@@ -26,11 +29,13 @@ namespace Airport.Services
         public RouteService(
             IAirportStateProvider airportStateProvider,
             IRepositoryManager repositoryManager,
+            IDomainEvents domainEvents,
             IMapper mapper,
             ILogger<RouteService> logger)
         {
             _airportStateProvider = airportStateProvider;
             _repositoryManager = repositoryManager;
+            _domainEvents = domainEvents;
             _logger = logger;
             _mapper = mapper;
         }
@@ -47,31 +52,33 @@ namespace Airport.Services
                 yield return route;
         }
 
-        public async Task<RouteDTO?> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default)
+        public async Task<RouteDTO> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            var route = await _repositoryManager.RouteRepository
-                .GetRouteByIdAsync(id, ct);
+            var route = await _repositoryManager.RouteRepository.GetByIdAsync(id, ct);
 
             return _mapper.Map<RouteDTO>(route);
         }
 
-        public async Task<RouteDTO> AddRouteAsync(
-            RouteForCreationDTO routeForCreationDTO,
-            CancellationToken ct = default)
+        public async Task<RouteDTO> AddRouteAsync(RouteForCreationDTO routeToCreate, CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            if (routeForCreationDTO is null)
-                throw new ArgumentNullException(nameof(routeForCreationDTO));
-            await ValidateRouteAsync(routeForCreationDTO.Directions, ct);
-            await AreAnyStationsBetweenTrafficLightsAsync(routeForCreationDTO.Directions);
+            if (routeToCreate is null)
+                throw new ArgumentNullException(nameof(routeToCreate));
+            await ValidateRouteAsync(routeToCreate.Directions, ct);
+            await AreAnyStationsBetweenTrafficLightsAsync(routeToCreate.Directions, ct);
 
-            var route = _mapper.Map<Route>(routeForCreationDTO);
-            route = await _repositoryManager.RouteRepository
-                .AddOneAsync(route, ct);
+            var route = await _repositoryManager.RouteRepository
+                .AddOneAsync(_mapper.Map<Route>(routeToCreate), ct);
             await AddRouteTrafficLightsAsync(route, ct);
+            await _domainEvents.RaiseRouteCreatedAsync(new RouteCreatedEventArgs
+            {
+                RouteId = route.RouteId,
+                RouteName = route.RouteName,
+                Directions = route.Directions,
+            });
 
             return _mapper.Map<RouteDTO>(route);
         }
@@ -79,22 +86,37 @@ namespace Airport.Services
         // TODO: tests for all UpdateResult values
         public async Task<UpdateResult> UpdateRouteAsync(
             ObjectId id,
-            RouteForUpdateDTO routeForUpdate,
+            RouteForUpdateDTO routeToUpdate,
             CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            if (routeForUpdate is null)
-                throw new ArgumentNullException(nameof(routeForUpdate));
-            await ValidateRouteAsync(routeForUpdate.Directions, ct);
-            await AreAnyStationsBetweenTrafficLightsAsync(routeForUpdate.Directions);
+            if (routeToUpdate is null)
+                throw new ArgumentNullException(nameof(routeToUpdate));
+            await ValidateRouteAsync(routeToUpdate.Directions, ct);
+            await AreAnyStationsBetweenTrafficLightsAsync(routeToUpdate.Directions, ct);
+            var oldRoute = await _repositoryManager.RouteRepository
+                .GetByIdAsync(id, ct);
 
-            var modifiedRoute = _mapper.Map<Route>(routeForUpdate);
+            var oldTrafficLights = (await _repositoryManager.TrafficLightRepository
+                .GetTrafficLightsByRouteIdAsync(id))
+                .ToList();
+            var modifiedRoute = _mapper.Map<Route>(routeToUpdate);
+            modifiedRoute.RouteId = id;
             var updateResult = await _repositoryManager.RouteRepository
-                .UpdateRouteAsync(id, modifiedRoute, ct);
+                .UpdateRouteAsync(modifiedRoute, ct: ct);
 
             if (updateResult == UpdateResult.Modified)
-                await UpdateTrafficLightsAsync(modifiedRoute, ct);
+            {
+                await UpdateTrafficLightsAsync(oldTrafficLights, modifiedRoute, ct);
+                await _domainEvents.RaiseRouteUpdatedAsync(new RouteUpdatedEventArgs
+                {
+                    RouteId = modifiedRoute.RouteId,
+                    RouteName = modifiedRoute.RouteName,
+                    Directions = modifiedRoute.Directions,
+                    OldRoute = oldRoute
+                });
+            }
             return updateResult;
         }
 
@@ -102,48 +124,57 @@ namespace Airport.Services
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            var route = await _repositoryManager.RouteRepository.GetRouteByIdAsync(id);
+            var route = await _repositoryManager.RouteRepository.GetByIdAsync(id);
             if (route is null)
             {
                 _logger.LogInformation($"Route with id: {id} not found.");
                 return false;
             }
+            var trafficLights = (await _repositoryManager.TrafficLightRepository
+                .GetTrafficLightsByRouteIdAsync(route.RouteId))
+                .ToList();
             var result = await _repositoryManager.RouteRepository.DeleteOneAsync(id, ct);
             if (result)
-                await DeleteTrafficLightsAsync(route, ct);
+            {
+                await DeleteTrafficLightsAsync(trafficLights, ct);
+                await _domainEvents.RaiseRouteDeletedAsync(new RouteDeletedEventArgs
+                {
+                    RouteId = route.RouteId,
+                    RouteName = route.RouteName,
+                    Directions = route.Directions
+                });
+            }
             return result;
         }
 
-        private async Task AreAnyStationsBetweenTrafficLightsAsync(IEnumerable<DirectionDTO> directions)
+        private async Task AreAnyStationsBetweenTrafficLightsAsync(
+            List<DirectionDTO> directions,
+            CancellationToken ct = default)
         {
-            var existOnRoutes = new Dictionary<ObjectId, int>(directions
+            var stationIds = directions
                 .SelectMany(d => new[] { d.From, d.To })
-                .GroupBy(
-                    id => id,
-                    (id, ids) => new KeyValuePair<ObjectId, int>(id, ids.Count())));
+                .Distinct()
+                .ToList();
+            var commonStationIds = await _repositoryManager.StationRepository
+                .GetCommonStationIdsWithCountsAsync(stationIds, ct);
+
             foreach (var direction in directions)
-            {
-                if (!await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(direction.From))
-                    continue;
-                var fromCount = ++existOnRoutes[direction.From];
-                if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(direction.To))
-                {
-                    var toCount = ++existOnRoutes[direction.To];
-                    if (fromCount > 1 && toCount > 1)
-                        throw new InvalidRouteStructureException(
-                            "Route must have least one station that is not a traffic light" +
-                            $"between two traffic lights:\n{direction.From}\n{direction.To}");
-                }
-            }
+                if (commonStationIds.ContainsKey(direction.From) &&
+                    commonStationIds.ContainsKey(direction.To))
+                    throw new InvalidRouteStructureException(
+                        "Route must have least one station that is not a traffic light " +
+                        $"between two traffic lights:\n{direction.From}\n{direction.To}");
         }
 
-        private async Task ValidateRouteAsync(IEnumerable<DirectionDTO> directions, CancellationToken ct)
+        private async Task ValidateRouteAsync(
+            List<DirectionDTO> directions,
+            CancellationToken ct = default)
         {
-            IEnumerable<ObjectId> ids = await ValidateStationsExistenceAsync(directions, ct);
+            List<ObjectId> ids = (await ValidateStationsExistenceAsync(directions, ct)).ToList();
             ValidateIfCircularRoute(directions, ids);
         }
 
-        private void ValidateIfCircularRoute(IEnumerable<DirectionDTO> directions, IEnumerable<ObjectId> ids)
+        private void ValidateIfCircularRoute(List<DirectionDTO> directions, IEnumerable<ObjectId> ids)
         {
             var graph = new Graph<ObjectId>(ids);
 
@@ -155,8 +186,8 @@ namespace Airport.Services
         }
 
         private async Task<IEnumerable<ObjectId>> ValidateStationsExistenceAsync(
-            IEnumerable<DirectionDTO> directions,
-            CancellationToken ct)
+            List<DirectionDTO> directions,
+            CancellationToken ct = default)
         {
             var froms = directions
                 .Select(d => d.From)
@@ -178,65 +209,48 @@ namespace Airport.Services
             return ids;
         }
 
-        private async Task AddRouteTrafficLightsAsync(Route route, CancellationToken ct)
+        private async Task AddRouteTrafficLightsAsync(Route route, CancellationToken ct = default)
         {
-            IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
-            var addedIds = new List<ObjectId>();
-            foreach (var id in stationIds)
-                if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, ct: ct))
-                {
-                    var tl = new TrafficLight { StationId = id };
-                    await _repositoryManager.TrafficLightRepository.AddOneAsync(tl, ct);
-                    addedIds.Add(id);
-                }
-            if (addedIds.Count > 0)
-                _logger.LogInformation($"Traffic lights added:\n{string.Join(",\n", addedIds)}");
+            var stationIds = route.Directions
+                .SelectMany(d => new[] { d.From, d.To })
+                .Distinct()
+                .ToList();
+            var commonStationIds = await _repositoryManager.StationRepository
+                .GetCommonStationIdsWithCountsAsync(stationIds, ct);
+            foreach (var idEntry in commonStationIds)
+            {
+                if (idEntry.Value > 2)
+                    continue;
+                var tl = new TrafficLight { StationId = idEntry.Key };
+                tl = await _repositoryManager.TrafficLightRepository.AddOneAsync(tl, ct);
+                _logger.LogInformation($"New traffic light refering Station Id: {tl.StationId}");
+            }
         }
 
-        private async Task DeleteTrafficLightsAsync(Route route, CancellationToken ct)
+        private async Task UpdateTrafficLightsAsync(
+            IEnumerable<TrafficLight> oldTrafficLights,
+            Route newRoute,
+            CancellationToken ct = default)
         {
-            IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
-            var deletedIds = new List<ObjectId>();
-            foreach (var id in stationIds)
-                if (!await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, 2, ct))
-                {
-                    await _repositoryManager.TrafficLightRepository.DeleteOneAsync(id, ct);
-                    deletedIds.Add(id);
-                }
-            if (deletedIds.Count > 0)
-                _logger.LogInformation($"Traffic lights deleted:\n{string.Join(",\n", deletedIds)}");
+            await DeleteTrafficLightsAsync(oldTrafficLights.ToList(), ct);
+            await AddRouteTrafficLightsAsync(newRoute);
         }
 
-        private async Task UpdateTrafficLightsAsync(Route route, CancellationToken ct)
+        private async Task DeleteTrafficLightsAsync(
+            IEnumerable<TrafficLight> trafficLights,
+            CancellationToken ct = default)
         {
-            IEnumerable<ObjectId> stationIds = ExtractStationIds(route);
-            var updatedIds = new List<ObjectId>();
-            var deletedIds = new List<ObjectId>();
-            foreach (var id in stationIds)
-                if (await _repositoryManager.RouteRepository.IsExistOnAnyRoutesAsync(id, 2, ct))
-                {
-                    var tl = new TrafficLight { StationId = id };
-                    await _repositoryManager.TrafficLightRepository.AddOneAsync(tl, ct);
-                    updatedIds.Add(id);
-                }
-                else
-                {
-                    await _repositoryManager.TrafficLightRepository.DeleteOneAsync(id, ct);
-                    deletedIds.Add(id);
-                }
-
-            if (updatedIds.Count > 0)
-                _logger.LogInformation($"Traffic lights updated:\n{string.Join(",\n", updatedIds)}");
-            if (deletedIds.Count > 0)
-                _logger.LogInformation($"Traffic lights deleted:\n{string.Join(",\n", deletedIds)}");
+            var commonStationIds = await _repositoryManager.StationRepository
+                .GetCommonStationIdsWithCountsAsync(trafficLights.Select(
+                    tl => tl.StationId).ToList(), ct);
+            foreach (var tl in trafficLights)
+            {
+                if (commonStationIds[tl.StationId] > 2)
+                    continue;
+                if (await _repositoryManager.TrafficLightRepository
+                    .DeleteOneAsync(tl.TrafficLightId, ct))
+                    _logger.LogInformation($"Traffic light with Station Id: {tl.StationId} deleted.");
+            }
         }
-
-        private IEnumerable<ObjectId> ExtractStationIds(Route route) => route.Directions
-            .Select(d => d.From)
-            .Distinct()
-            .Union(route.Directions
-                .Select(d => d.To)
-                .Distinct())
-            .ToList();
     }
 }

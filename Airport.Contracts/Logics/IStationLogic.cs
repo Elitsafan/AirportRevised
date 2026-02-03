@@ -1,27 +1,13 @@
-﻿using Airport.Contracts.EventArgs;
-using Airport.Models.Enums;
-using Microsoft.VisualStudio.Threading;
+﻿using Airport.Models.Enums;
 using MongoDB.Bson;
 
 namespace Airport.Contracts.Logics
 {
-    public interface IStationLogic
+    public interface IStationLogic : IDisposable
     {
-        /// <summary>
-        /// Invoked when station is occupied
-        /// </summary>
-        event AsyncEventHandler<IStationOccupiedEventArgs>? StationOccupiedAsync;
-        /// <summary>
-        /// Invoked when station is clearing
-        /// </summary>
-        event AsyncEventHandler<IStationClearingEventArgs>? StationClearingAsync;
-        /// <summary>
-        /// Invoked when station is cleared
-        /// </summary>
-        event AsyncEventHandler<IStationClearedEventArgs>? StationClearedAsync;
         ObjectId StationId { get; }
         /// <summary>
-        /// Represents the <see cref="FlightType"/> of the current flight
+        /// Represents the <see cref="FlightType"/> of the current flight inside the <see cref="IStationLogic"/>
         /// </summary>
         FlightType? CurrentFlightType { get; }
         /// <summary>
