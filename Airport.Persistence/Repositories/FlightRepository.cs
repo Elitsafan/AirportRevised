@@ -100,11 +100,11 @@ namespace Airport.Persistence.Repositories
         public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
             (await _flightsCollection.DeleteOneAsync(f => f.FlightId == id, ct)).DeletedCount > 0;
 
-        public async Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default) =>
-            await _flightsCollection
-                .Find(FilterDefinition<Flight>.Empty)
-                .SortBy(f => f.OccupationDetails[0].Entrance)
-                .ToListAsync(ct);
+        //public async Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default) =>
+        //    await _flightsCollection
+        //        .Find(FilterDefinition<Flight>.Empty)
+        //        .SortBy(f => f.OccupationDetails[0].Entrance)
+        //        .ToListAsync(ct);
 
         public async Task<IEnumerable<Flight>> FilterByTimePassedAsync(
             TimeSpan timePassed,
@@ -123,18 +123,20 @@ namespace Airport.Persistence.Repositories
         {
             var totalCount = await _flightsCollection.CountDocumentsAsync(
                 FilterDefinition<Flight>.Empty,
-                cancellationToken: ct);
-            var result = await _flightsCollection
-                .Find(FilterDefinition<Flight>.Empty)
-                .SortBy(f => f.OccupationDetails[0].Entrance)
-                .Skip((pageNumber - 1) * pageSize)
-                .Limit(pageSize)
-                .ToListAsync(ct);
+                cancellationToken: ct) + 
+                _activeFlights.Count + 
+                _completedFlights.Count;
 
+            var result = (await GetAllAsync(ct))
+                .OrderBy(f => f.OccupationDetails[0].Entrance)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            if (pageSize * pageNumber > result.Count && pageNumber > Math.Ceiling((double)totalCount / pageSize))
+                throw new InvalidOperationException("No such a page number for a such page size.");
             if (result.Count == 0)
                 return new PagedList<TResult>([], 0, 0, 0);
-            if (pageSize * pageNumber > result.Count && pageNumber != Math.Ceiling((double)result.Count / pageSize))
-                throw new InvalidOperationException("No such a page number for a such page size.");
 
             return new PagedList<TResult>(
                 result.Select(func).ToList(),

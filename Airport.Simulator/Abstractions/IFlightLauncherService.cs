@@ -5,12 +5,13 @@ namespace Airport.Simulator.Abstractions
 {
     public interface IFlightLauncherService : IAsyncDisposable
     {
-        Task<HttpResponseMessage> StartAsync(CancellationToken cancellationToken = default);
+        Task<HttpResponseMessage> StartAsync(CancellationToken ct = default);
         IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(params string[]? args);
         IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(
             int n = 6,
-            CancellationToken cancellationToken = default);
-        Task SetFlightTimeoutAsync(FlightType? flightType = null, CancellationToken cancellationToken = default);
-        Task<HttpResponseMessage> LaunchOneAsync(FlightForCreationDTO flight, CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
+        Task SetFlightTimeoutAsync(FlightType? flightType = null, CancellationToken ct = default);
+        Task<HttpResponseMessage> LaunchOneAsync(FlightForCreationDTO flight, CancellationToken ct = default);
+        Task StartStandbyModeAsync(CancellationToken ct = default);
     }
 }

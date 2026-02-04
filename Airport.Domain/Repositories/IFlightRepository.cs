@@ -12,7 +12,7 @@ namespace Airport.Domain.Repositories
             bool upsert = false,
             CancellationToken ct = default);
         Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default);
-        Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default);
+        //Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default);
         Task<IEnumerable<Flight>> FilterByTimePassedAsync(
             TimeSpan timePassed,
             CancellationToken ct = default);

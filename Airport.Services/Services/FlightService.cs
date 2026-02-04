@@ -67,7 +67,7 @@ namespace Airport.Services.Services
                 ? await _repositoryManager.FlightRepository.FilterByTimePassedAsync(
                     TimeSpan.FromMinutes(minutesPassed.Value),
                     ct)
-                : await _repositoryManager.FlightRepository.OrderByEntranceAsync(ct);
+                : await _repositoryManager.FlightRepository.GetAllAsync(ct);
 
             foreach (var flight in flights.Select(_mapper.Map<FlightDTO>))
                 yield return flight;

@@ -1,12 +1,12 @@
 ﻿//#define TEST
+using Airport.Simulator.Abstractions;
+using Airport.Simulator.Configurations;
+using Airport.Simulator.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Airport.Simulator.Abstractions;
-using Airport.Simulator.Configurations;
-using Airport.Simulator.Services;
+using Microsoft.VisualStudio.Threading;
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Retry;
@@ -39,6 +39,10 @@ namespace Airport.Simulator
                 })
                 .ConfigureServices((hostingContext, config) =>
                 {
+                    // Background sevice to keep target alive
+                    config.AddHostedService<KeepAliveService>();
+                    config.AddHttpClient(nameof(KeepAliveService))
+                        .AddPolicyHandler(GetRetryPolicy());
                     // Http client
                     config.AddHttpClient<IFlightLauncherService, FlightLauncherService>()
                         .AddPolicyHandler(GetRetryPolicy());
@@ -47,10 +51,6 @@ namespace Airport.Simulator
                         hostingContext.Configuration.GetSection(nameof(FlightEndPointsConfiguration)));
                     config.Configure<FlightTimeoutConfiguration>(
                         hostingContext.Configuration.GetSection(nameof(FlightTimeoutConfiguration)));
-                    config.AddSingleton<IFlightEndPointsConfiguration>(
-                        provider => provider.GetRequiredService<IOptions<FlightEndPointsConfiguration>>().Value);
-                    config.AddSingleton<IFlightTimeoutConfiguration>(
-                        provider => provider.GetRequiredService<IOptions<FlightTimeoutConfiguration>>().Value);
                 })
                 .Build();
 
@@ -61,6 +61,9 @@ namespace Airport.Simulator
                 .GetRequiredService<IFlightLauncherService>();
             _logger.LogInformation("Starting Airport Simulator...");
             var startResponse = await flightLauncherService.StartAsync();
+            flightLauncherService
+                .StartStandbyModeAsync()
+                .Forget();
             _logger.LogInformation($"Start response received with status: {startResponse.StatusCode}");
 #if TEST
             await Console.Out.WriteLineAsync(startResponse.StatusCode.ToString());
@@ -69,7 +72,9 @@ namespace Airport.Simulator
                 .ToListAsync()
                 .Forget();
 #else
-            await flightLauncherService.SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/);
+            flightLauncherService
+                .SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/)
+                .Forget();
 #endif
             await host.RunAsync();
         }

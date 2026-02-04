@@ -1,9 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.Threading;
-using MongoDB.Bson;
-using Airport.Models.DTOs;
+﻿using Airport.Models.DTOs;
 using Airport.Models.Enums;
 using Airport.Simulator.Abstractions;
+using Airport.Simulator.Configurations;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.VisualStudio.Threading;
 using System.Configuration;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
@@ -17,23 +18,23 @@ namespace Airport.Simulator.Services
         private readonly HttpClient _client;
         private readonly ILogger<FlightLauncherService> _logger;
         private readonly IFlightGenerator _flightGenerator;
-        private readonly IFlightTimeoutConfiguration _flightTimeoutConfiguration;
-        private readonly IFlightEndPointsConfiguration _flightsConfig;
+        private readonly FlightTimeoutConfiguration _flightTimeoutConfiguration;
+        private readonly FlightEndPointsConfiguration _flightsConfig;
         #endregion
 
         public FlightLauncherService(
             HttpClient client,
             ILogger<FlightLauncherService> logger,
             IFlightGenerator flightGenerator,
-            IFlightTimeoutConfiguration flightTimeoutConfiguration,
-            IFlightEndPointsConfiguration flightsConfiguration)
+            IOptions<FlightTimeoutConfiguration> flightTimeoutConfiguration,
+            IOptions<FlightEndPointsConfiguration> flightsConfiguration)
         {
             _random = new Random(DateTime.Now.Millisecond);
             _logger = logger;
             _client = client;
             _flightGenerator = flightGenerator;
-            _flightTimeoutConfiguration = flightTimeoutConfiguration;
-            _flightsConfig = flightsConfiguration;
+            _flightTimeoutConfiguration = flightTimeoutConfiguration.Value;
+            _flightsConfig = flightsConfiguration.Value;
             ValidateFlightsConfiguration();
             _client.BaseAddress = new Uri(_flightsConfig.BaseUrl!);
         }
@@ -41,26 +42,26 @@ namespace Airport.Simulator.Services
         // Launches multiple flights 
         public async IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(
             int n = 6,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
             var flights = _flightGenerator.GenerateFlights(n);
-            cancellationToken.ThrowIfCancellationRequested();
+            ct.ThrowIfCancellationRequested();
             Func<FlightForCreationDTO, Task<HttpResponseMessage>> task = async flight =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                ct.ThrowIfCancellationRequested();
                 _logger.LogInformation($"Launching {flight.FlightType}...");
                 return flight.FlightType == FlightType.Landing
                     ? await _client.PostAsJsonAsync(
                         _flightsConfig.Landing,
                         flight,
-                        cancellationToken)
+                        ct)
                     : await _client.PostAsJsonAsync(
                         _flightsConfig.Departure,
                         flight,
-                        cancellationToken);
+                        ct);
             };
             foreach (var flight in flights
-                .Select(flight => Task.Run(() => task(flight), cancellationToken)))
+                .Select(flight => Task.Run(() => task(flight), ct)))
                 yield return await flight;
             yield break;
         }
@@ -70,9 +71,9 @@ namespace Airport.Simulator.Services
         public async IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(params string[]? args)
         {
             // Input validation
-            if (args is null || args.Length == 0)
+            if (args?.Length == 0)
                 yield break;
-            if (!int.TryParse(args[0], out int numOfFlights) ||
+            if (!int.TryParse(args?[0], out int numOfFlights) ||
                 numOfFlights <= 0)
                 throw new ArgumentException("First argument is invalid. Only non-negative numbers are allowed.");
 
@@ -86,36 +87,45 @@ namespace Airport.Simulator.Services
             yield break;
         }
         // Send a request to Start endpoint
-        public async Task<HttpResponseMessage> StartAsync(CancellationToken cancellationToken = default) =>
-            await _client.GetAsync(_flightsConfig.Start, cancellationToken);
+        public async Task<HttpResponseMessage> StartAsync(CancellationToken ct = default) =>
+            await _client.GetAsync(_flightsConfig.Start, ct);
 
         public async Task<HttpResponseMessage> LaunchOneAsync(
             FlightForCreationDTO flight,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
             _logger.LogInformation($"Launching {flight.FlightType}...");
             return flight.FlightType == FlightType.Landing
                 ? await _client.PostAsJsonAsync(
                     _flightsConfig.Landing,
                     flight,
-                    cancellationToken)
+                    ct)
                 : await _client.PostAsJsonAsync(
                     _flightsConfig.Departure,
                     flight,
-                    cancellationToken);
+                    ct);
         }
         // Launches a flight according to _flightTimeoutConfiguration.Timeout
-        public async Task SetFlightTimeoutAsync(FlightType? flightType, CancellationToken cancellationToken = default)
+        public async Task SetFlightTimeoutAsync(FlightType? flightType, CancellationToken ct = default)
         {
-            var periodicTimer = new PeriodicTimer(TimeSpan.FromMilliseconds(_flightTimeoutConfiguration.Timeout));
-            while (await periodicTimer.WaitForNextTickAsync(cancellationToken))
+            var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.SendFlightTimeout);
+            while (await periodicTimer.WaitForNextTickAsync(ct))
             {
                 var flight = _flightGenerator.GenerateFlight(flightType ?? (_random.Next() % 2 == 0
                     ? FlightType.Landing
                     : FlightType.Departure));
-                LaunchOneAsync(flight, cancellationToken).Forget();
-                //_logger.LogInformation(result.ToString());
+                /*var result = */
+                LaunchOneAsync(flight, ct).Forget();
+                //_logger.LogInformation(await result.Content.ReadAsStringAsync());
             }
+        }
+
+        public async Task StartStandbyModeAsync(CancellationToken ct = default)
+        {
+            var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.StandbyTimeout);
+            while (await periodicTimer.WaitForNextTickAsync(ct))
+                await foreach (var result in LaunchManyAsync(_flightTimeoutConfiguration.AutoFlightCount, ct))
+                    _logger.LogInformation(await result.Content.ReadAsStringAsync());
         }
 
         public async ValueTask DisposeAsync()
