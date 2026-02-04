@@ -10,7 +10,7 @@ using AutoMapper;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace Airport.Services
+namespace Airport.Services.Services
 {
     public sealed class AirportService : IAirportService
     {

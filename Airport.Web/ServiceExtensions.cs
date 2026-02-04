@@ -6,8 +6,8 @@ using Airport.Domain.Helpers;
 using Airport.Domain.Providers;
 using Airport.Domain.Repositories;
 using Airport.Persistence.Repositories;
-using Airport.Services;
 using Airport.Services.Abstractions;
+using Airport.Services.Services;
 
 namespace Airport.Web
 {
@@ -15,12 +15,16 @@ namespace Airport.Web
     {
         public static void AddAirportServices(this IServiceCollection services, IConfiguration config)
         {
-            services.AddScoped<IRepositoryManager, RepositoryManager>();
+            services.AddHostedService<AirportHubService>();
+            services.AddHostedService<BackgroundSaverService>();
+            services.AddHostedService<FlightEventHandlers>();
 
             services.AddScoped<IFlightService, FlightService>();
             services.AddScoped<IStationService, StationService>();
             services.AddScoped<IRouteService, RouteService>();
             services.AddScoped<IAirportService, AirportService>();
+
+            services.AddSingleton<IRepositoryManager, RepositoryManager>();
 
             services.AddSingleton<IDomainEvents, DomainEvents>();
 
@@ -33,9 +37,6 @@ namespace Airport.Web
             services.AddSingleton<IStationLogicProvider, StationLogicProvider>();
             services.AddSingleton<IDirectionLogicProvider, DirectionLogicProvider>();
             services.AddSingleton<IRouteLogicProvider, RouteLogicProvider>();
-
-            services.AddHostedService<AirportHubService>();
-            services.AddHostedService<FlightEventHandlers>();
         }
     }
 }

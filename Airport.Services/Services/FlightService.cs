@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using System.Runtime.CompilerServices;
 
-namespace Airport.Services
+namespace Airport.Services.Services
 {
     public class FlightService : IFlightService
     {
@@ -64,10 +64,10 @@ namespace Airport.Services
             _airportStateProvider.ThrowIfNotStarted();
 
             var flights = minutesPassed.HasValue
-                ? (await _repositoryManager.FlightRepository.FilterByTimePassedAsync(
+                ? await _repositoryManager.FlightRepository.FilterByTimePassedAsync(
                     TimeSpan.FromMinutes(minutesPassed.Value),
-                    ct))
-                : (await _repositoryManager.FlightRepository.OrderByEntranceAsync(ct));
+                    ct)
+                : await _repositoryManager.FlightRepository.OrderByEntranceAsync(ct);
 
             foreach (var flight in flights.Select(_mapper.Map<FlightDTO>))
                 yield return flight;
@@ -106,7 +106,7 @@ namespace Airport.Services
                 .Create();
             using var cts = new CancellationTokenSource();
             await _flightLogic.RunAsync(cts.Token);
-            await _repositoryManager.FlightRepository.UpdateFlightAsync(flight, ct: cts.Token);
+            await _repositoryManager.FlightRepository.AddCompletedFlightAsync(flight);
 #if TEST
             _logger.LogInformation($"{_flightLogic.FlightType} ID: {_flightLogic.FlightId} -----> Unegistered");
 #endif

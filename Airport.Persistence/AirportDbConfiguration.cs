@@ -8,6 +8,7 @@
         public string RoutesCollectionName { get; set; } = null!;
         public string StationsCollectionName { get; set; } = null!;
         public string TrafficLightsCollectionName { get; set; } = null!;
+        public TimeSpan FlushInterval { get; set; }
         public int MaxFlightDocuments { get; set; }
         public int FlightSaveBatchSize { get; set; }
     }

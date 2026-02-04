@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using System.Runtime.CompilerServices;
 
-namespace Airport.Services
+namespace Airport.Services.Services
 {
     public class RouteService : IRouteService
     {

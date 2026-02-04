@@ -1,14 +1,17 @@
 //#define TEST
 using Airport.Contracts.EventArgs.FlightEventArgs;
 using Airport.Contracts.Helpers;
+#if TEST
+using Airport.Domain.Helpers;
+#endif
 using Airport.Domain.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Airport.Services
+namespace Airport.Services.Services
 {
-    public class FlightEventHandlers : IHostedService
+    public class FlightEventHandlers : BackgroundService
     {
         #region Fields
         private readonly IDomainEvents _domainEvents;
@@ -26,22 +29,22 @@ namespace Airport.Services
             _logger = logger;
         }
 
-        public async Task StartAsync(CancellationToken ct)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _domainEvents.FlightRunStarted += OnFlightRunStartedAsync;
             await Task.CompletedTask;
         }
 
-        public async Task StopAsync(CancellationToken ct)
+        public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _domainEvents.FlightRunStarted -= OnFlightRunStartedAsync;
-            await Task.CompletedTask;
+            await base.StopAsync(cancellationToken);
         }
 
         private async Task OnFlightRunStartedAsync(object? sender, IFlightRunStartedEventArgs args)
         {
 #if TEST
-            _logger.LogCritical($"<----- {args.Flight.FlightId} | {Guid.NewGuid()} ----->"); 
+            _logger.LogCritical($"<----- {args.Flight.FlightId} | {Guid.NewGuid()} ----->");
 #endif
             using var scope = _scopeFactory.CreateScope();
             var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
