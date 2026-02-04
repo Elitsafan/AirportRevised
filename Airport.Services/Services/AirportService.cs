@@ -1,4 +1,5 @@
-﻿using Airport.Contracts.Providers;
+﻿using Airport.Contracts.Helpers;
+using Airport.Contracts.Providers;
 using Airport.Domain.Helpers;
 using Airport.Domain.Repositories;
 using Airport.Models;
@@ -18,17 +19,20 @@ namespace Airport.Services.Services
         private readonly IMapper _mapper;
         private readonly ILogger<AirportService> _logger;
         private readonly IRepositoryManager _repositoryManager;
+        private readonly IDomainEvents _domainEvents;
         private readonly IAirportStateProvider _airportStateProvider;
         #endregion
 
         public AirportService(
             IAirportStateProvider airportStateProvider,
             IRepositoryManager repositoryManager,
+            IDomainEvents domainEvents,
             IMapper mapper,
             ILogger<AirportService> logger)
         {
             _airportStateProvider = airportStateProvider;
             _repositoryManager = repositoryManager;
+            _domainEvents = domainEvents;
             _mapper = mapper;
             _logger = logger;
         }
@@ -36,17 +40,28 @@ namespace Airport.Services.Services
         public async Task<string> StartAsync(CancellationToken ct = default)
         {
             if (_airportStateProvider.HasStarted)
-                return "Already started";
+                return "Airport already started.";
 
             using var releaser = await _airportStateProvider.StartLock.EnterAsync(ct);
 
             if (_airportStateProvider.HasStarted)
-                return "Already started";
+                return "Airport already started.";
 
             _logger.LogInformation("Airport started.");
             _airportStateProvider.HasStarted = true;
 
-            return "Started";
+            return "Airport Started.";
+        }
+
+        public async Task<string> RestartAsync(CancellationToken ct = default)
+        {
+            _airportStateProvider.ThrowIfNotStarted();
+
+            await _domainEvents.RaiseSystemResetRequestedAsync();
+
+            _logger.LogInformation("Airport restarted.");
+
+            return "Airport restarted.";
         }
 
         public async Task<IAirportStatus> GetStatusAsync(CancellationToken ct = default)

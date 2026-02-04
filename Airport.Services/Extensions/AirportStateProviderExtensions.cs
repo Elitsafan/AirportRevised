@@ -10,7 +10,7 @@ namespace Airport.Services.Extensions
             if (airportStateProvider is null)
                 throw new ArgumentNullException();
             if (!airportStateProvider.HasStarted)
-                throw new AirportNotStartedException("Airport needs to start/restart.");
+                throw new AirportNotStartedException("Airport needs to start.");
         }
     }
 }

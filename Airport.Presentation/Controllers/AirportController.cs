@@ -18,6 +18,11 @@ namespace Airport.Presentation.Controllers
         public async Task<IActionResult> StartAsync(CancellationToken ct = default) =>
             Ok(await _airportService.StartAsync(ct));
 
+        // GET: api/Airport/Restart
+        [HttpGet]
+        public async Task<IActionResult> RestartAsync(CancellationToken ct = default) =>
+            Ok(await _airportService.RestartAsync(ct));
+
         // GET: api/Airport/Status
         [HttpGet]
         public async Task<IActionResult> StatusAsync(CancellationToken ct = default) =>

@@ -1,4 +1,5 @@
-﻿using Airport.Domain.Repositories;
+﻿using Airport.Contracts.Helpers;
+using Airport.Domain.Repositories;
 using Airport.Persistence;
 using DnsClient.Internal;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,17 +14,38 @@ namespace Airport.Services.Services
         #region Fields
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IOptions<AirportDbConfiguration> _dbConfiguration;
+        private readonly IDomainEvents _domainEvents;
         private readonly ILogger<BackgroundSaverService> _logger;
         #endregion
 
         public BackgroundSaverService(
             IServiceScopeFactory scopeFactory,
             IOptions<AirportDbConfiguration> dbConfiguration,
+            IDomainEvents domainEvents,
             ILogger<BackgroundSaverService> logger)
         {
             _scopeFactory = scopeFactory;
             _dbConfiguration = dbConfiguration;
+            _domainEvents = domainEvents;
             _logger = logger;
+        }
+
+        public override async Task StartAsync(CancellationToken ct)
+        {
+            _domainEvents.SystemResetRequested += CleanFlightsAsync;
+            await base.StartAsync(ct);
+        }
+
+        public override async Task StopAsync(CancellationToken ct)
+        {
+            _domainEvents.SystemResetRequested -= CleanFlightsAsync;
+            await base.StopAsync(ct);
+        }
+
+        public override void Dispose()
+        {
+            _domainEvents.SystemResetRequested -= CleanFlightsAsync;
+            base.Dispose();
         }
 
         protected override async Task ExecuteAsync(CancellationToken ct)
@@ -61,12 +83,17 @@ namespace Airport.Services.Services
                 _logger.LogError(e, "Service stopping...");
             }
 
+            await CleanFlightsAsync();
+        }
+
+        private async Task CleanFlightsAsync()
+        {
             await using var scope = _scopeFactory.CreateAsyncScope();
             var repoManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
             var flightRepo = repoManager.FlightRepository;
 
             while (await FlushFlightsAsync(flightRepo) > 0)
-                await RemoveOldFlightsAsync(flightRepo); 
+                await RemoveOldFlightsAsync(flightRepo);
         }
 
         private async Task RemoveOldFlightsAsync(IFlightRepository flightRepo, CancellationToken ct = default)

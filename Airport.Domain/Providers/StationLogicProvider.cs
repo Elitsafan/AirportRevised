@@ -2,7 +2,6 @@
 using Airport.Contracts.EventArgs.StationEventArgs;
 using Airport.Domain.EventArgs.StationEventArgs;
 using Airport.Domain.Repositories;
-using Airport.Models.Entities;
 using Airport.Models.Enums;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
@@ -26,7 +25,7 @@ namespace Airport.Domain.Providers
         private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan ShortCacheExpiration = TimeSpan.FromMinutes(5);
 
-        //private const string ALL_STATIONS_KEY = "all_station_logics";
+        private const string ALL_STATIONS_KEY = "all_station_logics";
         private const string ROUTE_STATIONS_PREFIX = "route_stations_";
         private const string ROUTE_TRAFFIC_LIGHTS_PREFIX = "route_traffic_lights_";
         private const string NEXT_TRAFFIC_LIGHTS_PREFIX = "next_traffic_lights_";
@@ -386,10 +385,16 @@ namespace Airport.Domain.Providers
 
         private void InvalidateCache()
         {
-            _logger.LogDebug("Invalidating all cache entries");
+            _logger.LogDebug("Invalidating all station cache entries");
 
-            // Remove the main cache entry
-            //_cache.Remove(ALL_STATIONS_KEY);
+            _cache.Remove(ALL_STATIONS_KEY);
+
+            foreach (var key in _stationLogics.Keys)
+            {
+                _cache.Remove($"{ROUTE_STATIONS_PREFIX}{key}");
+                _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{key}");
+                _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{key}");
+            }
         }
 
         private async Task EnsureInitializedAsync(CancellationToken ct = default)

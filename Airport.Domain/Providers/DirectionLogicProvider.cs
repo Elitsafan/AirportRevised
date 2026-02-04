@@ -251,10 +251,12 @@ namespace Airport.Domain.Providers
 
         private void InvalidateCache()
         {
-            _logger.LogDebug("Invalidating all cache entries");
+            _logger.LogDebug("Invalidating all direction cache entries");
 
-            // Remove the main cache entry
             _cache.Remove(ALL_DIRECTIONS_KEY);
+
+            foreach (var key in _routeIdToDirectionLogics.Keys)
+                _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{key}");
         }
     }
 }

@@ -29,16 +29,16 @@ namespace Airport.Services.Services
             _logger = logger;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken ct)
         {
             _domainEvents.FlightRunStarted += OnFlightRunStartedAsync;
             await Task.CompletedTask;
         }
 
-        public override async Task StopAsync(CancellationToken cancellationToken)
+        public override async Task StopAsync(CancellationToken ct)
         {
             _domainEvents.FlightRunStarted -= OnFlightRunStartedAsync;
-            await base.StopAsync(cancellationToken);
+            await base.StopAsync(ct);
         }
 
         private async Task OnFlightRunStartedAsync(object? sender, IFlightRunStartedEventArgs args)

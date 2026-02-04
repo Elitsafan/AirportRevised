@@ -70,7 +70,7 @@ namespace Airport.Web
             });
             builder.Services.AddAutoMapper(cfg =>
             {
-                var autoMapperKey = builder.Configuration.GetSection("AutoMapper")["Key"];
+                var autoMapperKey = builder.Configuration.GetSection(nameof(AutoMapper))["Key"];
                 cfg.LicenseKey = autoMapperKey;
                 cfg.AddProfile<FlightProfile>();
                 cfg.AddProfile<StationProfile>();

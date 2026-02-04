@@ -233,7 +233,6 @@ namespace Airport.Domain.Providers
         {
             _logger.LogDebug("Invalidating all cache entries");
 
-            // Remove the main cache entry
             _cache.Remove(LANDING_ROUTES_KEY);
             _cache.Remove(DEPARTURE_ROUTES_KEY);
         }

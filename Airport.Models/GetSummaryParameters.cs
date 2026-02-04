@@ -6,11 +6,12 @@
         private int _pageSize = 10;
         private int _pageNumber = 1;
 
-        public int PageNumber 
+        public int PageNumber
         {
             get => _pageNumber;
-            set => _pageNumber = value; 
+            set => _pageNumber = value;
         }
+
         public int PageSize
         {
             get => _pageSize;
