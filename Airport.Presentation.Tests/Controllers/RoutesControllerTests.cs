@@ -60,7 +60,7 @@
                 .Setup(x => x.GetRouteByIdAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync(default(RouteDTO?));
+                .ReturnsAsync(default(RouteDTO)!);
             var routesController = new RoutesController(_mockRouteService.Object);
 
             // Act

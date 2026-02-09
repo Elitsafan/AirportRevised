@@ -1,8 +1,10 @@
 global using Airport.Models.DTOs;
 global using Airport.Models.Enums;
 global using Airport.Simulator.Abstractions;
+global using Airport.Simulator.Configurations;
 global using Airport.Simulator.Services;
 global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Options;
 global using Moq;
 global using Moq.Protected;
 global using System.Net;

@@ -39,18 +39,16 @@ namespace Airport.Presentation.Tests.Controllers
 
             _mockFlightService
                 .Setup(x => x.AddFlightAsync(
-                    It.IsAny<ObjectId>(),
                     It.IsAny<LandingForCreationDTO>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(flightDto);
             var flightsController = new FlightsController(_mockFlightService.Object);
 
             // Act
-            var result = await flightsController.AddLandingAsync(id, flightForCreationDto);
+            var result = await flightsController.AddLandingAsync(flightForCreationDto);
 
             // Assert
             _mockFlightService.Verify(x => x.AddFlightAsync(
-                id,
                 flightForCreationDto,
                 It.IsAny<CancellationToken>()), Times.Once);
             var createdResult = Assert.IsType<CreatedAtRouteResult>(result);
@@ -68,18 +66,16 @@ namespace Airport.Presentation.Tests.Controllers
 
             _mockFlightService
                 .Setup(x => x.AddFlightAsync(
-                    It.IsAny<ObjectId>(),
                     It.IsAny<DepartureForCreationDTO>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(flightDto);
             var flightsController = new FlightsController(_mockFlightService.Object);
 
             // Act
-            var result = await flightsController.AddDepartureAsync(id, flightForCreationDto);
+            var result = await flightsController.AddDepartureAsync(flightForCreationDto);
 
             // Assert
             _mockFlightService.Verify(x => x.AddFlightAsync(
-                id,
                 flightForCreationDto,
                 It.IsAny<CancellationToken>()), Times.Once);
             var createdResult = Assert.IsType<CreatedAtRouteResult>(result);
@@ -115,11 +111,12 @@ namespace Airport.Presentation.Tests.Controllers
         public async Task GetFlightByIdAsync_FlightNotExists_Returns404()
         {
             // Arrange
+            var id = ObjectId.GenerateNewId();
             _mockFlightService
                 .Setup(x => x.GetFlightByIdAsync(
-                    It.IsAny<ObjectId>(),
+                    id,
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync(default(FlightDTO?));
+                .ThrowsAsync(new EntityNotFoundException($"Flight id: {id} not found."));
             var flightsController = new FlightsController(_mockFlightService.Object);
 
             // Act

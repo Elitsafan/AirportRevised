@@ -1,6 +1,5 @@
 using Airport.Contracts.Providers;
 using Airport.Models;
-using Airport.Services.Extensions;
 
 namespace Airport.Presentation.Tests.Controllers
 {
@@ -24,8 +23,8 @@ namespace Airport.Presentation.Tests.Controllers
             // Arrange
             _mockAirportService
                 .SetupSequence(x => x.StartAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync("Started")
-                .ReturnsAsync("Already started");
+                .ReturnsAsync("Airport Started.")
+                .ReturnsAsync("Airport already started.");
 
             // Act
             _airportController = new AirportController(_mockAirportService.Object);
@@ -35,8 +34,25 @@ namespace Airport.Presentation.Tests.Controllers
             // Assert
             var okFirstResult = Assert.IsType<OkObjectResult>(resultFirst);
             var okSecondResult = Assert.IsType<OkObjectResult>(resultSecond);
-            Assert.Equal(okFirstResult.Value, "Started");
-            Assert.Equal(okSecondResult.Value, "Already started");
+            Assert.Equal(okFirstResult.Value, "Airport Started.");
+            Assert.Equal(okSecondResult.Value, "Airport already started.");
+        }
+
+        [Fact]
+        public async Task RestartAsync_AirportRestarted_ReturnsOk()
+        {
+            // Arrange
+            _mockAirportService
+                .Setup(x => x.RestartAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync("Airport Restarted.");
+
+            // Act
+            _airportController = new AirportController(_mockAirportService.Object);
+            var result = await _airportController.RestartAsync();
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(okResult.Value, "Airport Restarted.");
         }
 
         [Fact]
@@ -67,112 +83,112 @@ namespace Airport.Presentation.Tests.Controllers
             Assert.Equal(expected, actual.Value);
         }
 
-        [Fact]
-        public async Task SummaryAsync_WhenCalled_ReturnsValue()
-        {
-            // Arrange
-            var departure = new Departure { FlightId = ObjectId.GenerateNewId() };
-            var landing = new Landing { FlightId = ObjectId.GenerateNewId() };
-            var summary = new SummaryWithMetadata
-            {
-                Summary = new List<FlightSummary>
-                {
-                    new FlightSummary
-                    {
-                        FlightId = departure.FlightId,
-                        Stations = new List<OccupationDetails>(),
-                        FlightType = FlightType.Departure
-                    },
-                    new FlightSummary
-                    {
-                        FlightId = landing.FlightId,
-                        Stations = new List<OccupationDetails>(),
-                        FlightType = FlightType.Landing
-                    }
-                }
-                .ToPagedList(1, 1),
-                LandingsCount = 1,
-                DeparturesCount = 1,
-            };
+        //[Fact]
+        //public async Task SummaryAsync_WhenCalled_ReturnsValue()
+        //{
+        //    // Arrange
+        //    var departure = new Departure { FlightId = ObjectId.GenerateNewId() };
+        //    var landing = new Landing { FlightId = ObjectId.GenerateNewId() };
+        //    var summary = new SummaryWithMetadata
+        //    {
+        //        Summary = new List<FlightSummary>
+        //        {
+        //            new FlightSummary
+        //            {
+        //                FlightId = departure.FlightId,
+        //                Stations = new List<OccupationDetails>(),
+        //                FlightType = FlightType.Departure
+        //            },
+        //            new FlightSummary
+        //            {
+        //                FlightId = landing.FlightId,
+        //                Stations = new List<OccupationDetails>(),
+        //                FlightType = FlightType.Landing
+        //            }
+        //        }
+        //        .ToPagedList(1, 1),
+        //        LandingsCount = 1,
+        //        DeparturesCount = 1,
+        //    };
 
-            _mockAirportStateProvider
-                .SetupGet(x => x.HasStarted)
-                .Returns(true);
-            _mockAirportService
-                .Setup(x => x.GetSummaryWithMetadataAsync(
-                    It.IsAny<GetSummaryParameters>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(summary);
+        //    _mockAirportStateProvider
+        //        .SetupGet(x => x.HasStarted)
+        //        .Returns(true);
+        //    _mockAirportService
+        //        .Setup(x => x.GetSummaryWithMetadataAsync(
+        //            It.IsAny<GetSummaryParameters>(),
+        //            It.IsAny<CancellationToken>()))
+        //        .ReturnsAsync(summary);
 
-            // Act
-            _airportController = new AirportController(_mockAirportService.Object);
-            _airportController.ControllerContext.HttpContext = new DefaultHttpContext();
-            var result = await _airportController.SummaryAsync(
-                new GetSummaryParameters
-                {
-                    PageNumber = 1,
-                    PageSize = 1
-                });
+        //    // Act
+        //    _airportController = new AirportController(_mockAirportService.Object);
+        //    _airportController.ControllerContext.HttpContext = new DefaultHttpContext();
+        //    var result = await _airportController.SummaryAsync(
+        //        new GetSummaryParameters
+        //        {
+        //            PageNumber = 1,
+        //            PageSize = 1
+        //        });
 
-            // Assert
-            var actual = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(summary.Summary, actual.Value);
-        }
+        //    // Assert
+        //    var actual = Assert.IsType<OkObjectResult>(result);
+        //    Assert.Equal(summary.Summary, actual.Value);
+        //}
 
-        [Fact]
-        public async Task SummaryAsync_WhenCalled_AddsPaginationHeader()
-        {
-            // Arrange
-            var departure = new Departure { FlightId = ObjectId.GenerateNewId() };
-            var landing = new Landing { FlightId = ObjectId.GenerateNewId() };
-            var summary = new SummaryWithMetadata
-            {
-                Summary = new List<FlightSummary>
-                {
-                    new FlightSummary
-                    {
-                        FlightId = departure.FlightId,
-                        Stations = new List<OccupationDetails>(),
-                        FlightType = FlightType.Departure
-                    },
-                    new FlightSummary
-                    {
-                        FlightId = landing.FlightId,
-                        Stations = new List<OccupationDetails>(),
-                        FlightType = FlightType.Landing
-                    }
-                }
-                .ToPagedList(1, 1),
-                LandingsCount = 1,
-                DeparturesCount = 1,
-            };
-            _mockAirportService
-                .Setup(x => x.GetSummaryWithMetadataAsync(
-                    It.IsAny<GetSummaryParameters>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(summary);
-            _mockAirportStateProvider
-                .SetupGet(x => x.HasStarted)
-                .Returns(true);
-            _airportController = new AirportController(_mockAirportService.Object);
-            _airportController.ControllerContext.HttpContext = new DefaultHttpContext();
+        //[Fact]
+        //public async Task SummaryAsync_WhenCalled_AddsPaginationHeader()
+        //{
+        //    // Arrange
+        //    var departure = new Departure { FlightId = ObjectId.GenerateNewId() };
+        //    var landing = new Landing { FlightId = ObjectId.GenerateNewId() };
+        //    var summary = new SummaryWithMetadata
+        //    {
+        //        Summary = new List<FlightSummary>
+        //        {
+        //            new FlightSummary
+        //            {
+        //                FlightId = departure.FlightId,
+        //                Stations = new List<OccupationDetails>(),
+        //                FlightType = FlightType.Departure
+        //            },
+        //            new FlightSummary
+        //            {
+        //                FlightId = landing.FlightId,
+        //                Stations = new List<OccupationDetails>(),
+        //                FlightType = FlightType.Landing
+        //            }
+        //        }
+        //        .ToPagedList(1, 1),
+        //        LandingsCount = 1,
+        //        DeparturesCount = 1,
+        //    };
+        //    _mockAirportService
+        //        .Setup(x => x.GetSummaryWithMetadataAsync(
+        //            It.IsAny<GetSummaryParameters>(),
+        //            It.IsAny<CancellationToken>()))
+        //        .ReturnsAsync(summary);
+        //    _mockAirportStateProvider
+        //        .SetupGet(x => x.HasStarted)
+        //        .Returns(true);
+        //    _airportController = new AirportController(_mockAirportService.Object);
+        //    _airportController.ControllerContext.HttpContext = new DefaultHttpContext();
 
-            // Act
-            var result = await _airportController.SummaryAsync(
-                new GetSummaryParameters
-                {
-                    PageNumber = 1,
-                    PageSize = 1
-                });
+        //    // Act
+        //    var result = await _airportController.SummaryAsync(
+        //        new GetSummaryParameters
+        //        {
+        //            PageNumber = 1,
+        //            PageSize = 1
+        //        });
 
-            // Assert
-            var response = _airportController.Response;
-            Assert.True(response.Headers.ContainsKey("X-Pagination"));
+        //    // Assert
+        //    var response = _airportController.Response;
+        //    Assert.True(response.Headers.ContainsKey("X-Pagination"));
 
-            // You can even verify the content of the header
-            var headerValue = response.Headers["X-Pagination"].ToString();
-            Assert.Contains("{\"totalCount\":2", headerValue);
-        }
+        //    // You can even verify the content of the header
+        //    var headerValue = response.Headers["X-Pagination"].ToString();
+        //    Assert.Contains("{\"totalCount\":2", headerValue);
+        //}
 
         [Fact]
         public async Task SummaryAsync_WhenCalled_ReturnsValueAndSetsHeaders()

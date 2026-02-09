@@ -1,7 +1,4 @@
-﻿using Airport.Models.DTOs;
-using Microsoft.AspNetCore.Mvc;
-
-namespace Airport.Presentation.Tests.Controllers
+﻿namespace Airport.Presentation.Tests.Controllers
 {
     public class StationsControllerTests
     {
@@ -63,7 +60,7 @@ namespace Airport.Presentation.Tests.Controllers
                 .Setup(x => x.GetStationByIdAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync(default(StationDTO?));
+                .ReturnsAsync(default(StationDTO)!);
             var stationsController = new StationsController(_mockStationService.Object);
 
             // Act
