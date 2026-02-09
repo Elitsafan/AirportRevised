@@ -16,6 +16,7 @@ namespace Airport.Contracts.Logics
         Task RunAsync(CancellationToken ct = default);
         OccupationDetails RegisterStationOccupiedDetails(ObjectId stationId, DateTime entranceTime);
         OccupationDetails RegisterStationClearedDetails(ObjectId stationId, DateTime exitTime);
+        Task RaiseFlightRunStartedAsync(ObjectId stationId);
         Task RaiseFlightRunDoneAsync(CancellationToken ct = default);
         /// <summary>
         /// Eliminates other tasks with the <see cref="CancellationToken"/> of the <paramref name="cts"/>

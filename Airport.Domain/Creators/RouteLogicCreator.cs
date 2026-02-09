@@ -30,8 +30,8 @@
         {
             var stations = (await _stationLogicProvider.GetByRouteIdAsync(_route.RouteId)).ToList();
             var directions = (await _directionLogicProvider.GetByRouteIdAsync(_route.RouteId)).ToList();
-            var trafficLights = _sections.SelectMany(
-                s => s.RouteSection.AllTrafficLights)
+            var trafficLights = _sections
+                .SelectMany(s => s.RouteSection.AllTrafficLights)
                 .Distinct()
                 .ToList();
 

@@ -41,7 +41,7 @@ namespace Airport.Persistence.Repositories
                 .ToList();
         }
 
-        public async Task<Flight> GetByIdAsync(ObjectId id, CancellationToken ct)
+        public async Task<Flight> GetByIdAsync(ObjectId id, CancellationToken ct = default)
         {
             var flight = _completedFlights.FirstOrDefault(f => f.FlightId == id);
             if (flight is not null)
@@ -100,19 +100,43 @@ namespace Airport.Persistence.Repositories
         public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
             (await _flightsCollection.DeleteOneAsync(f => f.FlightId == id, ct)).DeletedCount > 0;
 
-        //public async Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default) =>
-        //    await _flightsCollection
-        //        .Find(FilterDefinition<Flight>.Empty)
-        //        .SortBy(f => f.OccupationDetails[0].Entrance)
-        //        .ToListAsync(ct);
-
         public async Task<IEnumerable<Flight>> FilterByTimePassedAsync(
             TimeSpan timePassed,
-            CancellationToken ct = default) => await _flightsCollection
-            .Find(new FilterDefinitionBuilder<Flight>()
+            CancellationToken ct = default)
+        {
+            var qActive = _activeFlights.Values
+                .Where(f => f.OccupationDetails[0].Entrance > DateTime.Now - timePassed)
+                .OrderBy(f => f.OccupationDetails[0].Entrance);
+            if (!qActive.Any())
+                return Enumerable.Empty<Flight>();
+
+            var result = new List<Flight>(qActive);
+
+            var qCompleted = _completedFlights
+                .Where(f => f.OccupationDetails[0].Entrance > DateTime.Now - timePassed);
+            if (!qCompleted.Any())
+                return result;
+
+            result.AddRange(qCompleted);
+            result = result
+                .OrderBy(f => f.OccupationDetails[0].Entrance)
+                .ToList();
+
+            var dbresult = await _flightsCollection
+                .Find(new FilterDefinitionBuilder<Flight>()
                 .Gt(f => f.OccupationDetails[0].Entrance, DateTime.Now - timePassed))
-            .SortBy(f => f.OccupationDetails[0].Entrance)
-            .ToListAsync(ct);
+                .SortBy(f => f.OccupationDetails[0].Entrance)
+                .ToListAsync(ct);
+            if (dbresult.Count == 0)
+                return result;
+
+            result.AddRange(dbresult);
+            result = result
+                .OrderBy(f => f.OccupationDetails[0].Entrance)
+                .ToList();
+
+            return result;
+        }
 
         public async Task<IPagedList<TResult>> GetPagedFlightsAsync<TResult>(
             Func<Flight, TResult> func,
@@ -121,17 +145,37 @@ namespace Airport.Persistence.Repositories
             CancellationToken ct = default)
             where TResult : class
         {
-            var totalCount = await _flightsCollection.CountDocumentsAsync(
+            var dbCount = await _flightsCollection.CountDocumentsAsync(
                 FilterDefinition<Flight>.Empty,
-                cancellationToken: ct) + 
-                _activeFlights.Count + 
+                cancellationToken: ct);
+            var totalCount = dbCount +
+                _activeFlights.Count +
                 _completedFlights.Count;
 
-            var result = (await GetAllAsync(ct))
-                .OrderBy(f => f.OccupationDetails[0].Entrance)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
+            var skipCount = (pageNumber - 1) * pageSize;
+            var result = new List<Flight>(pageSize);
+
+            if (skipCount < dbCount)
+            {
+                result.AddRange(await _flightsCollection
+                    .Find(FilterDefinition<Flight>.Empty)
+                    .SortBy(f => f.OccupationDetails[0].Entrance)
+                    .Skip(skipCount)
+                    .Limit(pageSize)
+                    .ToListAsync());
+            }
+
+            if (result.Count < pageSize)
+            {
+                var remaining = pageSize - result.Count;
+                var memSkip = skipCount < dbCount ? 0 : skipCount - dbCount;
+
+                result.AddRange(_completedFlights
+                    .Concat(_activeFlights.Values)
+                    .OrderBy(f => f.OccupationDetails[0].Entrance)
+                    .Skip((int)memSkip)
+                    .Take(remaining));
+            }
 
             if (pageSize * pageNumber > result.Count && pageNumber > Math.Ceiling((double)totalCount / pageSize))
                 throw new InvalidOperationException("No such a page number for a such page size.");

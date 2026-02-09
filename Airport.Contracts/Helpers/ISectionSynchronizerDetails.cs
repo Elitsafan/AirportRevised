@@ -5,7 +5,8 @@ namespace Airport.Contracts.Helpers
 {
     public interface ISectionSynchronizerDetails
     {
-        Task<AsyncSemaphore.Releaser> EnterSectionAsync(CancellationToken ct = default);
+        Task<AsyncSemaphore.Releaser> EnterSectionAsync(ObjectId routeId, CancellationToken ct = default);
+        //Task<IReleaserTuple> EnterSectionAsync(ObjectId routeId, CancellationToken ct = default);
         Task ExitSectionAsync(ObjectId routeId);
         /// <summary>
         /// Returns an awaitable that may be used to asynchronously acquire the next signal.

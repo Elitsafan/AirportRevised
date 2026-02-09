@@ -1,17 +1,17 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 
 namespace Airport.Domain.Helpers
 {
     internal class SectionSynchronizerDetails : ISectionSynchronizerDetails
     {
         #region Fields
-        private readonly AsyncSemaphore _syncRightOfWay;
         private readonly AsyncSemaphore _syncWaiters;
         private readonly AsyncSemaphore _syncReleasers;
         private readonly AsyncSemaphore _sourceSynchronizer;
         private readonly AsyncAutoResetEvent _routeSynchronizer;
-        private readonly ConcurrentDictionary<ObjectId, OccupationPair> _countOccupiedDic;
-        //private readonly ConcurrentDictionary<ISet<IStationLogic>, AsyncSemaphore> _destSyncDic;
+        private readonly ConcurrentDictionary<ObjectId, ISet<IStationLogic>> _routeToDest;
+        private readonly ConcurrentDictionary<ObjectId, OccupationPair> _countOccupied;
+        //private readonly ConcurrentDictionary<ISet<IStationLogic>, AsyncSemaphore> _destSync;
         private readonly int _capacity;
         private readonly object _syncObject;
         private int _sectionCount;
@@ -20,15 +20,14 @@ namespace Airport.Domain.Helpers
 
         public SectionSynchronizerDetails(
             IEnumerable<IRouteSection> sections,
-            Dictionary<ISet<IStationLogic>, AsyncSemaphore> destinationSynchronizerDic,
+            Dictionary<ISet<IStationLogic>, AsyncSemaphore> destSyncDic,
             int capacity)
         {
             _routeSynchronizer = new AsyncAutoResetEvent(true);
-            _syncRightOfWay = new AsyncSemaphore(1);
             _syncWaiters = new AsyncSemaphore(1);
             _syncReleasers = new AsyncSemaphore(1);
             _sourceSynchronizer = new AsyncSemaphore(capacity);
-            _countOccupiedDic = new ConcurrentDictionary<ObjectId, OccupationPair>(
+            _countOccupied = new ConcurrentDictionary<ObjectId, OccupationPair>(
                 sections.Select(
                     section => new KeyValuePair<ObjectId, OccupationPair>(
                         section.RouteId,
@@ -37,59 +36,46 @@ namespace Airport.Domain.Helpers
                             //AllStationsCount = section.AllStationsCount,
                             CriticalOccupation = section.AllStationsCount - section.Destination.Count
                         })));
-            //_destSyncDic = new(destinationSynchronizerDic);
+            _routeToDest = new(sections
+                .Select(s => new KeyValuePair<ObjectId, ISet<IStationLogic>>(
+                    s.RouteId,
+                    s.Destination)));
+            //_destSync = new(destSyncDic, new StationLogicSetComparer());
             _sectionCount = 0;
             _capacity = capacity;
             _syncObject = new();
             _lastWaiter = Task.CompletedTask;
         }
 
-        public async Task<AsyncSemaphore.Releaser> EnterSectionAsync(CancellationToken ct = default) =>
+        public async Task<AsyncSemaphore.Releaser> EnterSectionAsync(ObjectId routeId, CancellationToken ct = default) =>
             await _sourceSynchronizer.EnterAsync(ct);
 
         public async Task GetSourceRightOfWayAsync(ObjectId routeId, CancellationToken ct = default)
         {
-            var releaser = await _syncWaiters.EnterAsync(ct);
-            try
+            using var _ = await _syncWaiters.EnterAsync(ct);
+            IncrementOccupied(routeId);
+            if (WaitForRightOfWay(routeId))
             {
-                IncrementOccupied(routeId);
-                if (WaitForRightOfWay(routeId))
-                {
-                    _lastWaiter = _routeSynchronizer.WaitAsync(ct);
-                    await _lastWaiter;
-                }
+                _lastWaiter = _routeSynchronizer.WaitAsync(ct);
+                await _lastWaiter;
             }
-            catch (KeyNotFoundException) { throw new InvalidOperationException("Route id not found."); }
-            finally { releaser.Dispose(); }
         }
 
-        public void RollBackSourceEntrance(ObjectId routeId)
-        {
-            try
-            {
-                DecrementOccupied(routeId);
-            }
-            catch (KeyNotFoundException) { throw new InvalidOperationException("Route id not found."); }
-        }
+        public void RollBackSourceEntrance(ObjectId routeId) => DecrementOccupied(routeId);
 
         public async Task ExitSectionAsync(ObjectId routeId)
         {
-            var releaser = await _syncReleasers.EnterAsync();
-            try
-            {
-                DecrementOccupied(routeId);
-                if (!WaitForRightOfWay(routeId) && !_lastWaiter.IsCompleted)
-                    _routeSynchronizer.Set();
-            }
-            catch (KeyNotFoundException) { throw new InvalidOperationException("Route id not found."); }
-            finally { releaser.Dispose(); }
+            using var _ = await _syncReleasers.EnterAsync();
+            DecrementOccupied(routeId);
+            if (!WaitForRightOfWay(routeId) && !_lastWaiter.IsCompleted)
+                _routeSynchronizer.Set();
         }
 
         private void IncrementOccupied(ObjectId routeId)
         {
             lock (_syncObject)
             {
-                _countOccupiedDic[routeId].CountOccupied++;
+                _countOccupied[routeId].CountOccupied++;
                 _sectionCount++;
             }
         }
@@ -98,7 +84,7 @@ namespace Airport.Domain.Helpers
         {
             lock (_syncObject)
             {
-                _countOccupiedDic[routeId].CountOccupied--;
+                _countOccupied[routeId].CountOccupied--;
                 _sectionCount--;
             }
         }
@@ -108,7 +94,7 @@ namespace Airport.Domain.Helpers
             lock (_syncObject)
             {
                 return _sectionCount == _capacity &&
-                    _countOccupiedDic[routeId].CriticalOccupation == _countOccupiedDic[routeId].CountOccupied - 1;
+                    _countOccupied[routeId].CriticalOccupation == _countOccupied[routeId].CountOccupied - 1;
             }
         }
 

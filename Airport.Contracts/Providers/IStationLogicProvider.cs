@@ -1,16 +1,13 @@
-﻿using Airport.Contracts.EventArgs.StationEventArgs;
+﻿using Airport.Contracts.EventArgs.FlightEventArgs;
+using Airport.Contracts.EventArgs.StationEventArgs;
 using Airport.Contracts.Helpers;
 using Airport.Contracts.Logics;
-using Microsoft.VisualStudio.Threading;
 using MongoDB.Bson;
 
 namespace Airport.Contracts.Providers
 {
     public interface IStationLogicProvider
     {
-        event AsyncEventHandler<IStationStateChangedEventArgs<IStationChangedData>>? AnyStationOccupied;
-        event AsyncEventHandler<IStationStateChangedEventArgs<IStationChangedData>>? AnyStationCleared;
-
         Task<IEnumerable<IStationLogic>> GetNextTrafficLightsAsync(
             ObjectId routeId,
             ObjectId trafficLightId,
@@ -20,5 +17,11 @@ namespace Airport.Contracts.Providers
             ObjectId routeId,
             CancellationToken ct = default);
         Task<IStationLogic> GetByIdAsync(ObjectId id, CancellationToken ct = default);
+        IEnumerable<IStationChangedData> ProcessStationCleared(
+            IStationClearedEventArgs args,
+            CancellationToken ct = default);
+        IEnumerable<IStationChangedData> ProcessFlightStarted(
+            IFlightRunStartedEventArgs args,
+            CancellationToken ct = default);
     }
 }

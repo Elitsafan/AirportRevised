@@ -16,25 +16,25 @@ namespace Airport.Simulator.Services
         #region Fields
         private readonly Random _random;
         private readonly HttpClient _client;
-        private readonly ILogger<FlightLauncherService> _logger;
         private readonly IFlightGenerator _flightGenerator;
         private readonly FlightTimeoutConfiguration _flightTimeoutConfiguration;
         private readonly FlightEndPointsConfiguration _flightsConfig;
+        private readonly ILogger<FlightLauncherService> _logger;
         #endregion
 
         public FlightLauncherService(
             HttpClient client,
-            ILogger<FlightLauncherService> logger,
             IFlightGenerator flightGenerator,
             IOptions<FlightTimeoutConfiguration> flightTimeoutConfiguration,
-            IOptions<FlightEndPointsConfiguration> flightsConfiguration)
+            IOptions<FlightEndPointsConfiguration> flightsConfiguration,
+            ILogger<FlightLauncherService> logger)
         {
             _random = new Random(DateTime.Now.Millisecond);
-            _logger = logger;
             _client = client;
             _flightGenerator = flightGenerator;
             _flightTimeoutConfiguration = flightTimeoutConfiguration.Value;
             _flightsConfig = flightsConfiguration.Value;
+            _logger = logger;
             ValidateFlightsConfiguration();
             _client.BaseAddress = new Uri(_flightsConfig.BaseUrl!);
         }

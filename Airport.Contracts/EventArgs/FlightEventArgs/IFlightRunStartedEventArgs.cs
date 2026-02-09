@@ -7,5 +7,6 @@ namespace Airport.Contracts.EventArgs.FlightEventArgs
     {
         Flight Flight { get; }
         ObjectId RouteId { get; }
+        ObjectId StationId { get; }
     }
 }

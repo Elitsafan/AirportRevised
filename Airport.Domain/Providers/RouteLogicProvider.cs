@@ -451,7 +451,8 @@ namespace Airport.Domain.Providers
                 route.RouteId));
         }
 
-        private async Task<List<IRouteSectionDetails>?> CreateSectionsDetailsAsync(HashSet<IRouteSection> sections)
+        private async Task<List<IRouteSectionDetails>?> CreateSectionsDetailsAsync(
+            HashSet<IRouteSection> sections)
         {
             if (sections.Count == 0)
                 return null;
@@ -463,16 +464,19 @@ namespace Airport.Domain.Providers
 
             foreach (var kvp in trafficLightsToRouteIds)
             {
-                // Calculates possible occupation:
+                // Calculate possible occupation:
                 // sum of stations + occupation * each route,
                 // so when all stations is occupied, there is still a place on the section for each route.
                 int occupationCapacity = kvp.Key.Count + kvp.Value.Count;
-                var commonSections = sections.IntersectBy(kvp.Value, section => section.RouteId);
-                IEnumerable<ISet<IStationLogic>> commonKeys = commonSections
+                var commonSections = sections
+                    .IntersectBy(kvp.Value, section => section.RouteId)
+                    .ToHashSet(new RouteSectionComparer());
+                var commonKeys = commonSections
                     .Select(sec => sec.Destination)
-                    .Intersect(destSynchronizerDic.Keys)
-                    .Where(sec => destSynchronizerDic[sec] is not null);
-                Dictionary<ISet<IStationLogic>, AsyncSemaphore> commonDestToSem = new();
+                    .Intersect(destSynchronizerDic.Keys, new StationLogicSetComparer())
+                    .Where(sec => destSynchronizerDic[sec] is not null)
+                    .ToHashSet(new StationLogicSetComparer());
+                Dictionary<ISet<IStationLogic>, AsyncSemaphore> commonDestToSem = new(new StationLogicSetComparer());
                 foreach (ISet<IStationLogic> key in commonKeys)
                     commonDestToSem.Add(key, destSynchronizerDic[key]!);
                 ISectionSynchronizerDetails synchronizer = new SectionSynchronizerDetails(

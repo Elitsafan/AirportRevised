@@ -42,35 +42,35 @@ namespace Airport.Services.Services
         public async Task StartAsync(CancellationToken ct)
         {
             _domainEvents.FlightRunDone += OnFlightRunDoneAsync;
-            _stationLogicProvider.AnyStationOccupied += OnStationOccupiedAsync;
-            _stationLogicProvider.AnyStationCleared += OnStationClearedAsync;
+            _domainEvents.FlightRunStarted += OnFlightRunStartedAsync;
+            _domainEvents.StationCleared += OnStationClearedAsync;
             await Task.CompletedTask;
         }
 
         public async Task StopAsync(CancellationToken ct)
         {
             _domainEvents.FlightRunDone -= OnFlightRunDoneAsync;
-            _stationLogicProvider.AnyStationOccupied -= OnStationOccupiedAsync;
-            _stationLogicProvider.AnyStationCleared -= OnStationClearedAsync;
+            _domainEvents.FlightRunStarted -= OnFlightRunStartedAsync;
+            _domainEvents.StationCleared -= OnStationClearedAsync;
             await Task.CompletedTask;
         }
+
+        protected virtual async Task OnFlightRunStartedAsync(
+            object? sender,
+            IFlightRunStartedEventArgs e) => await OnStationChangedAsync(
+                nameof(IDomainEvents.FlightRunStarted),
+                _stationLogicProvider.ProcessFlightStarted(e).ToList());
 
         protected virtual async Task OnFlightRunDoneAsync(object? sender, IFlightRunDoneEventArgs e) =>
             await _hub.Clients.All.SendCoreAsync(
                 nameof(IDomainEvents.FlightRunDone),
                 new[] { JsonConvert.SerializeObject(e.Flight.FlightId, _jsonSerializerSettings) });
 
-        protected virtual async Task OnStationOccupiedAsync(
-            object? sender,
-            IStationStateChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
-                nameof(IDomainEvents.StationOccupied),
-                e.StationsState.ToList());
-
         protected virtual async Task OnStationClearedAsync(
             object? sender,
-            IStationStateChangedEventArgs<IStationChangedData> e) => await OnStationChangedAsync(
+            IStationClearedEventArgs e) => await OnStationChangedAsync(
                 nameof(IDomainEvents.StationCleared),
-                e.StationsState.ToList());
+                _stationLogicProvider.ProcessStationCleared(e).ToList());
 
         private async Task OnStationChangedAsync(string name, IEnumerable<IStationChangedData> data) =>
             await _hub.Clients.All.SendCoreAsync(

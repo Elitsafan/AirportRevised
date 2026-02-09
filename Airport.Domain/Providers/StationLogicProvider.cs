@@ -1,6 +1,8 @@
-﻿using Airport.Contracts.EventArgs.RouteEventArgs;
+﻿using Airport.Contracts.EventArgs.FlightEventArgs;
+using Airport.Contracts.EventArgs.RouteEventArgs;
 using Airport.Contracts.EventArgs.StationEventArgs;
 using Airport.Domain.EventArgs.StationEventArgs;
+using Airport.Domain.Helpers;
 using Airport.Domain.Repositories;
 using Airport.Models.Enums;
 using Microsoft.Extensions.Caching.Memory;
@@ -25,7 +27,7 @@ namespace Airport.Domain.Providers
         private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan ShortCacheExpiration = TimeSpan.FromMinutes(5);
 
-        private const string ALL_STATIONS_KEY = "all_station_logics";
+        //private const string ALL_STATIONS_KEY = "all_station_logics";
         private const string ROUTE_STATIONS_PREFIX = "route_stations_";
         private const string ROUTE_TRAFFIC_LIGHTS_PREFIX = "route_traffic_lights_";
         private const string NEXT_TRAFFIC_LIGHTS_PREFIX = "next_traffic_lights_";
@@ -54,14 +56,10 @@ namespace Airport.Domain.Providers
             _domainEvents.StationCreated += OnStationCreatedAsync;
             _domainEvents.StationDeleted += OnStationDeletedAsync;
             _domainEvents.StationUpdated += OnStationUpdatedAsync;
-            _domainEvents.StationOccupied += OnInternalStationOccupiedAsync;
-            _domainEvents.StationCleared += OnInternalStationClearedAsync;
+
             _domainEvents.DataRefreshed += OnDataRefreshedAsync;
             _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
         }
-
-        public event AsyncEventHandler<IStationStateChangedEventArgs<IStationChangedData>>? AnyStationOccupied;
-        public event AsyncEventHandler<IStationStateChangedEventArgs<IStationChangedData>>? AnyStationCleared;
 
         //public async Task<IEnumerable<IStationLogic>> GetAllAsync(CancellationToken ct = default)
         //{
@@ -210,6 +208,24 @@ namespace Airport.Domain.Providers
                     throw new InvalidOperationException($"Route not found. Cannot get next traffic lights for route: {routeId}", ex);
                 }
             }) ?? Enumerable.Empty<IStationLogic>();
+        }
+
+        public IEnumerable<IStationChangedData> ProcessStationCleared(
+            IStationClearedEventArgs args,
+            CancellationToken ct = default) => UpdateStationsStateChanged(args);
+
+        public IEnumerable<IStationChangedData> ProcessFlightStarted(
+            IFlightRunStartedEventArgs args,
+            CancellationToken ct = default)
+        {
+            var stationEventArgs = new StationClearedEventArgs
+            {
+                CurrentStationId = args.StationId,
+                RouteId = args.RouteId,
+                FlightId = args.Flight.FlightId,
+                FlightType = args.Flight.ToFlightType(),
+            };
+            return UpdateStationsStateChanged(stationEventArgs);
         }
 
         public void Dispose()
@@ -387,7 +403,7 @@ namespace Airport.Domain.Providers
         {
             _logger.LogDebug("Invalidating all station cache entries");
 
-            _cache.Remove(ALL_STATIONS_KEY);
+            //_cache.Remove(ALL_STATIONS_KEY);
 
             foreach (var key in _stationLogics.Keys)
             {
@@ -440,37 +456,57 @@ namespace Airport.Domain.Providers
             _logger.LogInformation($"Successfully initialized {_stationLogics.Count} station logics");
         }
 
-        private async Task OnInternalStationOccupiedAsync(object? sender, IStationOccupiedEventArgs args) =>
-            await (AnyStationOccupied?.InvokeAsync(
-                sender,
-                UpdateStationsStateChanged(args))
-            ?? Task.CompletedTask);
-
-        private async Task OnInternalStationClearedAsync(object? sender, IStationClearedEventArgs args) =>
-            await (AnyStationCleared?.InvokeAsync(
-                sender,
-                UpdateStationsStateChanged(args))
-            ?? Task.CompletedTask);
-
         // Prepare stations query for sending the state of stations
-        private IStationStateChangedEventArgs<IStationChangedData> UpdateStationsStateChanged(
-            IStationOccupationChangedEventArgs args)
+        private IEnumerable<IStationChangedData> UpdateStationsStateChanged(
+            IStationClearedEventArgs args)
         {
-            var updatedData = new StationChangedData
+            IStationChangedData? nextStationData;
+            IStationChangedData? oldStationData;
+
+            if (args.OldStationId is null)
             {
-                StationId = args.StationLogic.StationId,
-                Flight = new FlightInfo
+                nextStationData = new StationChangedData
                 {
-                    FlightId = args.FlightId,
-                    FlightType = args.StationLogic.CurrentFlightType,
-                    RouteId = args.RouteId,
-                }
-            };
-            _stationsStateCache[args.StationLogic.StationId] = updatedData;
-            return new StationStateChangedEventArgs
+                    StationId = args.CurrentStationId!.Value,
+                    Flight = new FlightInfo
+                    {
+                        FlightId = args.FlightId,
+                        FlightType = args.FlightType,
+                        RouteId = args.RouteId
+                    }
+                };
+                _stationsStateCache[args.CurrentStationId!.Value] = nextStationData;
+            }
+            else if (args.CurrentStationId is null)
             {
-                StationsState = _stationsStateCache.Values
-            };
+                oldStationData = new StationChangedData
+                {
+                    StationId = args.OldStationId!.Value,
+                };
+                _stationsStateCache[args.OldStationId!.Value] = oldStationData;
+            }
+            else
+            {
+                oldStationData = new StationChangedData
+                {
+                    StationId = args.OldStationId!.Value,
+                };
+                nextStationData = new StationChangedData
+                {
+                    StationId = args.CurrentStationId!.Value,
+                    Flight = new FlightInfo
+                    {
+                        FlightId = args.FlightId,
+                        FlightType = args.FlightType,
+                        RouteId = args.RouteId
+                    }
+                };
+
+                _stationsStateCache[args.OldStationId!.Value] = oldStationData;
+                _stationsStateCache[args.CurrentStationId!.Value] = nextStationData;
+            }
+
+            return _stationsStateCache.Values;
         }
 
         #region Data Query Helpers
@@ -482,8 +518,8 @@ namespace Airport.Domain.Providers
 
         private class FlightInfo : IFlightInfo
         {
-            public ObjectId? FlightId { get; init; }
-            public FlightType? FlightType { get; init; }
+            public ObjectId FlightId { get; init; }
+            public FlightType FlightType { get; init; }
             public ObjectId RouteId { get; init; }
         }
         #endregion

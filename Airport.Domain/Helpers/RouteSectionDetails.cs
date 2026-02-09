@@ -44,7 +44,7 @@ namespace Airport.Domain.Helpers
             if (RouteSection.RouteId != args.RouteId)
                 return;
 
-            if (!RouteSection.Destination.Any(s => s.StationId == args.StationLogic.StationId))
+            if (!RouteSection.Destination.Any(s => s.StationId == args.CurrentStationId))
                 return;
 
             await _synchronizer.ExitSectionAsync(RouteSection.RouteId);
@@ -63,7 +63,7 @@ namespace Airport.Domain.Helpers
             CancellationToken ct = default)
         {
             await _trafficLightSynchronizer.ThrowIfCancellationRequestedAsync(cts);
-            var releaser = await _synchronizer.EnterSectionAsync(ct);
+            var releaser = await _synchronizer.EnterSectionAsync(RouteSection.RouteId, ct);
             try
             {
                 await _synchronizer.GetSourceRightOfWayAsync(RouteSection.RouteId, ct)

@@ -1,6 +1,5 @@
 ﻿using Airport.Contracts.Helpers;
 using Airport.Contracts.Providers;
-using Airport.Domain.EventArgs;
 using Airport.Domain.EventArgs.StationEventArgs;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;

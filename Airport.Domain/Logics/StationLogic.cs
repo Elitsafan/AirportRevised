@@ -11,7 +11,7 @@ namespace Airport.Domain.Logics
         private readonly Station _station;
         private readonly IDomainEvents _domainEvents;
         private readonly ILogger<StationLogic> _logger;
-        private IFlightLogic? _flightLogic;
+        private IFlightLogic? _flight;
         private AsyncSemaphore.Releaser _releaser;
         #endregion
 
@@ -25,9 +25,9 @@ namespace Airport.Domain.Logics
 
         #region Properties
         public ObjectId StationId => _station.StationId;
-        public FlightType? CurrentFlightType => _flightLogic?.FlightType;
+        public FlightType? CurrentFlightType => _flight?.FlightType;
         public TimeSpan EstimatedWaitingTime => _station.EstimatedWaitingTime;
-        public ObjectId? CurrentFlightId => _flightLogic?.FlightId;
+        public ObjectId? CurrentFlightId => _flight?.FlightId;
         #endregion
 
         public async Task<IStationLogic> SetFlightAsync(IFlightLogic flightLogic, CancellationTokenSource? cts)
@@ -38,15 +38,17 @@ namespace Airport.Domain.Logics
             try
             {
                 await flightLogic.ThrowIfCancellationRequestedAsync(cts);
-                _flightLogic = flightLogic;
-                if (_flightLogic.CurrentStation is not null)
-                    await _flightLogic.CurrentStation.ClearAsync();
-                var occupationDetails = _flightLogic.RegisterStationOccupiedDetails(StationId, DateTime.Now);
-                await RaiseStationOccupiedAsync();
+                _flight = flightLogic;
+                var newFlight = _flight.CurrentStation is null;
+                if (!newFlight)
+                    await _flight.CurrentStation!.ClearAsync(StationId);
+                var occupationDetails = _flight.RegisterStationOccupiedDetails(StationId, DateTime.Now);
+                if (newFlight)
+                    await _flight.RaiseFlightRunStartedAsync(StationId);
             }
             catch (Exception ex)
             {
-                _flightLogic = null;
+                _flight = null;
                 _releaser.Dispose();
 
                 if (ex is not OperationCanceledException)
@@ -56,17 +58,17 @@ namespace Airport.Domain.Logics
             return this;
         }
 
-        public async Task ClearAsync(CancellationToken ct = default)
+        public async Task ClearAsync(ObjectId? newStationId, CancellationToken ct = default)
         {
-            if (_flightLogic is null)
+            if (_flight is null)
                 throw new InvalidOperationException("No flight set.");
-            var routeId = _flightLogic.RouteId;
-            _flightLogic.RegisterStationClearedDetails(_flightLogic.CurrentStation!.StationId, DateTime.Now);
-            await RaiseStationClearingAsync();
-            var flightId = _flightLogic.FlightId;
-            _flightLogic = null;
+            var routeId = _flight.RouteId;
+            _flight.RegisterStationClearedDetails(_flight.CurrentStation!.StationId, DateTime.Now);
+            var flightId = _flight.FlightId;
+            var flightType = _flight.FlightType;
+            _flight = null;
             _releaser.Dispose();
-            await RaiseStationClearedAsync(routeId, flightId);
+            await RaiseStationClearedAsync(newStationId, routeId, flightId, flightType);
         }
 
         public void Dispose() => _semaphore?.Dispose();
@@ -76,31 +78,18 @@ namespace Airport.Domain.Logics
 
         public override int GetHashCode() => _station.StationId.GetHashCode();
 
-        protected virtual async Task RaiseStationOccupiedAsync() =>
-            await _domainEvents.RaiseStationOccupiedAsync(
-                new StationOccupiedEventArgs
-                {
-                    StationLogic = this,
-                    FlightId = _flightLogic!.FlightId,
-                    RouteId = _flightLogic.RouteId
-                });
-
-        protected virtual async Task RaiseStationClearingAsync() =>
-            await _domainEvents.RaiseStationClearingAsync(
-                new StationClearingEventArgs
-                {
-                    StationLogic = this,
-                    FlightId = _flightLogic!.FlightId,
-                    RouteId = _flightLogic.RouteId
-                });
-
-        protected virtual async Task RaiseStationClearedAsync(ObjectId routeId, ObjectId flightId) =>
-            await _domainEvents.RaiseStationClearedAsync(
+        protected virtual async Task RaiseStationClearedAsync(
+            ObjectId? newStationId,
+            ObjectId routeId,
+            ObjectId flightId,
+            FlightType flightType) => await _domainEvents.RaiseStationClearedAsync(
                 new StationClearedEventArgs
                 {
-                    StationLogic = this,
+                    CurrentStationId = newStationId,
+                    OldStationId = StationId,
                     RouteId = routeId,
-                    FlightId = flightId
+                    FlightId = flightId,
+                    FlightType = flightType
                 });
     }
 }

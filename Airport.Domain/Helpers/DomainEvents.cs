@@ -26,8 +26,6 @@ namespace Airport.Domain.Helpers
         public event AsyncEventHandler<IStationCreatedEventArgs>? StationCreated;
         public event AsyncEventHandler<IStationUpdatedEventArgs>? StationUpdated;
         public event AsyncEventHandler<IStationDeletedEventArgs>? StationDeleted;
-        public event AsyncEventHandler<IStationClearingEventArgs>? StationClearing;
-        public event AsyncEventHandler<IStationOccupiedEventArgs>? StationOccupied;
         public event AsyncEventHandler<IStationClearedEventArgs>? StationCleared;
         #endregion
 
@@ -60,12 +58,6 @@ namespace Airport.Domain.Helpers
 
         public async Task RaiseStationDeletedAsync(IStationDeletedEventArgs args) =>
             await (StationDeleted?.InvokeAsync(this, args) ?? Task.CompletedTask);
-
-        public async Task RaiseStationOccupiedAsync(IStationOccupiedEventArgs args) =>
-            await (StationOccupied?.InvokeAsync(this, args) ?? Task.CompletedTask);
-
-        public async Task RaiseStationClearingAsync(IStationClearingEventArgs args) =>
-            await (StationClearing?.InvokeAsync(this, args) ?? Task.CompletedTask);
 
         public async Task RaiseStationClearedAsync(IStationClearedEventArgs args) =>
             await (StationCleared?.InvokeAsync(this, args) ?? Task.CompletedTask);

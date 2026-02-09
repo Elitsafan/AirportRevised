@@ -26,9 +26,11 @@ namespace Airport.Contracts.Logics
         /// <returns></returns>
         Task<IStationLogic> SetFlightAsync(IFlightLogic flightLogic, CancellationTokenSource? cts = null);
         /// <summary>
-        /// Clears the station from the flight
+        /// Clear the station from the flight
         /// </summary>
+        /// <param name="newStationId">The next station id</param>
+        /// <param name="ct"></param>
         /// <returns></returns>
-        Task ClearAsync(CancellationToken ct = default);
+        Task ClearAsync(ObjectId? newStationId, CancellationToken ct = default);
     }
 }

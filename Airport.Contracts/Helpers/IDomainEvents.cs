@@ -17,8 +17,6 @@ namespace Airport.Contracts.Helpers
         event AsyncEventHandler<IStationCreatedEventArgs>? StationCreated;
         event AsyncEventHandler<IStationDeletedEventArgs>? StationDeleted;
         event AsyncEventHandler<IStationUpdatedEventArgs>? StationUpdated;
-        event AsyncEventHandler<IStationOccupiedEventArgs>? StationOccupied;
-        event AsyncEventHandler<IStationClearingEventArgs>? StationClearing;
         event AsyncEventHandler<IStationClearedEventArgs>? StationCleared;
 
         Task RaiseSystemResetRequestedAsync();
@@ -31,8 +29,6 @@ namespace Airport.Contracts.Helpers
         Task RaiseStationCreatedAsync(IStationCreatedEventArgs args);
         Task RaiseStationDeletedAsync(IStationDeletedEventArgs args);
         Task RaiseStationUpdatedAsync(IStationUpdatedEventArgs args);
-        Task RaiseStationOccupiedAsync(IStationOccupiedEventArgs args);
-        Task RaiseStationClearingAsync(IStationClearingEventArgs args);
         Task RaiseStationClearedAsync(IStationClearedEventArgs args);
     }
 }

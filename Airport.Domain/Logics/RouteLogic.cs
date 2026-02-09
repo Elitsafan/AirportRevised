@@ -49,9 +49,9 @@ namespace Airport.Domain.Logics
             if (leg.Except(_stations).Any())
                 throw new InvalidOperationException("Not all stations belong to the route.");
             var stations = leg.ToArray();
-            // An entrance to an only one station does not need a cancellation
-            using var cts = stations.Length == 1 ? null : new CancellationTokenSource();
-            return await StationsEntranceAttemptAsync(flightLogic, stations, cts);
+            // An entrance to only one station does not need a cancellation
+            using var generalCts = stations.Length == 1 ? null : new CancellationTokenSource();
+            return await StationsEntranceAttemptAsync(flightLogic, stations, generalCts);
         }
 
         public IEnumerable<IStationLogic> GetNextLeg(IStationLogic? stationLogic = null)
@@ -78,9 +78,9 @@ namespace Airport.Domain.Logics
         private async Task<IStationLogic> StationsEntranceAttemptAsync(
             IFlightLogic flightLogic,
             IStationLogic[] stations,
-            CancellationTokenSource? cts)
+            CancellationTokenSource? generalCts)
         {
-            using var stationsCts = stations.Length == 1 ? null : new CancellationTokenSource();
+            using var commonStationsCts = stations.Length == 1 ? null : new CancellationTokenSource();
             var attempts = stations
                 .Select(async s => await Task.Run(
                     async () =>
@@ -88,8 +88,8 @@ namespace Airport.Domain.Logics
                         try
                         {
                             if (_trafficLights.Contains(s))
-                                await GetRightOfWayAsync(s, flightLogic.FlightId, stationsCts, cts.GetToken());
-                            return await s.SetFlightAsync(flightLogic, cts);
+                                await GetRightOfWayAsync(s, flightLogic.FlightId, commonStationsCts, generalCts.GetToken());
+                            return await s.SetFlightAsync(flightLogic, generalCts);
                         }
                         catch (Exception e)
                         {
@@ -98,7 +98,7 @@ namespace Airport.Domain.Logics
                             throw;
                         }
                     },
-                    cts.GetToken()))
+                    generalCts.GetToken()))
                 .ToList();
             return await EnterStationAsync(attempts);
         }

@@ -8,8 +8,8 @@ namespace Airport.Domain.Comparers
             x is not null &&
             y is not null &&
             x.RouteId == y.RouteId &&
-            x.Source.SetEquals(x.Source) &&
-            x.Destination.SetEquals(x.Destination);
+            x.Source.SetEquals(y.Source) &&
+            x.Destination.SetEquals(y.Destination);
 
         public override int GetHashCode([DisallowNull] IRouteSection obj) => HashCode.Combine(
             obj.RouteId.GetHashCode(),
