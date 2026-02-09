@@ -6,8 +6,8 @@ export const environment = {
   summaryEP: '/api/Airport/Summary',
   flightsEP: '/api/Flights',
   flightRunDone: 'FlightRunDone',
-  stationClearedAsync: 'StationClearedAsync',
-  stationOccupiedAsync: 'StationOccupiedAsync',
+  stationCleared: 'StationCleared',
+  flightRunStarted: 'FlightRunStarted',
   timeout: {
     minutes: 1,
     hours: 0

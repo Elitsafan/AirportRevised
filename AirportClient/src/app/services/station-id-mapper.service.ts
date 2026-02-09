@@ -7,11 +7,6 @@ export class StationIdMapperService {
   private idMap = new Map<string, number>();
   private counter = 1;
 
-  /**
-   * Gets a sequential number for a stationId
-   * @param stationId The ObjectId or unique identifier
-   * @returns Sequential number starting from 1
-   */
   getSequentialId(stationId: string): number {
     if (!this.idMap.has(stationId)) {
       this.idMap.set(stationId, this.counter++);

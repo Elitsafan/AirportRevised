@@ -8,7 +8,7 @@ import { RouteName } from '../../../types/route-name.type';
   styleUrls: ['./routes-container.component.scss']
 })
 export class RoutesContainerComponent {
-  @Input() routes?: FlightRoute[] | null;
+  @Input() routes?: FlightRoute[];
 
   private filterRoutes(name: RouteName): FlightRoute[] {
     return this.routes?.filter(r => r.name === name) || [];

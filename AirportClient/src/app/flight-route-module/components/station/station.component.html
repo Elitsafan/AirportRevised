@@ -2,5 +2,5 @@
   <div class="card-body bg-secondary text-custom-light p-1 fw-bold">
     <h6 class="card-title text-center">Station No. {{ getDisplayId() }}</h6>
   </div>
-  <flight *ngIf="flightType === station.flight?.flightType" [style.background-color]="station.flight?.color" [flight]="station.flight"></flight>
+  <flight *ngIf="routeId === station.flight?.routeId" [style.background-color]="station.flight?.color" [flight]="station.flight ?? undefined"></flight>
 </div>

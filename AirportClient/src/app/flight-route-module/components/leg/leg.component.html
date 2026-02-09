@@ -1,5 +1,5 @@
 <div class="d-flex flex-row justify-content-center" *ngIf="stations?.length">
   <ng-container *ngFor="let station of stations; trackBy: trackByStationId">
-    <station class="p-1" [station]="station" [flightType]="flightType"></station>
+    <station class="p-1" [station]="station" [routeId]="routeId"></station>
   </ng-container>
 </div>
