@@ -48,6 +48,7 @@ namespace Airport.Domain.Helpers
                 return;
 
             await _synchronizer.ExitSectionAsync(RouteSection.RouteId);
+
             if (_flightsTrace.TryRemove(args.FlightId, out var releaser))
                 releaser.Dispose();
             else

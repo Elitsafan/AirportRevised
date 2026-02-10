@@ -1,4 +1,6 @@
+//#define TEST
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace Airport.Domain.Helpers
 {
@@ -8,14 +10,13 @@ namespace Airport.Domain.Helpers
         private readonly AsyncSemaphore _syncWaiters;
         private readonly AsyncSemaphore _syncReleasers;
         private readonly AsyncSemaphore _sourceSynchronizer;
-        private readonly AsyncAutoResetEvent _routeSynchronizer;
+        private volatile TaskCompletionSource? _waiterTcs;
         private readonly ConcurrentDictionary<ObjectId, ISet<IStationLogic>> _routeToDest;
         private readonly ConcurrentDictionary<ObjectId, OccupationPair> _countOccupied;
         //private readonly ConcurrentDictionary<ISet<IStationLogic>, AsyncSemaphore> _destSync;
         private readonly int _capacity;
         private readonly object _syncObject;
         private int _sectionCount;
-        private Task _lastWaiter = null!;
         #endregion
 
         public SectionSynchronizerDetails(
@@ -23,7 +24,7 @@ namespace Airport.Domain.Helpers
             Dictionary<ISet<IStationLogic>, AsyncSemaphore> destSyncDic,
             int capacity)
         {
-            _routeSynchronizer = new AsyncAutoResetEvent(true);
+            //_routeSynchronizer = new AsyncAutoResetEvent(true);
             _syncWaiters = new AsyncSemaphore(1);
             _syncReleasers = new AsyncSemaphore(1);
             _sourceSynchronizer = new AsyncSemaphore(capacity);
@@ -44,7 +45,6 @@ namespace Airport.Domain.Helpers
             _sectionCount = 0;
             _capacity = capacity;
             _syncObject = new();
-            _lastWaiter = Task.CompletedTask;
         }
 
         public async Task<AsyncSemaphore.Releaser> EnterSectionAsync(ObjectId routeId, CancellationToken ct = default) =>
@@ -53,12 +53,17 @@ namespace Airport.Domain.Helpers
         public async Task GetSourceRightOfWayAsync(ObjectId routeId, CancellationToken ct = default)
         {
             using var _ = await _syncWaiters.EnterAsync(ct);
+
             IncrementOccupied(routeId);
-            if (WaitForRightOfWay(routeId))
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _waiterTcs = tcs;
+            try
             {
-                _lastWaiter = _routeSynchronizer.WaitAsync(ct);
-                await _lastWaiter;
+                if (WaitForRightOfWay(routeId))
+                    using (ct.Register(() => tcs.TrySetCanceled()))
+                        await tcs.Task;
             }
+            finally { _waiterTcs = null; }
         }
 
         public void RollBackSourceEntrance(ObjectId routeId) => DecrementOccupied(routeId);
@@ -66,9 +71,10 @@ namespace Airport.Domain.Helpers
         public async Task ExitSectionAsync(ObjectId routeId)
         {
             using var _ = await _syncReleasers.EnterAsync();
+
             DecrementOccupied(routeId);
-            if (!WaitForRightOfWay(routeId) && !_lastWaiter.IsCompleted)
-                _routeSynchronizer.Set();
+            if (!WaitForRightOfWay(routeId))
+                _waiterTcs?.TrySetResult();
         }
 
         private void IncrementOccupied(ObjectId routeId)
@@ -89,12 +95,16 @@ namespace Airport.Domain.Helpers
             }
         }
 
-        private bool WaitForRightOfWay(ObjectId routeId)
+        private bool WaitForRightOfWay(ObjectId routeId, [CallerMemberName] string callerName = "")
         {
             lock (_syncObject)
             {
-                return _sectionCount == _capacity &&
-                    _countOccupied[routeId].CriticalOccupation == _countOccupied[routeId].CountOccupied - 1;
+#if TEST
+                Console.WriteLine($"{callerName.PadRight(24)} | SectionCount: {_sectionCount} | Capacity: {_capacity}" +
+                            $" | {_countOccupied[routeId]} | RouteId: {routeId.ToString().Last()}"); 
+#endif
+                return _sectionCount >= _capacity &&
+                    _countOccupied[routeId].CountOccupied >= _countOccupied[routeId].CriticalOccupation;
             }
         }
 
@@ -117,6 +127,10 @@ namespace Airport.Domain.Helpers
                         _countOccupied = value;
                 }
             }
+
+#if TEST
+            public override string ToString() => $"Occupied: {CountOccupied} | Critical: {CriticalOccupation}"; 
+#endif
             //public int AllStationsCount { get; init; }
         }
     }

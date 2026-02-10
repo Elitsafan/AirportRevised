@@ -6,14 +6,9 @@
             this AsyncSemaphore semaphore,
             CancellationTokenSource? cts)
         {
-            var releaser = await semaphore.EnterAsync(cts.GetToken());
-            try
-            {
-                cts?.Token.ThrowIfCancellationRequested();
-                if (cts is not null)
-                    await cts.CancelAsync();
-            }
-            finally { releaser.Dispose(); }
+            using var _ = await semaphore.EnterAsync(cts.GetToken());
+            cts?.Token.ThrowIfCancellationRequested();
+            await (cts?.CancelAsync() ?? Task.CompletedTask);
         }
     }
 }

@@ -125,10 +125,9 @@ namespace Airport.Domain.Logics
             CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            IRouteSectionDetails? sourceSectionDetails = _sections!.Find(
-                section => section.RouteSection.Source.Contains(station));
-            if (sourceSectionDetails is not null)
-                await sourceSectionDetails.EnterSectionAsync(station, flightId, trafficLightsCts, ct);
+            var sectionDetails = _sections!.Find(section => section.RouteSection.Source.Contains(station));
+            await (sectionDetails?.EnterSectionAsync(station, flightId, trafficLightsCts, ct)
+                ?? Task.CompletedTask);
         }
     }
 }
