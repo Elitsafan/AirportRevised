@@ -55,7 +55,7 @@ namespace Airport.Presentation.Controllers
                 ct) switch
             {
                 Models.Enums.UpdateResult.Failed => NotFound(),
-                Models.Enums.UpdateResult.Matched => BadRequest("Invalid station."),
+                Models.Enums.UpdateResult.Matched => Ok("Station not changed."),
                 Models.Enums.UpdateResult.Modified => NoContent(),
                 _ => new StatusCodeResult(StatusCodes.Status500InternalServerError),
             };

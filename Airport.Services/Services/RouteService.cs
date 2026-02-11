@@ -223,7 +223,7 @@ namespace Airport.Services.Services
                     continue;
                 var tl = new TrafficLight { StationId = idEntry.Key };
                 tl = await _repositoryManager.TrafficLightRepository.AddOneAsync(tl, ct);
-                _logger.LogInformation($"New traffic light refering Station Id: {tl.StationId}");
+                _logger.LogInformation($"New traffic light refers to Station Id: {tl.StationId}");
             }
         }
 

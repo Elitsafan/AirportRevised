@@ -1,6 +1,7 @@
 ﻿using Airport.Contracts.Helpers;
 using Airport.Contracts.Providers;
 using Airport.Domain.EventArgs.StationEventArgs;
+using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
 using Airport.Models.DTOs;
 using Airport.Models.Entities;
@@ -105,7 +106,7 @@ namespace Airport.Services.Services
                 })
                 .ToList();
             if (routesContainIds.Count > 0)
-                throw new InvalidOperationException(
+                throw new InvalidDeletionException(
                     $"Station can't be removed for it exists on routes:\n" +
                     $"{string.Join($",{Environment.NewLine}", routesContainIds)}");
 
