@@ -14,7 +14,7 @@ import { ColorService } from "./color.service";
 
 export class StationService implements OnDestroy {
   private stations: Station[];
-  private stationOccupiedSubscription?: Subscription;
+  private flightRunStartedSubscription?: Subscription;
   private stationClearedSubscription?: Subscription;
   private connectionErrorSubscription?: Subscription;
   private stationsSubject = new BehaviorSubject<Station[]>([]);
@@ -44,7 +44,7 @@ export class StationService implements OnDestroy {
     }
 
     if (this.airportSvc.hasStarted) {
-      if (!this.stationOccupiedSubscription) {
+      if (!this.flightRunStartedSubscription) {
         this.handleStationsSubscription();
       }
       this.fetch();
@@ -52,7 +52,7 @@ export class StationService implements OnDestroy {
       this.airportSvc.start()
         .subscribe({
           next: () => {
-            if (!this.stationOccupiedSubscription) {
+            if (!this.flightRunStartedSubscription) {
               this.handleStationsSubscription();
             }
             this.fetch();
@@ -66,7 +66,7 @@ export class StationService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stationOccupiedSubscription?.unsubscribe();
+    this.flightRunStartedSubscription?.unsubscribe();
     this.stationClearedSubscription?.unsubscribe();
     this.connectionErrorSubscription?.unsubscribe();
   }
@@ -98,7 +98,7 @@ export class StationService implements OnDestroy {
   }
 
   private handleStationsSubscription() {
-    this.stationOccupiedSubscription = this.signalRSvc.flightRunStartedData$
+    this.flightRunStartedSubscription = this.signalRSvc.flightRunStartedData$
       ?.subscribe(data => this.stationSubscriptionEventHandler(data))
     this.stationClearedSubscription = this.signalRSvc.stationClearedData$
       ?.subscribe(data => this.stationSubscriptionEventHandler(data))
