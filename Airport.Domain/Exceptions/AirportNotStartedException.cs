@@ -2,7 +2,8 @@
 {
     public class AirportNotStartedException : Exception
     {
-        public AirportNotStartedException() { }
+        public AirportNotStartedException()
+            : base() { }
         public AirportNotStartedException(string message)
             : base(message) { }
         public AirportNotStartedException(string message, Exception inner)
