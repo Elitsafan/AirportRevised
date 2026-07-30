@@ -4,7 +4,6 @@ using System.Text.Json;
 
 namespace Airport.Web
 {
-    // TODO: arrange all exception on app
     internal sealed class ExceptionHandlingMiddleware : IMiddleware
     {
         private readonly ILogger<ExceptionHandlingMiddleware> _logger;
@@ -39,11 +38,12 @@ namespace Airport.Web
                 ArgumentNullException => StatusCodes.Status400BadRequest,
                 ArgumentException => StatusCodes.Status400BadRequest,
                 AirportNotStartedException => StatusCodes.Status400BadRequest,
+                InvalidDeletionException => StatusCodes.Status400BadRequest,
                 EntityNotFoundException => StatusCodes.Status404NotFound,
+                LogicNotFoundException => StatusCodes.Status404NotFound,
                 LogicProvisionFailedException => StatusCodes.Status404NotFound,
                 OperationCanceledException => 444,
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
-                // TODO: fix invalidoperationexception
                 InvalidOperationException => StatusCodes.Status500InternalServerError,
                 _ => StatusCodes.Status500InternalServerError
             };
@@ -57,6 +57,7 @@ namespace Airport.Web
                 ArgumentException or
                 OperationCanceledException or
                 InvalidOperationException or
+                InvalidDeletionException or
                 LogicProvisionFailedException or
                 MissingRouteStationsException or
                 InvalidRouteStructureException or

@@ -1,16 +1,13 @@
 using Airport.Contracts.Helpers;
-using Airport.Models.DTOs;
 using Airport.Persistence;
 using Airport.Presentation.Converters;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
-using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Runtime.Serialization;
 
 namespace Airport.Web
 {
@@ -89,6 +86,9 @@ namespace Airport.Web
             {
                 var domainEvents = scope.ServiceProvider.GetRequiredService<IDomainEvents>();
                 await domainEvents.RaiseSystemResetRequestedAsync();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("Running on {Environment} environment",
+                    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
             }
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();

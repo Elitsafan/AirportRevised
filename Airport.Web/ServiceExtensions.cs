@@ -7,6 +7,7 @@ using Airport.Domain.Providers;
 using Airport.Domain.Repositories;
 using Airport.Persistence.Repositories;
 using Airport.Services.Abstractions;
+using Airport.Services.Channels;
 using Airport.Services.Services;
 
 namespace Airport.Web
@@ -18,6 +19,7 @@ namespace Airport.Web
             services.AddHostedService<AirportHubService>();
             services.AddHostedService<BackgroundSaverService>();
             services.AddHostedService<FlightEventHandlers>();
+            services.AddHostedService<FlightProcessingService>();
 
             services.AddScoped<IFlightService, FlightService>();
             services.AddScoped<IStationService, StationService>();
@@ -28,11 +30,18 @@ namespace Airport.Web
 
             services.AddSingleton<IDomainEvents, DomainEvents>();
 
+            services.AddSingleton<IRouteValidator, RouteValidator>();
+
             services.AddSingleton<IFlightLogicFactory, FlightLogicFactory>();
             services.AddSingleton<IStationLogicFactory, StationLogicFactory>();
             services.AddSingleton<IDirectionLogicFactory, DirectionLogicFactory>();
             services.AddSingleton<IRouteLogicFactory, RouteLogicFactory>();
+            services.AddSingleton<ISyncerLogicFactory, SyncerLogicFactory>();
+            services.AddSingleton<ISectionLogicFactory, SectionLogicFactory>();
+            services.AddSingleton<IFlightQueue, FlightQueue>();
 
+            services.AddSingleton<ISyncerLogicProvider, SyncerLogicProvider>();
+            services.AddSingleton<ISectionLogicProvider, SectionLogicProvider>();
             services.AddSingleton<IAirportStateProvider, AirportStateProvider>();
             services.AddSingleton<IStationLogicProvider, StationLogicProvider>();
             services.AddSingleton<IDirectionLogicProvider, DirectionLogicProvider>();
