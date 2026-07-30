@@ -17,6 +17,7 @@
         {
             if (station is null)
                 throw new ArgumentNullException(nameof(station));
+
             return new StationLogicCreator(station, _domainEvents, _logger);
         }
     }

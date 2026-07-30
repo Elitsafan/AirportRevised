@@ -2,17 +2,9 @@
 
 namespace Airport.Domain.Repositories
 {
-    public interface IFlightRepository
+    public interface IFlightRepository : IRepository<Flight>
     {
-        Task<IEnumerable<Flight>> GetAllAsync(CancellationToken ct = default);
         Task<Flight> GetByIdAsync(ObjectId id, CancellationToken ct = default);
-        Task<Flight> AddOneAsync(Flight flight, CancellationToken ct = default);
-        Task<Models.Enums.UpdateResult> UpdateFlightAsync(
-            Flight flight,
-            bool upsert = false,
-            CancellationToken ct = default);
-        Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default);
-        //Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default);
         Task<IEnumerable<Flight>> FilterByTimePassedAsync(
             TimeSpan timePassed,
             CancellationToken ct = default);
@@ -22,8 +14,8 @@ namespace Airport.Domain.Repositories
             int pageSize,
             CancellationToken ct = default)
             where TResult : class;
-        Task AddCompletedFlightAsync(Flight flight);
-        Task<long> FlushAsync(CancellationToken ct = default);
-        Task<long> EnforceStorageLimitAsync(CancellationToken ct = default);
+        void AddCompletedFlight(Flight flight);
+        Task<long> FlushAsync(IClientSessionHandle? session = null, CancellationToken ct = default);
+        Task<long> EnforceStorageLimitAsync(IClientSessionHandle? session = null, CancellationToken ct = default);
     }
 }

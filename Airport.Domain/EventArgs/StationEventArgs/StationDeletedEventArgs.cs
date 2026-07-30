@@ -4,6 +4,6 @@ namespace Airport.Domain.EventArgs.StationEventArgs
 {
     public class StationDeletedEventArgs : IStationDeletedEventArgs
     {
-        public required ObjectId StationId { get; init; }
+        public ObjectId StationId { get; init; }
     }
 }

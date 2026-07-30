@@ -1,10 +1,8 @@
 ﻿using Airport.Contracts.EventArgs.FlightEventArgs;
 using Airport.Contracts.EventArgs.RouteEventArgs;
 using Airport.Contracts.EventArgs.StationEventArgs;
+using Airport.Domain.EventArgs.RouteEventArgs;
 using Airport.Domain.EventArgs.StationEventArgs;
-using Airport.Domain.Helpers;
-using Airport.Domain.Repositories;
-using Airport.Models.Enums;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
 
@@ -13,78 +11,59 @@ namespace Airport.Domain.Providers
     public class StationLogicProvider : IStationLogicProvider
     {
         #region Fields
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IRepositoryManager _repoManager;
         private readonly IStationLogicFactory _stationLogicFactory;
         private readonly IMemoryCache _cache;
         private readonly IDomainEvents _domainEvents;
         private readonly ILogger<StationLogicProvider> _logger;
-        private readonly ConcurrentDictionary<ObjectId, IStationLogic> _stationLogics;
+        private readonly HashSet<ObjectId> _cacheStationsByRoutes;
+        private readonly HashSet<ObjectId> _cacheTLsByRoutes;
+        private readonly HashSet<ObjectId> _cacheNextTLs;
+        private readonly ConcurrentDictionary<ObjectId, IStationLogic> _stations;
         private readonly ConcurrentDictionary<ObjectId, IStationChangedData> _stationsStateCache;
-        private readonly AsyncSemaphore _initializationSemaphore;
+        private readonly AsyncSemaphore _operationSemaphore;
+        private readonly AsyncSemaphore _updationStateCacheSem;
         private bool _isInitialized;
 
         // Cache configuration
         private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan ShortCacheExpiration = TimeSpan.FromMinutes(5);
 
-        //private const string ALL_STATIONS_KEY = "all_station_logics";
+        private const string ALL_STATIONS_KEY = "all_stations";
         private const string ROUTE_STATIONS_PREFIX = "route_stations_";
         private const string ROUTE_TRAFFIC_LIGHTS_PREFIX = "route_traffic_lights_";
         private const string NEXT_TRAFFIC_LIGHTS_PREFIX = "next_traffic_lights_";
         #endregion
 
         public StationLogicProvider(
-            IServiceProvider serviceProvider,
+            IRepositoryManager repoManager,
             IStationLogicFactory stationLogicFactory,
             IMemoryCache cache,
             IDomainEvents domainEvents,
             ILogger<StationLogicProvider> logger)
         {
-            _serviceProvider = serviceProvider;
+            _repoManager = repoManager;
             _stationLogicFactory = stationLogicFactory;
             _cache = cache;
             _domainEvents = domainEvents;
             _logger = logger;
-            _stationLogics = new();
+            _stations = new();
             _stationsStateCache = new();
-            _initializationSemaphore = new(1);
+            _cacheStationsByRoutes = new();
+            _cacheTLsByRoutes = new();
+            _cacheNextTLs = new();
+            _updationStateCacheSem = new(1);
+            _operationSemaphore = new(1);
 
-            _domainEvents.RouteCreated += OnRouteCreatedAsync;
+            _domainEvents.DataRefreshed += OnDataRefreshedAsync;
+            _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
+
             _domainEvents.RouteUpdated += OnRouteUpdatedAsync;
             _domainEvents.RouteDeleted += OnRouteDeletedAsync;
 
             _domainEvents.StationCreated += OnStationCreatedAsync;
-            _domainEvents.StationDeleted += OnStationDeletedAsync;
             _domainEvents.StationUpdated += OnStationUpdatedAsync;
-
-            _domainEvents.DataRefreshed += OnDataRefreshedAsync;
-            _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
-        }
-
-        //public async Task<IEnumerable<IStationLogic>> GetAllAsync(CancellationToken ct = default)
-        //{
-        //    await EnsureInitializedAsync(ct);
-
-        //    return _cache.GetOrCreate(
-        //        ALL_STATIONS_KEY,
-        //        entry =>
-        //        {
-        //            entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-        //            entry.Size = 1;
-
-        //            _logger.LogDebug($"Caching all station logics ({_stationLogics.Count} items)");
-        //            return _stationLogics.Values;
-        //        }) ?? Enumerable.Empty<IStationLogic>();
-        //}
-
-        public async Task<IStationLogic> GetByIdAsync(ObjectId id, CancellationToken ct = default)
-        {
-            await EnsureInitializedAsync(ct);
-
-            if (_stationLogics.TryGetValue(id, out var stationLogic))
-                return stationLogic;
-
-            throw new LogicNotFoundException($"Station logic not found for Id: {id}");
+            _domainEvents.StationDeleted += OnStationDeletedAsync;
         }
 
         public async Task<IEnumerable<IStationLogic>> GetByRouteIdAsync(
@@ -98,37 +77,40 @@ namespace Airport.Domain.Providers
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-                entry.Size = 1;
 
-                await using var repositoryManager = _serviceProvider
-                    .CreateAsyncScope()
-                    .ServiceProvider
-                    .GetRequiredService<IRepositoryManager>();
-
-                IEnumerable<Station> stations;
-                Route route;
+                IEnumerable<Station> routeStations;
 
                 try
                 {
-                    route = await repositoryManager.RouteRepository.GetByIdAsync(routeId, ct);
-                    stations = (await repositoryManager.StationRepository
-                        .GetStationsByRouteAsync(route, ct))
+                    routeStations = (await _repoManager.StationRepository
+                        .GetStationsByRouteIdAsync(routeId, ct))
                         .ToList();
                 }
                 catch (EntityNotFoundException e)
                 {
-                    throw new LogicProvisionFailedException($"Route with id: {routeId} not found.", e);
+                    throw new LogicNotFoundException($"Route id: {routeId} not found.", e);
                 }
 
-                var result = stations.Join(
-                    _stationLogics.Values,
+                var allStations = await GetAllAsync(ct);
+
+                var result = routeStations.Join(
+                    allStations,
                     s => s.StationId,
                     sl => sl.StationId,
                     (station, stationLogic) => stationLogic)
                     .ToList();
 
-                _logger.LogDebug($"Cached {result.Count} station logics for route {routeId}");
+                if (result.Count == 0)
+                    throw new LogicNotFoundException($"No stations found for route id: {routeId}");
+
+                entry.Size = result.Count;
+
+                _logger.LogDebug("Cached {Count} station logics for route {RouteId}", result.Count, routeId);
+
+                _cacheStationsByRoutes.Add(routeId);
+
                 return result;
+
             }) ?? Enumerable.Empty<IStationLogic>();
         }
 
@@ -143,78 +125,36 @@ namespace Airport.Domain.Providers
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-                entry.Size = 1;
 
-                await using var repositoryManager = _serviceProvider
-                    .CreateAsyncScope()
-                    .ServiceProvider
-                    .GetRequiredService<IRepositoryManager>();
-
-                var trafficLights = (await repositoryManager.TrafficLightRepository
+                var trafficLights = (await _repoManager.TrafficLightRepository
                     .GetTrafficLightsByRouteIdAsync(routeId, ct))
                     .ToList();
 
-                var result = _stationLogics.Values.Join(
+                var allStations = await GetAllAsync(ct);
+
+                var result = allStations.Join(
                     trafficLights,
                     s => s.StationId,
                     tl => tl.StationId,
                     (stationLogic, trafficLight) => stationLogic)
                     .ToList();
 
-                _logger.LogDebug($"Cached {result.Count} traffic light logics for route {routeId}");
+                entry.Size = result.Count;
+
+                _logger.LogDebug("Cached {Count} traffic light logics for route {RouteId}", result.Count, routeId);
+
+                _cacheStationsByRoutes.Add(routeId);
+
                 return result;
+
             }) ?? Enumerable.Empty<IStationLogic>();
         }
 
-        public async Task<IEnumerable<IStationLogic>> GetNextTrafficLightsAsync(
-            ObjectId routeId,
-            ObjectId trafficLightId,
-            CancellationToken ct = default)
-        {
-            await EnsureInitializedAsync(ct);
-
-            var cacheKey = $"{NEXT_TRAFFIC_LIGHTS_PREFIX}{routeId}_{trafficLightId}";
-
-            return await _cache.GetOrCreateAsync(cacheKey, async entry =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = ShortCacheExpiration;
-                entry.Size = 1;
-
-                try
-                {
-                    await using var repositoryManager = _serviceProvider
-                        .CreateAsyncScope()
-                        .ServiceProvider
-                        .GetRequiredService<IRepositoryManager>();
-
-                    var nextTrafficLights = (await repositoryManager.TrafficLightRepository
-                        .GetNextTrafficLightsAsync(routeId, trafficLightId, ct))
-                        .ToList();
-
-                    var result = _stationLogics.Values.Join(
-                        nextTrafficLights,
-                        s => s.StationId,
-                        tl => tl.StationId,
-                        (stationLogic, trafficLight) => stationLogic)
-                        .ToList();
-
-                    _logger.LogDebug($"Cached {result.Count} next traffic light logics " +
-                        $"for route {routeId}, traffic light {trafficLightId}");
-                    return result;
-                }
-                catch (EntityNotFoundException ex)
-                {
-                    _logger.LogError(ex, $"Route not found when getting next traffic lights: {routeId}");
-                    throw new InvalidOperationException($"Route not found. Cannot get next traffic lights for route: {routeId}", ex);
-                }
-            }) ?? Enumerable.Empty<IStationLogic>();
-        }
-
-        public IEnumerable<IStationChangedData> ProcessStationCleared(
+        public async Task<IEnumerable<IStationChangedData>> ProcessStationClearedAsync(
             IStationClearedEventArgs args,
-            CancellationToken ct = default) => UpdateStationsStateChanged(args);
+            CancellationToken ct = default) => await UpdateStationsStateChangedAsync(args, ct);
 
-        public IEnumerable<IStationChangedData> ProcessFlightStarted(
+        public async Task<IEnumerable<IStationChangedData>> ProcessFlightStartedAsync(
             IFlightRunStartedEventArgs args,
             CancellationToken ct = default)
         {
@@ -225,192 +165,221 @@ namespace Airport.Domain.Providers
                 FlightId = args.Flight.FlightId,
                 FlightType = args.Flight.ToFlightType(),
             };
-            return UpdateStationsStateChanged(stationEventArgs);
+
+            return await UpdateStationsStateChangedAsync(stationEventArgs, ct);
         }
 
         public void Dispose()
         {
-            _initializationSemaphore?.Dispose();
+            _domainEvents.DataRefreshed -= OnDataRefreshedAsync;
+            _domainEvents.SystemResetRequested -= OnSystemResetRequestedAsync;
+
+            _domainEvents.RouteUpdated -= OnRouteUpdatedAsync;
+            _domainEvents.RouteDeleted -= OnRouteDeletedAsync;
+
+            _domainEvents.StationCreated -= OnStationCreatedAsync;
+            _domainEvents.StationUpdated -= OnStationUpdatedAsync;
+            _domainEvents.StationDeleted -= OnStationDeletedAsync;
+
+            _operationSemaphore?.Dispose();
+            _updationStateCacheSem?.Dispose();
+            _cache.Dispose();
+
+            foreach (var entry in _stations)
+                entry.Value.Dispose();
+
+            _stations.Clear();
+
             GC.SuppressFinalize(this);
         }
 
-        #region Event Handlers
-        protected virtual async Task OnDataRefreshedAsync() => await RefreshAsync();
-
-        protected virtual async Task OnSystemResetRequestedAsync() => await RefreshAsync();
-
-        protected virtual async Task OnRouteCreatedAsync(object? sender, IRouteCreatedEventArgs args)
+        protected async Task<IEnumerable<IStationLogic>> GetAllAsync(CancellationToken ct = default)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            await EnsureInitializedAsync(ct);
 
-            var newIds = ExtractStationIds(args.Directions);
-
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var routeRepo = scope.ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .RouteRepository;
-
-            var intersection = await routeRepo.GetIntersectedRoutesAsync(newIds);
-            foreach (var route in intersection)
+            return _cache.GetOrCreate(ALL_STATIONS_KEY, entry =>
             {
-                _cache.Remove($"{ROUTE_STATIONS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-            }
+                entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
 
-            InvalidateCache();
+                entry.Size = _stations.Count;
 
-            _logger.LogInformation($"Station logics of route Id: {args.RouteId} added to cache.");
+                _logger.LogDebug("Cached {Count} stations.", entry.Size);
+
+                return _stations.Values;
+
+            }) ?? Enumerable.Empty<IStationLogic>();
+        }
+
+        #region Event Handlers
+        protected virtual async Task OnDataRefreshedAsync()
+        {
+            _logger.LogInformation("Refreshing station logics and clearing cache");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Station logics refreshed successfully");
+
+            await _domainEvents.RaiseStationLogicProviderRefreshedAsync();
+        }
+
+        protected virtual async Task OnSystemResetRequestedAsync()
+        {
+            _logger.LogInformation("Resetting station logics and clearing cache");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Station logics reset successfully");
+
+            await _domainEvents.RaiseStationLogicProviderResetAsync();
         }
 
         protected virtual async Task OnRouteUpdatedAsync(object? sender, IRouteUpdatedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            using var _ = await _operationSemaphore.EnterAsync();
 
-            var newIds = ExtractStationIds(args.Directions);
-            var oldIds = args.OldRoute.Directions
-                .SelectMany(d => new[] { d.From, d.To })
-                .Distinct()
-                .Except(newIds)
-                .ToList();
+            RemoveCacheEntriesWithRoutePrefix(args.RouteId);
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var routeRepo = scope.ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .RouteRepository;
+            _logger.LogInformation("Station logics of route id: {RouteId} removed from cache.", args.RouteId);
 
-            var oldIntersection = await routeRepo.GetIntersectedRoutesAsync(oldIds);
-            foreach (var route in oldIntersection)
+            await _domainEvents.RaiseStationsByRouteUpdatedAsync(new StationsByRouteUpdatedEventArgs
             {
-                _cache.Remove($"{ROUTE_STATIONS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-            }
-
-            var newIntersection = await routeRepo.GetIntersectedRoutesAsync(newIds);
-            foreach (var route in newIntersection)
-            {
-                _cache.Remove($"{ROUTE_STATIONS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-            }
-
-            InvalidateCache();
-
-            _logger.LogInformation($"Station logics of route Id: {args.RouteId} updated on cache.");
+                RouteId = args.RouteId,
+            });
         }
-
+        // TODO: update instead of remove?
         protected virtual async Task OnRouteDeletedAsync(object? sender, IRouteDeletedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
-            var oldIds = ExtractStationIds(args.Directions);
+            using var _ = await _operationSemaphore.EnterAsync();
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var routeRepo = scope.ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .RouteRepository;
+            RemoveCacheEntriesWithRoutePrefix(args.RouteId);
 
-            var oldIntersection = await routeRepo.GetIntersectedRoutesAsync(oldIds);
-            foreach (var route in oldIntersection)
-            {
-                _cache.Remove($"{ROUTE_STATIONS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-                _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{route.RouteId}");
-            }
-
-            InvalidateCache();
-
-            _logger.LogInformation($"Station logics of route Id: {args.RouteId} removed from cache.");
+            _logger.LogInformation("Station logics of route id: {RouteId} removed from cache.", args.RouteId);
         }
 
         protected virtual async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            using var _ = await _operationSemaphore.EnterAsync();
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var station = await scope
-                .ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .StationRepository
-                .GetByIdAsync(args.StationId);
-            var newStationLogic = _stationLogicFactory
-                .GetCreator(station)
-                .Create();
-            if (_stationLogics.TryAdd(args.StationId, newStationLogic))
+            var station = await _repoManager.StationRepository.GetByIdAsync(args.StationId);
+
+            var newStationLogic = _stationLogicFactory.GetCreator(station).Create();
+
+            if (_stations.TryAdd(args.StationId, newStationLogic))
             {
-                InvalidateCache();
-                _logger.LogInformation($"Station {args.StationId} added to cache.");
+                _stationsStateCache[args.StationId] = new StationChangedData
+                {
+                    StationId = args.StationId,
+                };
+
+                _cache.Remove(ALL_STATIONS_KEY);
+
+                _logger.LogInformation("Station {StationId} added to cache.", args.StationId);
             }
         }
 
         protected virtual async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            using var _ = await _operationSemaphore.EnterAsync();
+            // Get updated route directions
+            var updatedStation = await _repoManager.StationRepository.GetByIdAsync(args.StationId);
+            // Create new direction logic for each of them
+            var updatedStationLogic = _stationLogicFactory.GetCreator(updatedStation).Create();
+            // Remove from state cache
+            _stationsStateCache.TryRemove(args.StationId, out var _);
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var repositoryManager = scope.ServiceProvider.GetRequiredService<IRepositoryManager>();
-            var updatedStation = await repositoryManager.StationRepository
-                .GetByIdAsync(args.StationId);
-            var updatedStationLogic = _stationLogicFactory
-                .GetCreator(updatedStation)
-                .Create();
-            _stationLogics[args.StationId] = updatedStationLogic;
-            _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{args.StationId}");
-            _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{args.StationId}");
-            InvalidateCache();
+            if (_stations.TryGetValue(args.StationId, out var oldStation))
+            {
+                _stations[args.StationId] = updatedStationLogic;
+
+                _cache.Remove(ALL_STATIONS_KEY);
+
+                oldStation.Dispose();
+
+                _logger.LogInformation("Station id {StationId} updated on cache.", args.StationId);
+            }
+
+            // Remove from routes cache keys
+            foreach (var routeId in await _repoManager.RouteRepository.IdsOfRoutesContainStationAsync(args.StationId))
+                RemoveCacheEntriesWithRoutePrefix(routeId);
+
+            await _domainEvents.RaiseStationLogicUpdatedAsync(new StationLogicUpdatedEventArgs
+            {
+                StationId = args.StationId,
+            });
+
+            await _domainEvents.RaiseStationProviderUpdatedAsync(new StationProviderUpdatedEventArgs
+            {
+                StationId = args.StationId,
+            });
         }
 
         protected virtual async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
-
+            using var _ = await _operationSemaphore.EnterAsync();
+            // Remove from state cache
             _stationsStateCache.TryRemove(args.StationId, out var stationData);
-            if (_stationLogics.TryRemove(args.StationId, out var stationLogic))
+            // Remove logic
+            if (_stations.TryRemove(args.StationId, out var stationLogic))
             {
+                _cache.Remove(ALL_STATIONS_KEY);
+
                 stationLogic.Dispose();
-                _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{args.StationId}");
-                _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{args.StationId}");
-                InvalidateCache();
-                _logger.LogInformation($"Station {args.StationId} removed from cache.");
+
+                _logger.LogInformation("Station id {StationId} removed from cache.", args.StationId);
+
+                // No need to remove routeId cache keys
+                // for deleting a route including its stations is not allowed.
             }
         }
         #endregion
 
-        private List<ObjectId> ExtractStationIds(IEnumerable<Direction> directions) => directions
-            .SelectMany(d => new[] { d.From, d.To })
-            .Distinct()
-            .ToList();
-
-        private async Task RefreshAsync(CancellationToken ct = default)
+        private void RemoveCacheEntriesWithRoutePrefix(ObjectId routeId)
         {
-            _logger.LogInformation("Refreshing station logics and clearing cache");
+            _cache.Remove($"{ROUTE_STATIONS_PREFIX}{routeId}");
+            _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{routeId}");
+            _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{routeId}");
+        }
 
-            using var releaser = await _initializationSemaphore.EnterAsync(ct);
-
+        private void Clear()
+        {
             InvalidateCache();
 
-            _stationLogics.Clear();
+            foreach (var entry in _stations)
+                entry.Value.Dispose();
 
-            // Re-initialize
+            _stations.Clear();
+
+            _stationsStateCache.Clear();
+
             _isInitialized = false;
-            await InitializeAsync(ct);
-            _isInitialized = true;
-
-            _logger.LogInformation("Station logics refreshed successfully");
         }
 
         private void InvalidateCache()
         {
             _logger.LogDebug("Invalidating all station cache entries");
 
-            //_cache.Remove(ALL_STATIONS_KEY);
+            _cache.Remove(ALL_STATIONS_KEY);
 
-            foreach (var key in _stationLogics.Keys)
-            {
+            foreach (var key in _cacheStationsByRoutes)
                 _cache.Remove($"{ROUTE_STATIONS_PREFIX}{key}");
+
+            foreach (var key in _cacheTLsByRoutes)
                 _cache.Remove($"{ROUTE_TRAFFIC_LIGHTS_PREFIX}{key}");
+
+            foreach (var key in _cacheNextTLs)
                 _cache.Remove($"{NEXT_TRAFFIC_LIGHTS_PREFIX}{key}");
-            }
+
+            _cacheStationsByRoutes.Clear();
+            _cacheTLsByRoutes.Clear();
+            _cacheNextTLs.Clear();
         }
 
         private async Task EnsureInitializedAsync(CancellationToken ct = default)
@@ -418,11 +387,13 @@ namespace Airport.Domain.Providers
             if (_isInitialized)
                 return;
 
-            using var releaser = await _initializationSemaphore.EnterAsync(ct);
+            using var _ = await _operationSemaphore.EnterAsync(ct);
+
             if (_isInitialized)
                 return;
 
             await InitializeAsync(ct);
+
             _isInitialized = true;
         }
 
@@ -430,38 +401,36 @@ namespace Airport.Domain.Providers
         {
             _logger.LogInformation("Initializing station logics from repository");
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var stations = await scope.ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .StationRepository
-                .GetAllAsync(ct);
+            var stations = await _repoManager.StationRepository.GetAllAsync(ct);
 
             if (!stations.Any())
-            {
-                _logger.LogError("No stations found during initialization");
-                throw new InvalidOperationException("There are no stations.");
-            }
+                throw new LogicProvisionFailedException("No routes exist.");
+
+            Clear();
 
             foreach (var station in stations)
             {
-                var stationLogic = _stationLogicFactory
-                    .GetCreator(station)
-                    .Create();
-                _stationLogics.TryAdd(stationLogic.StationId, stationLogic);
+                var stationLogic = _stationLogicFactory.GetCreator(station).Create();
+
+                _stations.TryAdd(stationLogic.StationId, stationLogic);
+
                 _stationsStateCache[stationLogic.StationId] = new StationChangedData
                 {
                     StationId = stationLogic.StationId,
                 };
             }
-            _logger.LogInformation($"Successfully initialized {_stationLogics.Count} station logics");
+
+            _logger.LogInformation("Successfully initialized {StationsCount} station logics", _stations.Count);
         }
 
         // Prepare stations query for sending the state of stations
-        private IEnumerable<IStationChangedData> UpdateStationsStateChanged(
-            IStationClearedEventArgs args)
+        private async Task<IEnumerable<IStationChangedData>> UpdateStationsStateChangedAsync(
+            IStationClearedEventArgs args,
+            CancellationToken ct = default)
         {
             IStationChangedData? nextStationData;
             IStationChangedData? oldStationData;
+            List<IStationChangedData> returnValue = new();
 
             if (args.OldStationId is null)
             {
@@ -502,11 +471,15 @@ namespace Airport.Domain.Providers
                     }
                 };
 
+                using var _ = await _updationStateCacheSem.EnterAsync(ct);
+
                 _stationsStateCache[args.OldStationId!.Value] = oldStationData;
                 _stationsStateCache[args.CurrentStationId!.Value] = nextStationData;
+
+                returnValue = _stationsStateCache.Values.ToList();
             }
 
-            return _stationsStateCache.Values;
+            return returnValue;
         }
 
         #region Data Query Helpers

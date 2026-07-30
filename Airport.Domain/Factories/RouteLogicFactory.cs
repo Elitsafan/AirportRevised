@@ -8,17 +8,14 @@
         private readonly ILogger<RouteLogic> _logger;
         #endregion
 
-        public RouteLogicFactory(
-            IDirectionLogicProvider directionProvider,
-            IStationLogicProvider stationProvider,
-            ILogger<RouteLogic> logger)
+        public RouteLogicFactory(IDirectionLogicProvider directionProvider, IStationLogicProvider stationProvider, ILogger<RouteLogic> logger)
         {
             _directionProvider = directionProvider;
             _stationProvider = stationProvider;
             _logger = logger;
         }
 
-        public IRouteLogicCreator GetCreator(Route route, IEnumerable<IRouteSectionDetails>? sections)
+        public IRouteLogicCreator GetCreator(Route route, IEnumerable<ISectionLogic>? sections, IEnumerable<IStationLogic>? standaloneTLs)
         {
             if (route is null)
                 throw new ArgumentNullException(nameof(route));
@@ -26,6 +23,7 @@
             return new RouteLogicCreator(
                 route,
                 sections?.ToList(),
+                standaloneTLs?.ToList(),
                 _directionProvider,
                 _stationProvider,
                 _logger);

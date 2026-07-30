@@ -1,6 +1,4 @@
 ﻿using Airport.Domain.EventArgs.FlightEventArgs;
-using Airport.Domain.Helpers;
-using Airport.Models.Enums;
 
 namespace Airport.Domain.Logics
 {
@@ -16,11 +14,7 @@ namespace Airport.Domain.Logics
         private AsyncSemaphore.Releaser _releaser;
         #endregion
 
-        public FlightLogic(
-            Flight flight,
-            IRouteLogic routeLogic,
-            IDomainEvents domainEvents,
-            ILogger<FlightLogic> logger)
+        public FlightLogic(Flight flight, IRouteLogic routeLogic, IDomainEvents domainEvents, ILogger<FlightLogic> logger)
         {
             _routeLogic = routeLogic;
             _logger = logger;
@@ -44,19 +38,22 @@ namespace Airport.Domain.Logics
         public async Task RunAsync(CancellationToken ct = default)
         {
             using var routeCts = new CancellationTokenSource();
+
             using (_releaser = await _routeLogic.StartRunAsync(ct))
             {
                 // Gets the next leg till the end of the route
                 while (_nextLeg.Count > 0)
                 {
                     CurrentStation = await _routeLogic.EnterLegAsync(this, _nextLeg, routeCts.Token);
+
                     await Task.Delay(CurrentStation.EstimatedWaitingTime, routeCts.Token);
-                    _nextLeg = _routeLogic
-                        .GetNextLeg(CurrentStation)
-                        .ToList();
+
+                    _nextLeg = _routeLogic.GetNextLeg(CurrentStation).ToList();
                 }
+
                 if (CurrentStation is null)
                     throw new InvalidOperationException("Flight did not visit any station.");
+
                 await CurrentStation!.ClearAsync(null, routeCts.Token);
             }
         }
@@ -68,14 +65,18 @@ namespace Airport.Domain.Logics
                 StationId = stationId,
                 Entrance = entranceTime
             };
+
             _flight.OccupationDetails.Add(details);
+
             return details;
         }
 
         public OccupationDetails RegisterStationClearedDetails(ObjectId stationId, DateTime exitTime)
         {
             var stationOccupationDetails = _flight.OccupationDetails.First(wd => wd.StationId == stationId);
+
             stationOccupationDetails.Exit = exitTime;
+
             return stationOccupationDetails;
         }
 
@@ -85,6 +86,7 @@ namespace Airport.Domain.Logics
         public async Task RaiseFlightRunStartedAsync(ObjectId stationId)
         {
             _releaser.Dispose();
+
             await _domainEvents.RaiseFlightRunStartedAsync(new FlightRunStartedEventArgs
             {
                 Flight = _flight,
@@ -96,14 +98,15 @@ namespace Airport.Domain.Logics
         public async Task RaiseFlightRunDoneAsync(CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
+
             await _domainEvents.RaiseFlightRunDoneAsync(new FlightRunDoneEventArgs { Flight = this });
         }
 
-        public ValueTask DisposeAsync()
+        public void Dispose()
         {
             _syncEntrance.Dispose();
+
             GC.SuppressFinalize(this);
-            return ValueTask.CompletedTask;
         }
     }
 }

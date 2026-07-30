@@ -1,252 +1,293 @@
 ﻿using Airport.Contracts.EventArgs.RouteEventArgs;
 using Airport.Contracts.EventArgs.StationEventArgs;
-using Airport.Domain.Repositories;
+using Airport.Domain.EventArgs.DirectionEventArgs;
 using Microsoft.Extensions.Caching.Memory;
-using System.Collections.Concurrent;
 
 namespace Airport.Domain.Providers
 {
+    // TODO: if IDirectionLogic implements IDisposable, dispose IDirectionLogic on all places
     public class DirectionLogicProvider : IDirectionLogicProvider
     {
         #region Fields
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IRepositoryManager _repoManager;
         private readonly IMemoryCache _cache;
         private readonly IDomainEvents _domainEvents;
         private readonly IDirectionLogicFactory _directionLogicFactory;
         private readonly ILogger<DirectionLogicProvider> _logger;
-        private readonly HashSet<IDirectionLogic> _directionLogics;
-        private readonly ConcurrentDictionary<ObjectId, List<IDirectionLogic>> _routeIdToDirectionLogics;
-        private readonly AsyncSemaphore _initializationSemaphore;
+        private readonly IConcurrentDictionaryLogic<
+            ObjectId,
+            List<IDirectionLogic>,
+            IDirectionLogic> _routeToDirections;
+        private readonly AsyncSemaphore _operationSemaphore;
         private bool _isInitialized;
 
         // Cache configuration
         private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(15);
-        private const string ALL_DIRECTIONS_KEY = "all_direction_logics";
+        private const string ALL_DIRECTIONS_KEY = "all_directions";
         private const string ROUTE_DIRECTIONS_PREFIX = "route_directions_";
         #endregion
 
         public DirectionLogicProvider(
-            IServiceProvider serviceProvider,
+            IRepositoryManager repoManager,
             IDirectionLogicFactory directionLogicFactory,
             IMemoryCache cache,
             IDomainEvents domainEvents,
             ILogger<DirectionLogicProvider> logger)
         {
-            _serviceProvider = serviceProvider;
+            _repoManager = repoManager;
             _directionLogicFactory = directionLogicFactory;
             _cache = cache;
             _domainEvents = domainEvents;
             _logger = logger;
-            _initializationSemaphore = new(1);
-            _directionLogics = new();
-            _routeIdToDirectionLogics = new();
+            _operationSemaphore = new(1);
+            _routeToDirections = new ConcurrentDictionaryLogic<ObjectId, List<IDirectionLogic>, IDirectionLogic>();
+
+            _domainEvents.StationProviderReset += OnStationProviderResetAsync;
+            _domainEvents.StationProviderRefreshed += OnStationProviderRefreshedAsync;
 
             _domainEvents.RouteCreated += OnRouteCreatedAsync;
-            _domainEvents.RouteUpdated += OnRouteUpdatedAsync;
             _domainEvents.RouteDeleted += OnRouteDeletedAsync;
 
-            _domainEvents.StationCreated += OnStationCreatedAsync;
-            _domainEvents.StationDeleted += OnStationDeletedAsync;
-            _domainEvents.StationUpdated += OnStationUpdatedAsync;
-
-            _domainEvents.DataRefreshed += OnDataRefreshedAsync;
-            _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
+            _domainEvents.StationLogicUpdated += OnStationLogicUpdatedAsync;
+            _domainEvents.StationsByRouteUpdated += OnStationsByRouteUpdatedAsync;
         }
 
-        public async Task<IEnumerable<IDirectionLogic>> GetByRouteIdAsync(
-            ObjectId routeId,
-            CancellationToken ct = default)
+        public async Task<IEnumerable<IDirectionLogic>> GetByRouteIdAsync(ObjectId routeId, CancellationToken ct = default)
         {
             await EnsureInitializedAsync(ct);
 
             var cacheKey = $"{ROUTE_DIRECTIONS_PREFIX}{routeId}";
+
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-                await using var scope = _serviceProvider.CreateAsyncScope();
 
-                Route route = await scope
-                    .ServiceProvider
-                    .GetRequiredService<IRepositoryManager>()
-                    .RouteRepository
-                    .GetByIdAsync(routeId, ct);
+                try
+                {
+                    var result = (await GetAllAsync(ct))[routeId];
 
-                var result = route.Directions.Join(
-                    _directionLogics,
-                    dLeft => new { dLeft.From, dLeft.To },
-                    dRight => new { dRight.From, dRight.To },
-                    (l, r) => r)
-                    .ToList();
+                    entry.Size = result.Count;
 
-                entry.Size = result.Count;
+                    _logger.LogDebug("Cached {ResultCount} direction logics for route {RouteId}.", result.Count, routeId);
 
-                _logger.LogDebug($"Cached {result.Count} direction logics for route {routeId}.");
-                return result;
+                    return result;
+                }
+                catch (KeyNotFoundException e)
+                {
+                    throw new LogicNotFoundException($"Route logic id: {routeId} not found.", e);
+                }
+
             }) ?? Enumerable.Empty<IDirectionLogic>();
         }
 
         public void Dispose()
         {
-            _initializationSemaphore?.Dispose();
+            _domainEvents.StationProviderReset -= OnStationProviderResetAsync;
+            _domainEvents.StationProviderRefreshed -= OnStationProviderRefreshedAsync;
+
+            _domainEvents.RouteCreated -= OnRouteCreatedAsync;
+            _domainEvents.RouteDeleted -= OnRouteDeletedAsync;
+
+            _domainEvents.StationLogicUpdated -= OnStationLogicUpdatedAsync;
+            _domainEvents.StationsByRouteUpdated -= OnStationsByRouteUpdatedAsync;
+
+            _operationSemaphore?.Dispose();
+
+            _cache.Dispose();
+
+            _routeToDirections.Dispose();
+
             GC.SuppressFinalize(this);
         }
 
-        #region Event Handlers
-        protected virtual async Task OnDataRefreshedAsync() => await RefreshAsync();
+        protected async Task<IReadOnlyDictionary<ObjectId, List<IDirectionLogic>>> GetAllAsync(CancellationToken ct = default)
+        {
+            await EnsureInitializedAsync(ct);
 
-        protected virtual async Task OnSystemResetRequestedAsync() => await RefreshAsync();
+            return _cache.GetOrCreate(ALL_DIRECTIONS_KEY, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
+
+                entry.Size = _routeToDirections.Values.Sum(collection => collection.Count);
+
+                _logger.LogDebug("Cached {Count} stations.", entry.Size);
+
+                return _routeToDirections.ToDictionary().AsReadOnly();
+
+            }) ?? new Dictionary<ObjectId, List<IDirectionLogic>>().AsReadOnly();
+        }
+
+        #region Event Handlers
+        protected virtual async Task OnStationProviderResetAsync()
+        {
+            _logger.LogInformation("Resetting direction logics and clearing cache.");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Direction logics reset successfully.");
+
+            await _domainEvents.RaiseDirectionLogicProviderResetAsync();
+        }
+
+        protected virtual async Task OnStationProviderRefreshedAsync()
+        {
+            _logger.LogInformation("Refreshing direction logics and clearing cache.");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Direction logics refreshed successfully.");
+
+            await _domainEvents.RaiseDirectionLogicProviderRefreshedAsync();
+        }
 
         protected virtual async Task OnRouteCreatedAsync(object? sender, IRouteCreatedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            using var _ = await _operationSemaphore.EnterAsync();
 
-            _routeIdToDirectionLogics[args.RouteId] = new();
+            var newDirectionLogics = (await _repoManager.RouteRepository.GetByIdAsync(args.RouteId))
+                .Directions
+                .Select(d => _directionLogicFactory.GetCreator(d).Create())
+                .ToList();
 
-            foreach (var direction in args.Directions)
+            if (await _routeToDirections.TryAddAsync(args.RouteId, newDirectionLogics))
             {
-                var newDirection = _directionLogicFactory
-                    .GetCreator(direction)
-                    .Create();
-                _directionLogics.Add(newDirection);
-                _routeIdToDirectionLogics[args.RouteId].Add(newDirection);
+                _cache.Remove(ALL_DIRECTIONS_KEY);
+
+                _logger.LogInformation("Direction logics of route id: {RouteId} added to cache.", args.RouteId);
             }
-
-            InvalidateCache();
-
-            _logger.LogInformation($"Direction logics of route Id: {args.RouteId} added to cache.");
-        }
-
-        protected virtual async Task OnRouteUpdatedAsync(object? sender, IRouteUpdatedEventArgs args)
-        {
-            using var _ = await _initializationSemaphore.EnterAsync();
-
-            _directionLogics.RemoveWhere(
-                dl => args.OldRoute.Directions.Any(
-                    d => dl.From == d.From && dl.To == d.To));
-
-            _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{args.RouteId}");
-
-            _routeIdToDirectionLogics[args.RouteId] = new();
-
-            foreach (var direction in args.Directions)
-            {
-                var newDirection = _directionLogicFactory
-                    .GetCreator(direction)
-                    .Create();
-                _directionLogics.Add(newDirection);
-                _routeIdToDirectionLogics[args.RouteId].Add(newDirection);
-            }
-
-            InvalidateCache();
-
-            _logger.LogInformation($"Direction logics of route Id: {args.RouteId} updated on cache.");
         }
 
         protected virtual async Task OnRouteDeletedAsync(object? sender, IRouteDeletedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            using var _ = await _operationSemaphore.EnterAsync();
 
-            _directionLogics.RemoveWhere(
-                dl => args.Directions.Any(
-                    d => dl.From == d.From && dl.To == d.To));
-            _routeIdToDirectionLogics.TryRemove(args.RouteId, out var directionLogics);
-            _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{args.RouteId}");
+            // TODO: Dispose
+            if (await _routeToDirections.TryRemoveAsync(args.RouteId))
+            {
+                _cache.Remove(ALL_DIRECTIONS_KEY);
 
-            InvalidateCache();
+                _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{args.RouteId}");
 
-            _logger.LogInformation($"Direction logics of route Id: {args.RouteId} removed from cache.");
+                _logger.LogInformation("Direction logics of route Id: {RouteId} removed from cache.", args.RouteId);
+            }
         }
 
-        protected virtual async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args)
+        protected virtual async Task OnStationsByRouteUpdatedAsync(object? sender, IStationsByRouteUpdatedEventArgs args)
         {
-            using var _ = await _initializationSemaphore.EnterAsync();
-            InvalidateCache();
-        }
+            using var _ = await _operationSemaphore.EnterAsync();
+            // TODO: Dispose
+            var oldDirectionLogics = _routeToDirections.GetValue(args.RouteId).ToList();
 
-        protected virtual async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args)
-        {
-            using var _ = await _initializationSemaphore.EnterAsync();
+            var updatedDirectionLogics = (await _repoManager.RouteRepository.GetByIdAsync(args.RouteId))
+                .Directions
+                .Select(d => _directionLogicFactory.GetCreator(d).Create())
+                .ToList();
 
-            foreach (var routeEntry in _routeIdToDirectionLogics)
-                if (routeEntry.Value.Any(
-                    dl => dl.From == args.StationId || dl.To == args.StationId))
-                    _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{routeEntry.Key}");
-            InvalidateCache();
-        }
+            if (await _routeToDirections.TryUpdateAsync(args.RouteId, updatedDirectionLogics, oldDirectionLogics))
+            {
+                _cache.Remove(ALL_DIRECTIONS_KEY);
 
-        protected virtual async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args)
-        {
-            using var _ = await _initializationSemaphore.EnterAsync();
+                _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{args.RouteId}");
 
-            _directionLogics.RemoveWhere(dl => dl.From == args.StationId || dl.To == args.StationId);
-            foreach (var routeEntry in _routeIdToDirectionLogics)
-                if (routeEntry.Value.Any(
-                    dl => dl.From == args.StationId || dl.To == args.StationId))
+                _logger.LogInformation("Direction logics of route id: {RouteId} updated on cache.", args.RouteId);
+
+                await _domainEvents.RaiseDirectionProviderUpdatedAsync(new DirectionProviderUpdatedEventArgs
                 {
-                    routeEntry.Value.RemoveAll(
-                        dl => dl.From == args.StationId || dl.To == args.StationId);
+                    RouteId = args.RouteId,
+                });
+            }
+        }
+
+        protected virtual async Task OnStationLogicUpdatedAsync(object? sender, IStationLogicUpdatedEventArgs args)
+        {
+            // If stationId does not exist on any direction
+            if (_routeToDirections.Values
+                .SelectMany(x => x)
+                .All(d => d.From != args.StationId && d.To != args.StationId))
+                return;
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            _cache.Remove(ALL_DIRECTIONS_KEY);
+
+            foreach (var routeEntry in await _repoManager.RouteRepository.DirectionsOfRoutesContainStationAsync(args.StationId))
+            {
+                var oldDirections = _routeToDirections.GetValue(routeEntry.Key);
+
+                // Create the new direction logics
+                var updatedDirections = routeEntry.Value
+                    .Select(d => _directionLogicFactory.GetCreator(d).Create())
+                    .ToList();
+
+                // Update with the new value
+                if (await _routeToDirections.TryUpdateAsync(routeEntry.Key, updatedDirections, oldDirections.ToList()))
+                {
+                    // Dispose removed direction logics
+
                     _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{routeEntry.Key}");
                 }
-            InvalidateCache();
+            }
         }
         #endregion
-
-        private async Task InitializeAsync(CancellationToken ct = default)
-        {
-            _logger.LogInformation("Initializing direction logics from database.");
-
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var routeRepository = scope
-                .ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .RouteRepository;
-
-            foreach (var route in await routeRepository.GetAllAsync(ct))
-            {
-                // Creates the direction logics
-                var directionLogics = route.Directions.Select(
-                    d => _directionLogicFactory.GetCreator(
-                        d).Create());
-                // Store for searching 
-                _routeIdToDirectionLogics.TryAdd(route.RouteId, new(directionLogics));
-                // Store in cache
-                foreach (var directionLogic in directionLogics)
-                    _directionLogics.Add(directionLogic);
-            }
-            _logger.LogInformation($"Successfully initialized {_directionLogics.Count} direction logics.");
-        }
 
         private async Task EnsureInitializedAsync(CancellationToken ct = default)
         {
             if (_isInitialized)
                 return;
 
-            using var _ = await _initializationSemaphore.EnterAsync(ct);
+            using var _ = await _operationSemaphore.EnterAsync(ct);
 
             if (_isInitialized)
                 return;
 
             await InitializeAsync(ct);
+
             _isInitialized = true;
         }
 
-        private async Task RefreshAsync(CancellationToken ct = default)
+        private async Task InitializeAsync(CancellationToken ct = default)
         {
-            _logger.LogInformation("Refreshing direction logics and clearing cache.");
+            _logger.LogInformation("Initializing direction logics from database.");
 
-            using var _ = await _initializationSemaphore.EnterAsync(ct);
+            await ClearAsync(ct);
 
+            var directionsDic = await _repoManager.RouteRepository.GetAllDirectionsAsync(ct);
+
+            if (directionsDic.Count == 0)
+                throw new LogicProvisionFailedException("No routes exist.");
+
+            foreach (var kvp in directionsDic)
+            {
+                // Creates the direction logics
+                var directionLogics = kvp.Value.Select(
+                    d => _directionLogicFactory.GetCreator(
+                        d).Create())
+                    .ToList();
+
+                // Store for searching 
+                await _routeToDirections.TryAddAsync(kvp.Key, directionLogics, ct);
+            }
+
+            _logger.LogInformation(
+                "Successfully initialized {DLsCount} direction logics.",
+                _routeToDirections.Values.Sum(dList => dList.Count));
+        }
+
+        private async Task ClearAsync(CancellationToken ct = default)
+        {
             InvalidateCache();
 
-            _directionLogics.Clear();
-            _routeIdToDirectionLogics.Clear();
+            await _routeToDirections.ClearAsync(ct);
 
-            // Re-initialize
             _isInitialized = false;
-            await InitializeAsync(ct);
-            _isInitialized = true;
-
-            _logger.LogInformation("Direction logics refreshed successfully.");
         }
 
         private void InvalidateCache()
@@ -255,7 +296,7 @@ namespace Airport.Domain.Providers
 
             _cache.Remove(ALL_DIRECTIONS_KEY);
 
-            foreach (var key in _routeIdToDirectionLogics.Keys)
+            foreach (var key in _routeToDirections.Keys)
                 _cache.Remove($"{ROUTE_DIRECTIONS_PREFIX}{key}");
         }
     }

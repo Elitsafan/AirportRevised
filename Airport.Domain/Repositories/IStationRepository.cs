@@ -1,14 +1,20 @@
-﻿using Airport.Models.Enums;
-
-namespace Airport.Domain.Repositories
+﻿namespace Airport.Domain.Repositories
 {
     public interface IStationRepository : IRepository<Station>
     {
-        Task<UpdateResult> UpdateStationAsync(Station modifiedStation, CancellationToken ct = default);
-        Task<IEnumerable<Station>> GetStationsByRouteAsync(Route route, CancellationToken ct = default);
-        Task<IEnumerable<ObjectId>> GetExistingStationIdsAsync(
+        Task<Station> GetByIdAsync(ObjectId id, CancellationToken ct = default);
+        Task<Models.Enums.UpdateResult> UpdateStationAsync(
+            Station modifiedStation,
+            IClientSessionHandle? session = null,
+            CancellationToken ct = default);
+        Task<IEnumerable<Station>> GetStationsByRouteIdAsync(ObjectId routeId, CancellationToken ct = default);
+        Task<IEnumerable<ObjectId>> AreExistAsync(
             IEnumerable<ObjectId> ids,
             CancellationToken ct = default);
-        Task<IDictionary<ObjectId, int>> GetCommonStationIdsWithCountsAsync(IEnumerable<ObjectId> stationIds, CancellationToken ct = default);
+        Task<Dictionary<ObjectId, int>> GetCommonIdsToCountsAsync(
+            IEnumerable<ObjectId> stationIds,
+            IEnumerable<ObjectId>? excludeRouteIds = null,
+            int count = 1,
+            CancellationToken ct = default);
     }
 }

@@ -7,7 +7,9 @@
             CancellationTokenSource? cts)
         {
             using var _ = await semaphore.EnterAsync(cts.GetToken());
+
             cts?.Token.ThrowIfCancellationRequested();
+
             await (cts?.CancelAsync() ?? Task.CompletedTask);
         }
     }

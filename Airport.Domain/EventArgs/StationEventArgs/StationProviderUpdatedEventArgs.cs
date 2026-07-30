@@ -2,7 +2,7 @@
 
 namespace Airport.Domain.EventArgs.StationEventArgs
 {
-    public class StationUpdatedEventArgs : IStationUpdatedEventArgs
+    public class StationProviderUpdatedEventArgs : IStationProviderUpdatedEventArgs
     {
         public ObjectId StationId { get; init; }
     }

@@ -1,5 +1,4 @@
 ﻿using Airport.Contracts.EventArgs.StationEventArgs;
-using Airport.Models.Enums;
 
 namespace Airport.Domain.EventArgs.StationEventArgs
 {

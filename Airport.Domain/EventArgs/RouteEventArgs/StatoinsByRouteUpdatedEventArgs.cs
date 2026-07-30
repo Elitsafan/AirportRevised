@@ -2,7 +2,7 @@
 
 namespace Airport.Domain.EventArgs.RouteEventArgs
 {
-    public class RouteDeletedEventArgs : IRouteDeletedEventArgs
+    public class StationsByRouteUpdatedEventArgs : IStationsByRouteUpdatedEventArgs
     {
         public ObjectId RouteId { get; init; }
     }

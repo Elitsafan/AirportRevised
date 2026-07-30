@@ -1,6 +1,4 @@
-﻿using Airport.Models.Enums;
-
-namespace Airport.Domain.Factories
+﻿namespace Airport.Domain.Factories
 {
     public class FlightLogicFactory : IFlightLogicFactory
     {
@@ -10,10 +8,7 @@ namespace Airport.Domain.Factories
         private readonly ILogger<FlightLogic> _logger;
         #endregion
 
-        public FlightLogicFactory(
-            IRouteLogicProvider routeProvider,
-            IDomainEvents domainEvents,
-            ILogger<FlightLogic> logger)
+        public FlightLogicFactory(IRouteLogicProvider routeProvider, IDomainEvents domainEvents, ILogger<FlightLogic> logger)
         {
             _routeProvider = routeProvider;
             _domainEvents = domainEvents;
