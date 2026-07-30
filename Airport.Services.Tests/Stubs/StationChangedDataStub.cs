@@ -8,9 +8,10 @@ namespace Airport.Services.Tests.Stubs
         public IFlightInfo? Flight { get; init; }
     }
 
-    public class FlightInfoStub : IFlightInfo
-    {
-        public ObjectId? FlightId { get; init; }
-        public FlightType? FlightType { get; init; }
-    }
+    //public class FlightInfoStub : IFlightInfo
+    //{
+    //    public ObjectId? FlightId { get; init; }
+    //    public FlightType? FlightType { get; init; }
+    //    public ObjectId RouteId { get; init; }
+    //}
 }

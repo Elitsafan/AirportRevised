@@ -1,14 +1,24 @@
-﻿using Airport.Domain.Exceptions;
-using Airport.Services.Abstractions;
+﻿using Airport.Contracts.Helpers;
+using Airport.Domain.Exceptions;
+using Airport.Services.Services;
+using MongoDB.Driver;
 
 namespace Airport.Services.Tests
 {
     public class RouteServiceTests
     {
         #region Fields
-        private readonly Mock<IRouteLogicFactory> _mockRouteLogicFactory;
-        private readonly Mock<IRepositoryManager> _mockRepositoryManager;
+        private readonly Mock<IRepositoryManager> _mockRepoManager;
+        private readonly Mock<IStationRepository> _mockStationRepo;
+        private readonly Mock<IRouteRepository> _mockRouteRepo;
+        private readonly Mock<ISectionRepository> _mockSectionRepo;
+        private readonly Mock<ISyncerRepository> _mockSyncerRepo;
+        private readonly Mock<ITrafficLightRepository> _mockTrafficLightRepo;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
         private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<IMongoClient> _mockMongoClient;
+        private readonly Mock<IClientSessionHandle> _mockClientSession;
+        private readonly Mock<IRouteValidator> _mockRouteValidator;
         private readonly Mock<IRouteLogicCreator> _mockRouteLogicCreator;
         private readonly Mock<IRouteLogic> _mockRouteLogic;
         private readonly Mock<IAirportStateProvider> _mockAirportStateProvider;
@@ -19,9 +29,17 @@ namespace Airport.Services.Tests
         public RouteServiceTests()
         {
             _mockAirportStateProvider = new Mock<IAirportStateProvider>();
-            _mockRouteLogicFactory = new Mock<IRouteLogicFactory>();
-            _mockRepositoryManager = new Mock<IRepositoryManager>();
+            _mockRepoManager = new Mock<IRepositoryManager>();
+            _mockRouteRepo = new Mock<IRouteRepository>();
+            _mockStationRepo = new Mock<IStationRepository>();
+            _mockSectionRepo = new Mock<ISectionRepository>();
+            _mockSyncerRepo = new Mock<ISyncerRepository>();
+            _mockTrafficLightRepo = new Mock<ITrafficLightRepository>();
+            _mockDomainEvents = new Mock<IDomainEvents>();
             _mockMapper = new Mock<IMapper>();
+            _mockMongoClient = new Mock<IMongoClient>();
+            _mockClientSession = new Mock<IClientSessionHandle>();
+            _mockRouteValidator = new Mock<IRouteValidator>();
             _mockRouteLogicCreator = new Mock<IRouteLogicCreator>();
             _mockRouteLogic = new Mock<IRouteLogic>();
             _mockLogger = Mock.Of<ILogger<RouteService>>();
@@ -29,91 +47,102 @@ namespace Airport.Services.Tests
         }
 
         [Fact]
-        public void RouteServiceCreated_NotNull()
-        {
-            _routeService = new RouteService(
-                _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
-                _mockMapper.Object,
-                _mockLogger);
-
-            Assert.NotNull(_routeService);
-        }
-
-        [Fact]
         public async Task GetAllRoutesAsync_WhenCalled_ReturnsAllRoutes()
         {
             var routeDto = new RouteDTO();
-            var mockRouteRepository = new Mock<IRouteRepository>();
+
             var routes = new Route[]
             {
-            new(),
-            new(),
-            new(),
+                new(),
             };
 
-            _mockRepositoryManager
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
+            _mockRepoManager
                 .SetupGet(x => x.RouteRepository)
-                .Returns(mockRouteRepository.Object);
-            mockRouteRepository
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRouteRepo
                 .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(routes);
+
             _mockMapper
                 .Setup(x => x.Map<RouteDTO>(It.IsAny<Route>()))
                 .Returns(routeDto);
 
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
             Assert.NotEmpty(await _routeService.GetAllRoutesAsync().ToListAsync());
         }
 
         [Fact]
-        public async Task GetRouteByIdAsync_NotExist_ReturnsNull()
+        public async Task GetRouteByIdAsync_NotExist_ThrowsEntityNotFoundException()
         {
-            var mockRouteRepository = new Mock<IRouteRepository>();
-
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
-            _mockRepositoryManager
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
+            _mockRepoManager
                 .SetupGet(x => x.RouteRepository)
-                .Returns(mockRouteRepository.Object);
-            mockRouteRepository
-                .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRouteRepo
+                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new EntityNotFoundException());
 
-            Assert.Null(await _routeService.GetRouteByIdAsync(It.IsAny<ObjectId>()));
+            await Assert.ThrowsAsync<EntityNotFoundException>(() => _routeService.GetRouteByIdAsync(It.IsAny<ObjectId>()));
         }
 
         [Fact]
         public async Task GetRouteByIdAsync_WhenCalled_ReturnsCorrectRoute()
         {
-            var mockRouteRepository = new Mock<IRouteRepository>();
             var route = new Route();
+
             var routeDto = new RouteDTO();
 
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
-            _mockRepositoryManager
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
+            _mockRepoManager
                 .SetupGet(x => x.RouteRepository)
-                .Returns(mockRouteRepository.Object);
-            mockRouteRepository
-                .Setup(x => x.GetRouteByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRouteRepo
+                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(route);
+
             _mockRouteLogicCreator
-                .Setup(x => x.CreateAsync())
+                .Setup(x => x.CreateAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(_mockRouteLogic.Object);
+
             _mockMapper
                 .Setup(x => x.Map<RouteDTO>(It.IsAny<Route>()))
                 .Returns(routeDto);
@@ -124,12 +153,12 @@ namespace Airport.Services.Tests
         [Fact]
         public async Task UpdateRouteAsync_RouteIsCircular_ThrowsMissingRouteStationsException()
         {
-            var mockStationRepository = new Mock<IStationRepository>();
-            var route = new RouteForUpdateDTO
+            var route = new Route
             {
-                Directions = new List<DirectionDTO>
+                RouteId = ObjectId.GenerateNewId(),
+                Directions = new List<Direction>
                 {
-                    new DirectionDTO
+                    new Direction
                     {
                         From = new ObjectId("000000000000000000000001"),
                         To = new ObjectId("000000000000000000000002")
@@ -137,34 +166,135 @@ namespace Airport.Services.Tests
                 }
             };
 
-            _mockRepositoryManager
+            var routeForUpdate = new RouteForUpdateDTO
+            {
+                Directions = new List<DirectionDTO>
+                {
+                    new DirectionDTO
+                    {
+                        From = new ObjectId("000000000000000000000001"),
+                        To = new ObjectId("000000000000000000000002")
+                    },
+                    new DirectionDTO
+                    {
+                        From = new ObjectId("000000000000000000000002"),
+                        To = new ObjectId("000000000000000000000003")
+                    }
+                }
+            };
+
+            var updateRoute = new Route
+            {
+                RouteId = route.RouteId,
+                Directions = new List<Direction>
+                {
+                    new Direction
+                    {
+                        From = new ObjectId("000000000000000000000001"),
+                        To = new ObjectId("000000000000000000000002")
+                    },
+                    new Direction
+                    {
+                        From = new ObjectId("000000000000000000000002"),
+                        To = new ObjectId("000000000000000000000003")
+                    }
+                }
+            };
+
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
+            _mockRouteValidator
+                .Setup(x => x.ValidateRouteAsync(
+                    It.IsAny<List<DirectionDTO>>(),
+                    It.IsAny<Dictionary<ObjectId, int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new MissingRouteStationsException());
+
+            _mockRepoManager
+                .SetupGet(x => x.RouteRepository)
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRepoManager
                 .SetupGet(x => x.StationRepository)
-                .Returns(mockStationRepository.Object);
+                .Returns(_mockStationRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.SectionRepository)
+                .Returns(_mockSectionRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.SyncerRepository)
+                .Returns(_mockSyncerRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.TrafficLightRepository)
+                .Returns(_mockTrafficLightRepo.Object);
+
+            _mockMapper
+                .Setup(x => x.Map<Route>(routeForUpdate))
+                .Returns(updateRoute);
+
+            _mockMapper
+                .Setup(x => x.Map<List<Section>>(It.IsAny<HashSet<DirectionDTO>>()))
+                .Returns(new List<Section>());
+
+            _mockMongoClient
+                .Setup(x => x.StartSessionAsync(null, default))
+                .ReturnsAsync(_mockClientSession.Object);
+
+            _mockRouteRepo
+                .Setup(x => x.UpdateRouteAsync(It.IsAny<Route>(), It.IsAny<IClientSessionHandle>(), false, default))
+                .ReturnsAsync(Models.Enums.UpdateResult.Modified);
+
+            _mockSectionRepo
+                .Setup(x => x.DeleteByRouteIdAsync(It.IsAny<ObjectId>(), _mockClientSession.Object, default))
+                .ReturnsAsync(true);
+
+            _mockStationRepo
+                .SetupSequence(x => x.GetCommonIdsToCountsAsync(
+                    It.IsAny<IEnumerable<ObjectId>>(),
+                    It.IsAny<IEnumerable<ObjectId>>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Dictionary<ObjectId, int>
+                {
+                    { route.Directions[0].To, 1 },
+                    { route.Directions[0].From, 1 },
+                })
+                .ReturnsAsync(new Dictionary<ObjectId, int>
+                {
+                    { updateRoute.Directions[0].To, 1 },
+                    { updateRoute.Directions[0].From, 2 },
+                    { updateRoute.Directions[1].To, 1 },
+                });
 
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
             await Assert.ThrowsAsync<MissingRouteStationsException>(
                 () => _routeService.UpdateRouteAsync(
                     It.IsAny<ObjectId>(),
-                    route,
+                    routeForUpdate,
                     It.IsAny<CancellationToken>()));
         }
 
         [Fact]
         public async Task UpdateRouteAsync_RouteIsCircular_ThrowsInvalidRouteStructureException()
         {
-            var mockStationRepository = new Mock<IStationRepository>();
-            var stationIds = new List<ObjectId>
+            var route = new Route
             {
-                new ObjectId("000000000000000000000001"),
-                new ObjectId("000000000000000000000002"),
-                new ObjectId("000000000000000000000003")
+                RouteId = ObjectId.GenerateNewId()
             };
-            var route = new RouteForUpdateDTO
+
+            var routeForUpdate = new RouteForUpdateDTO
             {
                 Directions = new List<DirectionDTO>
                 {
@@ -186,35 +316,98 @@ namespace Airport.Services.Tests
                 }
             };
 
-            _mockRepositoryManager
-                .SetupGet(x => x.StationRepository)
-                .Returns(mockStationRepository.Object);
-            mockStationRepository
-                .Setup(x => x.GetExistingStationIdsAsync(
-                    It.IsAny<IEnumerable<ObjectId>>(),
+            var stationIds = new List<ObjectId>
+            {
+                new ObjectId("000000000000000000000001"),
+                new ObjectId("000000000000000000000002"),
+                new ObjectId("000000000000000000000003")
+            };
+
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
+            _mockRouteValidator
+                .Setup(x => x.ValidateRouteAsync(
+                    It.IsAny<List<DirectionDTO>>(),
+                    It.IsAny<Dictionary<ObjectId, int>>(),
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync(stationIds);
+                .ThrowsAsync(new InvalidRouteStructureException());
+
+            _mockRepoManager
+                .SetupGet(x => x.RouteRepository)
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.StationRepository)
+                .Returns(_mockStationRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.SectionRepository)
+                .Returns(_mockSectionRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.SyncerRepository)
+                .Returns(_mockSyncerRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.TrafficLightRepository)
+                .Returns(_mockTrafficLightRepo.Object);
+
+            _mockMapper
+                .Setup(x => x.Map<Route>(routeForUpdate))
+                .Returns(route);
+
+            _mockMongoClient
+                .Setup(x => x.StartSessionAsync(null, default))
+                .ReturnsAsync(_mockClientSession.Object);
+
+            _mockRouteRepo
+                .Setup(x => x.UpdateRouteAsync(It.IsAny<Route>(), It.IsAny<IClientSessionHandle>(), false, default))
+                .ReturnsAsync(Models.Enums.UpdateResult.Modified);
+
+            _mockSectionRepo
+                .Setup(x => x.DeleteByRouteIdAsync(It.IsAny<ObjectId>(), _mockClientSession.Object, default))
+                .ReturnsAsync(true);
+
+            _mockStationRepo
+                .Setup(x => x.GetCommonIdsToCountsAsync(
+                    It.IsAny<IEnumerable<ObjectId>>(),
+                    It.IsAny<IEnumerable<ObjectId>>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Dictionary<ObjectId, int>());
 
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
             await Assert.ThrowsAsync<InvalidRouteStructureException>(
                 () => _routeService.UpdateRouteAsync(
-                    It.IsAny<ObjectId>(), 
-                    route, 
+                    It.IsAny<ObjectId>(),
+                    routeForUpdate,
                     It.IsAny<CancellationToken>()));
         }
 
         [Fact]
         public async Task UpdateRouteAsync_RouteIsNull_ThrowsArgumentNullException()
         {
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
             await Assert.ThrowsAsync<ArgumentNullException>(
@@ -224,42 +417,82 @@ namespace Airport.Services.Tests
         [Fact]
         public async Task DeleteRouteAsync_WhenCalled_ReturnsTrue()
         {
-            var mockRouteRepository = new Mock<IRouteRepository>();
+            var route = new Route();
 
-            _mockRepositoryManager
+            _mockMongoClient
+                .Setup(x => x.StartSessionAsync(null, default))
+                .ReturnsAsync(_mockClientSession.Object);
+
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
+
+            _mockRepoManager
                 .SetupGet(x => x.RouteRepository)
-                .Returns(mockRouteRepository.Object);
-            mockRouteRepository
-                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.StationRepository)
+                .Returns(_mockStationRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.SectionRepository)
+                .Returns(_mockSectionRepo.Object);
+
+            _mockRepoManager
+                .SetupGet(x => x.SyncerRepository)
+                .Returns(_mockSyncerRepo.Object);
+
+            _mockRouteRepo
+                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(route);
+
+            _mockRouteRepo
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), _mockClientSession.Object, default))
                 .ReturnsAsync(true);
+
+            _mockSectionRepo
+                .Setup(x => x.DeleteByRouteIdAsync(route.RouteId, _mockClientSession.Object, default))
+                .ReturnsAsync(true);
+
+            _mockStationRepo
+                .Setup(x => x.GetCommonIdsToCountsAsync(It.IsAny<IEnumerable<ObjectId>>(), null, 1, default))
+                .ReturnsAsync(new Dictionary<ObjectId, int>());
 
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
-            Assert.True(await _routeService.DeleteRouteAsync(
-                It.IsAny<ObjectId>(),
-                It.IsAny<CancellationToken>()));
+            Assert.True(await _routeService.DeleteRouteAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()));
         }
 
         [Fact]
         public async Task DeleteRouteAsync_RouteNotExists_ReturnsFalse()
         {
-            var mockRouteRepository = new Mock<IRouteRepository>();
+            _mockAirportStateProvider
+                .SetupGet(x => x.HasStarted)
+                .Returns(true);
 
-            _mockRepositoryManager
+            _mockRepoManager
                 .SetupGet(x => x.RouteRepository)
-                .Returns(mockRouteRepository.Object);
-            mockRouteRepository
-                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Returns(_mockRouteRepo.Object);
+
+            _mockRouteRepo
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), null, default))
                 .ReturnsAsync(false);
 
             _routeService = new RouteService(
                 _mockAirportStateProvider.Object,
-                _mockRepositoryManager.Object,
+                _mockRepoManager.Object,
+                _mockDomainEvents.Object,
                 _mockMapper.Object,
+                _mockMongoClient.Object,
+                _mockRouteValidator.Object,
                 _mockLogger);
 
             Assert.False(await _routeService.DeleteRouteAsync(

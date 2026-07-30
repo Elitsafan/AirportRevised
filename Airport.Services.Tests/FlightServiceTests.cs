@@ -1,5 +1,6 @@
 ﻿using Airport.Domain.Exceptions;
 using Airport.Models.DTOs;
+using Airport.Services.Services;
 
 namespace Airport.Services.Tests
 {
@@ -9,8 +10,8 @@ namespace Airport.Services.Tests
         private readonly Mock<IAirportStateProvider> _mockAirportStateProvider;
         private readonly Mock<IFlightLogicFactory> _mockFlightLogicFactory;
         private readonly Mock<IRepositoryManager> _mockRepositoryManager;
-        private readonly Mock<IAirportHubService> _mockAirportHubService;
         private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<IFlightQueue> _mockFlightQueue;
         private readonly Mock<IFlightLogicCreator> _mockFlightLogicCreator;
         private readonly Mock<IFlightLogic> _mockFlightLogic;
         private readonly ILogger<FlightService> _mockLogger;
@@ -22,8 +23,8 @@ namespace Airport.Services.Tests
             _mockAirportStateProvider = new Mock<IAirportStateProvider>();
             _mockFlightLogicFactory = new Mock<IFlightLogicFactory>();
             _mockRepositoryManager = new Mock<IRepositoryManager>();
-            _mockAirportHubService = new Mock<IAirportHubService>();
             _mockMapper = new Mock<IMapper>();
+            _mockFlightQueue = new Mock<IFlightQueue>();
             _mockFlightLogicCreator = new Mock<IFlightLogicCreator>();
             _mockFlightLogic = new Mock<IFlightLogic>();
             _mockLogger = Mock.Of<ILogger<FlightService>>();
@@ -37,45 +38,45 @@ namespace Airport.Services.Tests
             _mockAirportStateProvider
                 .SetupGet(x => x.HasStarted)
                 .Returns(true);
+
             _flightService = new FlightService(
                 _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
                 _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
                 _mockMapper.Object,
+                _mockFlightQueue.Object,
                 _mockLogger);
 
-            // Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(
-                () => _flightService.AddFlightAsync(It.IsAny<ObjectId>(), null!));
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _flightService.AddFlightAsync(null!));
         }
 
         [Fact]
-        public async Task GetFlightByIdAsync_NotExist_ReturnsNull()
+        public async Task GetByIdAsync_NotExist_ThrowsEntityNotFoundException()
         {
             // Assert
             _mockAirportStateProvider
                 .SetupGet(x => x.HasStarted)
                 .Returns(true);
-            var mockFlightRepository = new Mock<IFlightRepository>();
 
-            _flightService = new FlightService(
-                _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
-                _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
-                _mockMapper.Object,
-                _mockLogger);
+            var mockFlightRepository = new Mock<IFlightRepository>();
 
             _mockRepositoryManager
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
+
+            _flightService = new FlightService(
+                _mockAirportStateProvider.Object,
+                _mockRepositoryManager.Object,
+                _mockMapper.Object,
+                _mockFlightQueue.Object,
+                _mockLogger);
+
             mockFlightRepository
-                .Setup(x => x.GetFlightByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new EntityNotFoundException());
 
             // Assert
-            Assert.Null(await _flightService.GetFlightByIdAsync(It.IsAny<ObjectId>()));
+            await Assert.ThrowsAsync<EntityNotFoundException>(() => _flightService.GetFlightByIdAsync(It.IsAny<ObjectId>()));
         }
 
         [Fact]
@@ -91,26 +92,25 @@ namespace Airport.Services.Tests
 
             _flightService = new FlightService(
                 _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
                 _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
                 _mockMapper.Object,
+                _mockFlightQueue.Object,
                 _mockLogger);
 
             _mockRepositoryManager
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
             mockFlightRepository
-                .Setup(x => x.GetFlightByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.GetByIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(departure);
             _mockFlightLogicCreator
-                .Setup(x => x.CreateAsync())
-                .ReturnsAsync(_mockFlightLogic.Object);
+                .Setup(x => x.Create())
+                .Returns(_mockFlightLogic.Object);
             _mockMapper
                 .Setup(x => x.Map<FlightDTO>(It.IsAny<Flight>()))
                 .Returns(departureDto);
 
-            // Assert
+            // Act & Assert
             Assert.NotNull(await _flightService.GetFlightByIdAsync(It.IsAny<ObjectId>()));
         }
 
@@ -123,21 +123,20 @@ namespace Airport.Services.Tests
                 .Returns(true);
             _flightService = new FlightService(
                 _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
                 _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
                 _mockMapper.Object,
+                _mockFlightQueue.Object,
                 _mockLogger);
 
-            // Assert
+            // Act & Assert
             await Assert.ThrowsAsync<ArgumentNullException>(
-                () => _flightService.AddFlightAsync(It.IsAny<ObjectId>(), null!));
+                () => _flightService.AddFlightAsync(null!));
         }
 
         [Fact]
         public async Task AddFlightAsync_WhenCalled_ShouldCallMapperMapOnce()
         {
-            // Assert
+            // Arrange
             _mockAirportStateProvider
                 .SetupGet(x => x.HasStarted)
                 .Returns(true);
@@ -149,8 +148,8 @@ namespace Airport.Services.Tests
                 .Setup(x => x.GetCreatorAsync(departure, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(_mockFlightLogicCreator.Object);
             _mockFlightLogicCreator
-                .Setup(x => x.CreateAsync())
-                .ReturnsAsync(_mockFlightLogic.Object);
+                .Setup(x => x.Create())
+                .Returns(_mockFlightLogic.Object);
             _mockMapper
                 .Setup(x => x.Map<Flight>(flightForCreationDto))
                 .Returns(departure)
@@ -158,20 +157,16 @@ namespace Airport.Services.Tests
             _mockRepositoryManager
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
-            mockFlightRepository
-                .Setup(x => x.UpdateFlightAsync(It.IsAny<Flight>(), true, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(UpdateResult.Modified);
 
             _flightService = new FlightService(
                 _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
                 _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
                 _mockMapper.Object,
+                _mockFlightQueue.Object,
                 _mockLogger);
 
             // Act
-            await _flightService.AddFlightAsync(It.IsAny<ObjectId>(), flightForCreationDto);
+            await _flightService.AddFlightAsync(flightForCreationDto);
 
             // Assert
             _mockMapper.Verify();
@@ -189,45 +184,46 @@ namespace Airport.Services.Tests
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
             mockFlightRepository
-                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), null, default))
                 .ReturnsAsync(true);
 
             _flightService = new FlightService(
                 _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
                 _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
                 _mockMapper.Object,
+                _mockFlightQueue.Object,
                 _mockLogger);
 
-            // Assert
+            // Act & Assert
             Assert.True(await _flightService.DeleteFlightAsync(ObjectId.Empty));
         }
 
         [Fact]
         public async Task DeleteFlightAsync_FlightNotExists_ReturnsFalse()
         {
-            // Assert
+            // Arrange
             _mockAirportStateProvider
                 .SetupGet(x => x.HasStarted)
                 .Returns(true);
+
             var mockFlightRepository = new Mock<IFlightRepository>();
+
             _mockRepositoryManager
                 .SetupGet(x => x.FlightRepository)
                 .Returns(mockFlightRepository.Object);
+
             mockFlightRepository
-                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.DeleteOneAsync(It.IsAny<ObjectId>(), null, default))
                 .ReturnsAsync(false);
 
             _flightService = new FlightService(
                 _mockAirportStateProvider.Object,
-                _mockFlightLogicFactory.Object,
                 _mockRepositoryManager.Object,
-                _mockAirportHubService.Object,
                 _mockMapper.Object,
+                _mockFlightQueue.Object,
                 _mockLogger);
 
-            // Assert
+            // Act & Assert
             Assert.False(await _flightService.DeleteFlightAsync(ObjectId.Empty));
         }
     }
