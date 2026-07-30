@@ -64,7 +64,8 @@ namespace Airport.Simulator
             flightLauncherService
                 .StartStandbyModeAsync()
                 .Forget();
-            _logger.LogInformation($"Start response received with status: {startResponse.StatusCode}");
+            _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
+            _logger.LogInformation("Running on {Environment} environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
 #if TEST
             await Console.Out.WriteLineAsync(startResponse.StatusCode.ToString());
             flightLauncherService
@@ -93,8 +94,7 @@ namespace Airport.Simulator
         // Exception handler
         private static void GlobalUnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs e)
         {
-            Console.WriteLine(e.ExceptionObject.ToString());
-            _logger.LogError(e.ExceptionObject.ToString());
+            _logger.LogError("{Exception}", e.ExceptionObject.ToString());
             Console.WriteLine("Press Enter to Exit");
             Console.ReadLine();
             Environment.Exit(0);

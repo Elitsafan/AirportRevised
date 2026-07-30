@@ -49,7 +49,7 @@ namespace Airport.Simulator.Services
             Func<FlightForCreationDTO, Task<HttpResponseMessage>> task = async flight =>
             {
                 ct.ThrowIfCancellationRequested();
-                _logger.LogInformation($"Launching {flight.FlightType}...");
+                _logger.LogInformation("Launching {FlightType}...", flight.FlightType);
                 return flight.FlightType == FlightType.Landing
                     ? await _client.PostAsJsonAsync(
                         _flightsConfig.Landing,
@@ -81,7 +81,7 @@ namespace Airport.Simulator.Services
             var flights = _flightGenerator.GenerateFlights(numOfFlights)
                 .Select(f => Task.Run(async () => await LaunchOneAsync(f)))
                 .ToArray();
-            _logger.LogInformation($"Launching many flights...");
+            _logger.LogInformation("Launching many flights...");
             foreach (var flight in flights)
                 yield return await flight;
             yield break;
@@ -94,7 +94,7 @@ namespace Airport.Simulator.Services
             FlightForCreationDTO flight,
             CancellationToken ct = default)
         {
-            _logger.LogInformation($"Launching {flight.FlightType}...");
+            _logger.LogInformation("Launching {FlightType}...", flight.FlightType);
             return flight.FlightType == FlightType.Landing
                 ? await _client.PostAsJsonAsync(
                     _flightsConfig.Landing,
@@ -114,9 +114,8 @@ namespace Airport.Simulator.Services
                 var flight = _flightGenerator.GenerateFlight(flightType ?? (_random.Next() % 2 == 0
                     ? FlightType.Landing
                     : FlightType.Departure));
-                /*var result = */
-                LaunchOneAsync(flight, ct).Forget();
-                //_logger.LogInformation(await result.Content.ReadAsStringAsync());
+                /*var result = */LaunchOneAsync(flight, ct).Forget();
+                //_logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
             }
         }
 
@@ -125,7 +124,7 @@ namespace Airport.Simulator.Services
             var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.StandbyTimeout);
             while (await periodicTimer.WaitForNextTickAsync(ct))
                 await foreach (var result in LaunchManyAsync(_flightTimeoutConfiguration.AutoFlightCount, ct))
-                    _logger.LogInformation(await result.Content.ReadAsStringAsync());
+                    _logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
         }
 
         public async ValueTask DisposeAsync()

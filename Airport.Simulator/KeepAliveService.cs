@@ -34,16 +34,19 @@ namespace Airport.Simulator
         public override void Dispose()
         {
             _client.Dispose();
+
             base.Dispose();
         }
 
         protected override async Task ExecuteAsync(CancellationToken ct)
         {
             var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.KeepAliveInterval);
+
             while (await periodicTimer.WaitForNextTickAsync(ct))
             {
                 var result = await StartApiAsync(ct);
-                _logger.LogInformation(await result.Content.ReadAsStringAsync(ct));
+
+                _logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
             }
         }
 
