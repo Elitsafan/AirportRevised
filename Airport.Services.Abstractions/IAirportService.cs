@@ -2,7 +2,7 @@
 
 namespace Airport.Services.Abstractions
 {
-    public interface IAirportService : IAsyncDisposable
+    public interface IAirportService
     {
         Task<string> StartAsync(CancellationToken ct = default);
         Task<string> RestartAsync(CancellationToken ct = default);

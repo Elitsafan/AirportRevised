@@ -3,7 +3,7 @@ using MongoDB.Bson;
 
 namespace Airport.Services.Abstractions
 {
-    public interface IFlightService : IAsyncDisposable
+    public interface IFlightService
     {
         IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(int? minutesPassed, CancellationToken ct = default);
         Task<FlightDTO> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default);
