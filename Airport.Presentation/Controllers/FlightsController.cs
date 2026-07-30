@@ -41,7 +41,7 @@ namespace Airport.Presentation.Controllers
             CancellationToken ct = default)
         {
             var flightDto = await _flightSvc.AddFlightAsync(flightToCreate, ct);
-            return CreatedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
+            return AcceptedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
         }
 
         // POST: api/Flights/AddDeparture
@@ -51,7 +51,7 @@ namespace Airport.Presentation.Controllers
             CancellationToken ct = default)
         {
             var flightDto = await _flightSvc.AddFlightAsync(flightToCreate, ct);
-            return CreatedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
+            return AcceptedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
         }
 
         // DELETE: api/Flights/{id}
