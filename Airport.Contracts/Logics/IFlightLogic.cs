@@ -1,10 +1,8 @@
-﻿using Airport.Models.Entities;
-using Airport.Models.Enums;
-using MongoDB.Bson;
+﻿using Airport.Models.Enums;
 
 namespace Airport.Contracts.Logics
 {
-    public interface IFlightLogic : IAsyncDisposable
+    public interface IFlightLogic : IDisposable
     {
         ObjectId FlightId { get; }
         /// <summary>

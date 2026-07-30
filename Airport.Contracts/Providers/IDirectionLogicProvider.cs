@@ -1,7 +1,4 @@
-﻿using Airport.Contracts.Logics;
-using MongoDB.Bson;
-
-namespace Airport.Contracts.Providers
+﻿namespace Airport.Contracts.Providers
 {
     public interface IDirectionLogicProvider : IDisposable
     {

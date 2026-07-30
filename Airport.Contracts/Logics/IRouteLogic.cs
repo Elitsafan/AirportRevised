@@ -1,9 +1,8 @@
 ﻿using Microsoft.VisualStudio.Threading;
-using MongoDB.Bson;
 
 namespace Airport.Contracts.Logics
 {
-    public interface IRouteLogic
+    public interface IRouteLogic : IDisposable
     {
         ObjectId RouteId { get; }
         string RouteName { get; }

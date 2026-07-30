@@ -2,5 +2,6 @@
 {
     public interface IRouteCreatedEventArgs : IRouteOperationEventArgs
     {
+        List<ObjectId>? StandaloneTLIds { get; }
     }
 }

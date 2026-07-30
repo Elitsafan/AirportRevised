@@ -1,12 +1,13 @@
 ﻿using Microsoft.VisualStudio.Threading;
-using MongoDB.Bson;
 
-namespace Airport.Contracts.Helpers
+namespace Airport.Contracts.Logics
 {
-    public interface ISectionSynchronizerDetails
+    public interface ISyncerLogic : IDisposable
     {
+        ObjectId SyncerId { get; }
+        int Capacity { get; }
+
         Task<AsyncSemaphore.Releaser> EnterSectionAsync(ObjectId routeId, CancellationToken ct = default);
-        //Task<IReleaserTuple> EnterSectionAsync(ObjectId routeId, CancellationToken ct = default);
         Task ExitSectionAsync(ObjectId routeId);
         /// <summary>
         /// Returns an awaitable that may be used to asynchronously acquire the next signal.
@@ -16,5 +17,6 @@ namespace Airport.Contracts.Helpers
         /// <returns></returns>
         Task GetSourceRightOfWayAsync(ObjectId routeId, CancellationToken ct = default);
         void RollBackSourceEntrance(ObjectId routeId);
+        Task UpdateAsync(int capacity, IEnumerable<SectionCriticalOccupation> occupations, CancellationToken ct = default);
     }
 }

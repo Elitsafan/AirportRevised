@@ -1,7 +1,4 @@
-﻿using Airport.Models.Entities;
-using MongoDB.Bson;
-
-namespace Airport.Contracts.EventArgs.FlightEventArgs
+﻿namespace Airport.Contracts.EventArgs.FlightEventArgs
 {
     public interface IFlightRunStartedEventArgs
     {

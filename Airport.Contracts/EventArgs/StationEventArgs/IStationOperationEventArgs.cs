@@ -1,6 +1,4 @@
-﻿using MongoDB.Bson;
-
-namespace Airport.Contracts.EventArgs.StationEventArgs
+﻿namespace Airport.Contracts.EventArgs.StationEventArgs
 {
     public interface IStationOperationEventArgs
     {

@@ -1,6 +1,4 @@
-﻿using MongoDB.Bson;
-
-namespace Airport.Contracts.Helpers
+﻿namespace Airport.Contracts.Helpers
 {
     public interface IStationChangedData
     {
