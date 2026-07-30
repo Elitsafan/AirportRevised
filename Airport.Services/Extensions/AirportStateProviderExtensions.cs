@@ -1,5 +1,4 @@
-﻿using Airport.Contracts.Providers;
-using Airport.Domain.Exceptions;
+﻿using Airport.Domain.Exceptions;
 
 namespace Airport.Services.Extensions
 {

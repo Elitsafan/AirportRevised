@@ -1,14 +1,8 @@
-﻿using Airport.Contracts.Helpers;
-using Airport.Contracts.Providers;
-using Airport.Domain.Helpers;
-using Airport.Domain.Repositories;
+﻿using Airport.Domain.Helpers;
 using Airport.Models;
-using Airport.Models.DTOs;
 using Airport.Models.Enums;
 using Airport.Services.Abstractions;
 using Airport.Services.Extensions;
-using AutoMapper;
-using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace Airport.Services.Services
@@ -18,20 +12,20 @@ namespace Airport.Services.Services
         #region Fields
         private readonly IMapper _mapper;
         private readonly ILogger<AirportService> _logger;
-        private readonly IRepositoryManager _repositoryManager;
+        private readonly IRepositoryManager _repoManager;
         private readonly IDomainEvents _domainEvents;
         private readonly IAirportStateProvider _airportStateProvider;
         #endregion
 
         public AirportService(
             IAirportStateProvider airportStateProvider,
-            IRepositoryManager repositoryManager,
+            IRepositoryManager repoManager,
             IDomainEvents domainEvents,
             IMapper mapper,
             ILogger<AirportService> logger)
         {
             _airportStateProvider = airportStateProvider;
-            _repositoryManager = repositoryManager;
+            _repoManager = repoManager;
             _domainEvents = domainEvents;
             _mapper = mapper;
             _logger = logger;
@@ -47,8 +41,9 @@ namespace Airport.Services.Services
             if (_airportStateProvider.HasStarted)
                 return "Airport already started.";
 
-            _logger.LogInformation("Airport started.");
             _airportStateProvider.HasStarted = true;
+
+            _logger.LogInformation("Airport started.");
 
             return "Airport Started.";
         }
@@ -68,10 +63,11 @@ namespace Airport.Services.Services
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            List<StationDTO> stations = (await _repositoryManager.StationRepository.GetAllAsync(ct))
+            List<StationDTO> stations = (await _repoManager.StationRepository.GetAllAsync(ct))
                 .Select(_mapper.Map<StationDTO>)
                 .ToList();
-            List<RouteDTO> routes = (await _repositoryManager.RouteRepository.GetAllAsync(ct))
+
+            List<RouteDTO> routes = (await _repoManager.RouteRepository.GetAllAsync(ct))
                 .Select(_mapper.Map<RouteDTO>)
                 .ToList();
 
@@ -90,7 +86,9 @@ namespace Airport.Services.Services
 
             if (parameters is null)
                 throw new ArgumentNullException(nameof(parameters));
+
             var summary = await GetPagedSummaryAsync(parameters, ct);
+
             return new SummaryWithMetadata
             {
                 Summary = summary,
@@ -99,20 +97,17 @@ namespace Airport.Services.Services
             };
         }
 
-        public async ValueTask DisposeAsync() => await _repositoryManager.DisposeAsync();
-
         private async Task<IPagedList<FlightSummary>> GetPagedSummaryAsync(
             GetSummaryParameters parameters,
-            CancellationToken ct = default) => await _repositoryManager.FlightRepository
-            .GetPagedFlightsAsync(
-                f => new FlightSummary
-                {
-                    Stations = f.OccupationDetails,
-                    FlightId = f.FlightId,
-                    FlightType = f.ToFlightType()
-                },
-                parameters.PageNumber,
-                parameters.PageSize,
-                ct);
+            CancellationToken ct = default) => await _repoManager.FlightRepository.GetPagedFlightsAsync(
+            f => new FlightSummary
+            {
+                Stations = f.OccupationDetails,
+                FlightId = f.FlightId,
+                FlightType = f.ToFlightType()
+            },
+            parameters.PageNumber,
+            parameters.PageSize,
+            ct);
     }
 }

@@ -1,11 +1,7 @@
 ﻿using Airport.Contracts.EventArgs.FlightEventArgs;
 using Airport.Contracts.EventArgs.StationEventArgs;
-using Airport.Contracts.Helpers;
-using Airport.Contracts.Providers;
 using Airport.SignalR;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
@@ -16,13 +12,13 @@ namespace Airport.Services.Services
         #region Fields
         private readonly IHubContext<AirportHub> _hub;
         private readonly IDomainEvents _domainEvents;
-        private readonly IStationLogicProvider _stationLogicProvider;
+        private readonly IStationLogicProvider _stationProvider;
         private readonly ILogger<AirportHubService> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
         #endregion
 
         public AirportHubService(
-            IStationLogicProvider stationLogicProvider,
+            IStationLogicProvider stationProvider,
             IDomainEvents domainEvents,
             ILogger<AirportHubService> logger,
             IHubContext<AirportHub> hub)
@@ -36,7 +32,7 @@ namespace Airport.Services.Services
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
             };
-            _stationLogicProvider = stationLogicProvider;
+            _stationProvider = stationProvider;
         }
 
         public async Task StartAsync(CancellationToken ct)
@@ -44,6 +40,7 @@ namespace Airport.Services.Services
             _domainEvents.FlightRunDone += OnFlightRunDoneAsync;
             _domainEvents.FlightRunStarted += OnFlightRunStartedAsync;
             _domainEvents.StationCleared += OnStationClearedAsync;
+
             await Task.CompletedTask;
         }
 
@@ -52,6 +49,7 @@ namespace Airport.Services.Services
             _domainEvents.FlightRunDone -= OnFlightRunDoneAsync;
             _domainEvents.FlightRunStarted -= OnFlightRunStartedAsync;
             _domainEvents.StationCleared -= OnStationClearedAsync;
+
             await Task.CompletedTask;
         }
 
@@ -59,7 +57,7 @@ namespace Airport.Services.Services
             object? sender,
             IFlightRunStartedEventArgs e) => await OnStationChangedAsync(
                 nameof(IDomainEvents.FlightRunStarted),
-                _stationLogicProvider.ProcessFlightStarted(e).ToList());
+                (await _stationProvider.ProcessFlightStartedAsync(e)).ToList());
 
         protected virtual async Task OnFlightRunDoneAsync(object? sender, IFlightRunDoneEventArgs e) =>
             await _hub.Clients.All.SendCoreAsync(
@@ -70,7 +68,7 @@ namespace Airport.Services.Services
             object? sender,
             IStationClearedEventArgs e) => await OnStationChangedAsync(
                 nameof(IDomainEvents.StationCleared),
-                _stationLogicProvider.ProcessStationCleared(e).ToList());
+                (await _stationProvider.ProcessStationClearedAsync(e)).ToList());
 
         private async Task OnStationChangedAsync(string name, IEnumerable<IStationChangedData> data) =>
             await _hub.Clients.All.SendCoreAsync(

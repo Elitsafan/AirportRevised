@@ -1,8 +1,5 @@
 ﻿using Airport.Contracts.Logics;
-using Airport.Models.DTOs;
-using Airport.Models.Entities;
 using Airport.Models.Enums;
-using AutoMapper;
 
 namespace Airport.Services.MappingConfigurations
 {

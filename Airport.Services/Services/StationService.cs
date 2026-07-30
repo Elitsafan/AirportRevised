@@ -1,16 +1,8 @@
-﻿using Airport.Contracts.Helpers;
-using Airport.Contracts.Providers;
-using Airport.Domain.EventArgs.StationEventArgs;
+﻿using Airport.Domain.EventArgs.StationEventArgs;
 using Airport.Domain.Exceptions;
-using Airport.Domain.Repositories;
-using Airport.Models.DTOs;
-using Airport.Models.Entities;
 using Airport.Models.Enums;
 using Airport.Services.Abstractions;
 using Airport.Services.Extensions;
-using AutoMapper;
-using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
 using System.Runtime.CompilerServices;
 
 namespace Airport.Services.Services
@@ -60,17 +52,22 @@ namespace Airport.Services.Services
             return _mapper.Map<StationDTO>(station);
         }
 
-        public async Task<StationDTO> AddStationAsync(StationForCreationDTO stationToCreate, CancellationToken ct = default)
+        public async Task<StationDTO> AddStationAsync(
+            StationForCreationDTO stationToCreate,
+            CancellationToken ct = default)
         {
             _airportStateProvider.ThrowIfNotStarted();
 
             if (stationToCreate is null)
                 throw new ArgumentNullException(nameof(stationToCreate));
-            var station = await _repositoryManager.StationRepository
-                .AddOneAsync(_mapper.Map<Station>(stationToCreate), ct);
 
-            await _domainEvents.RaiseStationCreatedAsync(
-                new StationCreatedEventArgs { StationId = station.StationId });
+            var station = await _repositoryManager.StationRepository
+                .AddOneAsync(_mapper.Map<Station>(stationToCreate), ct: ct);
+
+            await _domainEvents.RaiseStationCreatedAsync(new StationCreatedEventArgs
+            {
+                StationId = station.StationId
+            });
 
             return _mapper.Map<StationDTO>(station);
         }
@@ -84,12 +81,18 @@ namespace Airport.Services.Services
 
             if (stationToUpdate is null)
                 throw new ArgumentNullException(nameof(stationToUpdate));
+
             var modifiedStation = _mapper.Map<Station>(stationToUpdate);
             modifiedStation.StationId = id;
+
             var updateResult = await _repositoryManager.StationRepository
                 .UpdateStationAsync(modifiedStation, ct: ct);
-            await _domainEvents.RaiseStationUpdatedAsync(
-                new StationUpdatedEventArgs { StationId = id });
+
+            await _domainEvents.RaiseStationUpdatedAsync(new StationUpdatedEventArgs
+            {
+                StationId = id
+            });
+
             return updateResult;
         }
 
@@ -105,18 +108,22 @@ namespace Airport.Services.Services
                     r.RouteName
                 })
                 .ToList();
+
             if (routesContainIds.Count > 0)
                 throw new InvalidDeletionException(
                     $"Station can't be removed for it exists on routes:\n" +
                     $"{string.Join($",{Environment.NewLine}", routesContainIds)}");
 
-            var result = await _repositoryManager.StationRepository
-                .DeleteOneAsync(stationId, ct);
+            var result = await _repositoryManager.StationRepository.DeleteOneAsync(stationId, ct: ct);
+
             if (!result)
-                _logger.LogInformation($"Route with id: {stationId} not found");
+                _logger.LogInformation("Route with id: {id} not found.", stationId);
             else
-                await _domainEvents.RaiseStationDeletedAsync(
-                    new StationDeletedEventArgs { StationId = stationId });
+                await _domainEvents.RaiseStationDeletedAsync(new StationDeletedEventArgs
+                {
+                    StationId = stationId
+                });
+
             return result;
         }
     }
