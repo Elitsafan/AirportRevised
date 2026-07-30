@@ -4,17 +4,10 @@
     {
         #region Fields
         private readonly ILogger<RouteLogic> _mockLogger;
-        private Mock<IDirectionLogicProvider> _mockDirectionLogicProvider;
-        private Mock<IStationLogicProvider> _mockStationLogicProvider;
-        private IRouteLogic _routeLogic = null!;
+        private IRouteLogic _sut = null!;
         #endregion
 
-        public RouteLogicTests()
-        {
-            _mockLogger = Mock.Of<ILogger<RouteLogic>>();
-            _mockDirectionLogicProvider = new Mock<IDirectionLogicProvider>();
-            _mockStationLogicProvider = new Mock<IStationLogicProvider>();
-        }
+        public RouteLogicTests() => _mockLogger = Mock.Of<ILogger<RouteLogic>>();
 
         [Fact]
         public async Task EnterLegAsync_WhenCalled_ReturnsEnteredStation()
@@ -28,21 +21,21 @@
                     It.IsAny<CancellationTokenSource>()))
                 .ReturnsAsync(mockStations[0].Object);
 
-            _routeLogic = new RouteLogic(
+            _sut = new RouteLogic(
                 new Route(),
                 _mockLogger,
-                Enumerable.Empty<IRouteSectionDetails>(),
+                Enumerable.Empty<ISectionLogic>(),
                 mockStations.Select(ms => ms.Object),
                 Enumerable.Empty<IDirectionLogic>(),
+                Enumerable.Empty<IStationLogic>(),
                 Enumerable.Empty<IStationLogic>());
 
             // Act
-            var enteredStation = await _routeLogic.EnterLegAsync(
-                mockFlightLogic.Object,
-                _routeLogic.GetNextLeg());
+            var enteredStation = await _sut.EnterLegAsync(mockFlightLogic.Object, _sut.GetNextLeg());
 
             // Assert
             Assert.NotNull(enteredStation);
+
             mockStations[0].Verify(
                 x => x.SetFlightAsync(
                     mockFlightLogic.Object,
@@ -67,19 +60,21 @@
                 .SetupGet(x => x.StationId)
                 .Returns(ObjectId.GenerateNewId());
 
-            _routeLogic = new RouteLogic(
+            _sut = new RouteLogic(
                 new Route(),
                 _mockLogger,
-                Enumerable.Empty<IRouteSectionDetails>(),
+                Enumerable.Empty<ISectionLogic>(),
                 mockStations.Select(ms => ms.Object),
                 Enumerable.Empty<IDirectionLogic>(),
+                Enumerable.Empty<IStationLogic>(),
                 Enumerable.Empty<IStationLogic>());
+
             var mockLogger = Mock.Of<ILogger<IStationLogic>>();
 
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() => _routeLogic.EnterLegAsync(
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.EnterLegAsync(
                 mockFlightLogic.Object,
-                _routeLogic
+                _sut
                     .GetNextLeg()
                     .Append(new Mock<IStationLogic>().Object)));
         }
@@ -100,16 +95,17 @@
                 .SetupGet(x => x.StationId)
                 .Returns(ObjectId.GenerateNewId());
 
-            _routeLogic = new RouteLogic(
+            _sut = new RouteLogic(
                 new Route(),
                 _mockLogger,
-                Enumerable.Empty<IRouteSectionDetails>(),
+                Enumerable.Empty<ISectionLogic>(),
                 mockStations.Select(ms => ms.Object),
                 Enumerable.Empty<IDirectionLogic>(),
+                Enumerable.Empty<IStationLogic>(),
                 Enumerable.Empty<IStationLogic>());
 
             // Act
-            var nextLeg = _routeLogic.GetNextLeg();
+            var nextLeg = _sut.GetNextLeg();
 
             // Assert
             Assert.Contains(nextLeg, item => item.StationId == mockStations[0].Object.StationId);
@@ -154,16 +150,17 @@
                 .SetupGet(x => x.To)
                 .Returns(ObjectId.Parse("000000000000000000000002"));
 
-            _routeLogic = new RouteLogic(
-               route,
+            _sut = new RouteLogic(
+                new Route(),
                 _mockLogger,
-                Enumerable.Empty<IRouteSectionDetails>(),
+                Enumerable.Empty<ISectionLogic>(),
                 mockStations.Select(ms => ms.Object),
                 mockDirections.Select(md => md.Object),
+                Enumerable.Empty<IStationLogic>(),
                 Enumerable.Empty<IStationLogic>());
 
             // Act
-            var nextLeg = _routeLogic.GetNextLeg(mockStationLogic1.Object);
+            var nextLeg = _sut.GetNextLeg(mockStationLogic1.Object);
 
             // Assert
             Assert.Contains(nextLeg, item => item.StationId == mockStations[1].Object.StationId);

@@ -20,41 +20,29 @@ namespace Airport.Domain.Tests.Providers
                     }
                 }
             };
-            var mockServiceProvider = new Mock<IServiceProvider>();
-            var mockScopeFactory = new Mock<IServiceScopeFactory>();
-            var mockScope = new Mock<IServiceScope>();
             var mockDirectionLogicFactory = new Mock<IDirectionLogicFactory>();
             var mockDirectionLogicCreator = new Mock<IDirectionLogicCreator>();
             var mockDirectionLogic = new Mock<IDirectionLogic>();
             var memoryCache = new MemoryCache(new MemoryCacheOptions());
             var mockDomainEvents = new Mock<IDomainEvents>();
             var mockRepositoryManager = new Mock<IRepositoryManager>();
-            var mockRouteRepository = new Mock<IRouteRepository>();
+            var mockRouteRepo = new Mock<IRouteRepository>();
             var mockLogger = Mock.Of<ILogger<DirectionLogicProvider>>();
 
-            mockRouteRepository
-                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Route> { route });
-            mockRouteRepository
-                .Setup(x => x.GetRouteByIdAsync(
+            mockRouteRepo
+                .Setup(x => x.GetByIdAsync(
                     It.IsAny<ObjectId>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(route);
+            mockRouteRepo
+                .Setup(x => x.GetAllDirectionsAsync(default))
+                .ReturnsAsync(new Dictionary<ObjectId, List<Direction>>
+                {
+                    { route.RouteId, route.Directions }
+                });
             mockRepositoryManager
                 .SetupGet(x => x.RouteRepository)
-                .Returns(mockRouteRepository.Object);
-            mockScope
-                .Setup(x => x.ServiceProvider)
-                .Returns(mockServiceProvider.Object);
-            mockServiceProvider
-                .Setup(x => x.GetService(typeof(IRepositoryManager)))
-                .Returns(mockRepositoryManager.Object);
-            mockServiceProvider
-                .Setup(x => x.GetService(typeof(IServiceScopeFactory)))
-                .Returns(mockScopeFactory.Object);
-            mockScopeFactory
-                .Setup(x => x.CreateScope())
-                .Returns(mockScope.Object);
+                .Returns(mockRouteRepo.Object);
             mockDirectionLogicFactory
                 .Setup(x => x.GetCreator(It.IsAny<Direction>()))
                 .Returns(mockDirectionLogicCreator.Object);
@@ -69,14 +57,14 @@ namespace Airport.Domain.Tests.Providers
                 .Returns(route.Directions[0].To);
 
             var directionLogicProvider = new DirectionLogicProvider(
-                mockServiceProvider.Object,
+                mockRepositoryManager.Object,
                 mockDirectionLogicFactory.Object,
                 memoryCache,
                 mockDomainEvents.Object,
                 mockLogger);
 
             // Act
-            var result = await directionLogicProvider.GetDirectionsByRouteIdAsync(route.RouteId);
+            var result = await directionLogicProvider.GetByRouteIdAsync(route.RouteId);
 
             // Assert
             Assert.Contains(route.Directions[0].From, result.Select(d => d.From));
@@ -84,24 +72,32 @@ namespace Airport.Domain.Tests.Providers
         }
 
         [Fact]
-        public async Task GetDirectionsByRouteIdAsync_RouteNotExist_ThrowsInvalidOperationException()
+        public async Task GetDirectionsByRouteIdAsync_RouteNotExist_ThrowsLogicProvisionFailedException()
         {
             // Arrange
-            var mockServiceProvider = new Mock<IServiceProvider>();
             var mockDirectionLogicFactory = new Mock<IDirectionLogicFactory>();
-            var mockMemoryCache = new Mock<IMemoryCache>();
+            var mockRepositoryManager = new Mock<IRepositoryManager>();
+            var mockRouteRepo = new Mock<IRouteRepository>();
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
             var mockDomainEvents = new Mock<IDomainEvents>();
             var mockLogger = Mock.Of<ILogger<DirectionLogicProvider>>();
+            mockRepositoryManager
+                .SetupGet(x => x.RouteRepository)
+                .Returns(mockRouteRepo.Object);
+            mockRouteRepo
+                .Setup(x => x.GetAllDirectionsAsync(default))
+                .ReturnsAsync(new Dictionary<ObjectId, List<Direction>>());
+
             var directionLogicProvider = new DirectionLogicProvider(
-                mockServiceProvider.Object,
+                mockRepositoryManager.Object,
                 mockDirectionLogicFactory.Object,
-                mockMemoryCache.Object,
+                memoryCache,
                 mockDomainEvents.Object,
                 mockLogger);
 
             // Act & Assert
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => directionLogicProvider.GetDirectionsByRouteIdAsync(It.IsAny<ObjectId>()));
+            var ex = await Assert.ThrowsAsync<LogicProvisionFailedException>(
+                () => directionLogicProvider.GetByRouteIdAsync(It.IsAny<ObjectId>()));
         }
     }
 }

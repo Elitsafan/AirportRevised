@@ -3,21 +3,26 @@
     public class StationLogicFactoryTests
     {
         #region Fields
-        private IStationLogicFactory _stationLogicFactory = null!;
+        private IStationLogicFactory _sut = null!;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
         private readonly ILogger<StationLogic> _logger;
         #endregion
 
-        public StationLogicFactoryTests() => _logger = Mock.Of<ILogger<StationLogic>>();
+        public StationLogicFactoryTests()
+        {
+            _mockDomainEvents = new Mock<IDomainEvents>();
+            _logger = Mock.Of<ILogger<StationLogic>>();
+        }
 
         [Fact]
         public void GetCreator_WhenCalled_ReturnsStationLogicCreator()
         {
             // Arrange
             var station = new Station();
-            _stationLogicFactory = new StationLogicFactory(_logger);
+            _sut = new StationLogicFactory(_mockDomainEvents.Object, _logger);
 
             // Act
-            var result = _stationLogicFactory.GetCreator(station);
+            var result = _sut.GetCreator(station);
 
             // Assert
             Assert.IsType<StationLogicCreator>(result);
@@ -27,10 +32,10 @@
         public void GetCreator_StationIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            _stationLogicFactory = new StationLogicFactory(_logger);
+            _sut = new StationLogicFactory(_mockDomainEvents.Object, _logger);
 
             // Act & Assert
-            var ex = Assert.Throws<ArgumentNullException>(() => _stationLogicFactory.GetCreator(null!));
+            var ex = Assert.Throws<ArgumentNullException>(() => _sut.GetCreator(null!));
             Assert.Equal("station", ex.ParamName);
         }
     }

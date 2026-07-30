@@ -1,27 +1,34 @@
-﻿namespace Airport.Domain.Tests.Logics
+﻿using Airport.Contracts.EventArgs.StationEventArgs;
+using Airport.Models.Entities;
+
+namespace Airport.Domain.Tests.Logics
 {
     public class StationLogicTests : IDisposable
     {
         #region Fields
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
         private readonly ILogger<StationLogic> _mockLogger;
-        private IStationLogic _stationLogic = null!;
-        private AsyncEventHandler<IStationOccupiedEventArgs>? _onStationOccupiedAsync;
-        private AsyncEventHandler<IStationClearingEventArgs>? _onStationClearingAsync;
+        private IStationLogic _sut = null!;
+        //private AsyncEventHandler<IStationOccupiedEventArgs>? _onStationOccupiedAsync;
+        //private AsyncEventHandler<IStationClearingEventArgs>? _onStationClearingAsync;
         private AsyncEventHandler<IStationClearedEventArgs>? _onStationClearedAsync;
         #endregion
 
-        public StationLogicTests() => _mockLogger = Mock.Of<ILogger<StationLogic>>();
+        public StationLogicTests()
+        {
+            _mockLogger = Mock.Of<ILogger<StationLogic>>();
+            _mockDomainEvents = new Mock<IDomainEvents>();
+        }
 
         [Fact]
         public void StationLogicCreated_NoFlightSet_CurrentFlightTypeReturnsNull()
         {
             // Arrange
             var station = new Station();
-            _stationLogic = new StationLogic(station, _mockLogger);
-            var currentFlightType = _stationLogic.CurrentFlightType;
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Act & Assert
-            Assert.Null(_stationLogic.CurrentFlightType);
+            Assert.Null(_sut.CurrentFlightType);
         }
 
         [Fact]
@@ -29,11 +36,11 @@
         {
             // Arrange
             var station = new Station();
-            _stationLogic = new StationLogic(station, _mockLogger);
-            var currentFlightId = _stationLogic.CurrentFlightId;
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
+            var currentFlightId = _sut.CurrentFlightId;
 
             // Act & Assert
-            Assert.Null(_stationLogic.CurrentFlightId);
+            Assert.Null(_sut.CurrentFlightId);
         }
 
         [Fact]
@@ -46,13 +53,13 @@
             mockFlightLogic
                 .SetupGet(x => x.FlightType)
                 .Returns(flightType);
-            _stationLogic = new StationLogic(station, _mockLogger);
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object, null);
+            await _sut.SetFlightAsync(mockFlightLogic.Object, null);
 
             // Assert
-            Assert.Equal(mockFlightLogic.Object.FlightType, _stationLogic.CurrentFlightType);
+            Assert.Equal(mockFlightLogic.Object.FlightType, _sut.CurrentFlightType);
         }
 
         [Fact]
@@ -65,13 +72,13 @@
             mockFlightLogic
                 .SetupGet(x => x.FlightId)
                 .Returns(flightId);
-            _stationLogic = new StationLogic(station, _mockLogger);
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object, null);
+            await _sut.SetFlightAsync(mockFlightLogic.Object, null);
 
             // Assert
-            Assert.Equal(mockFlightLogic.Object.FlightId, _stationLogic.CurrentFlightId);
+            Assert.Equal(mockFlightLogic.Object.FlightId, _sut.CurrentFlightId);
         }
 
         [Fact]
@@ -81,10 +88,10 @@
             var station = new Station { StationId = ObjectId.GenerateNewId() };
 
             // Act
-            _stationLogic = new StationLogic(station, _mockLogger);
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Assert
-            Assert.Equal(station.StationId, _stationLogic.StationId);
+            Assert.Equal(station.StationId, _sut.StationId);
         }
 
         [Fact]
@@ -92,10 +99,11 @@
         {
             // Arrange
             var station = new Station { StationId = ObjectId.GenerateNewId() };
-            _stationLogic = new StationLogic(station, _mockLogger);
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() => _stationLogic.ClearAsync());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.ClearAsync(It.IsAny<ObjectId>()));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.ClearAsync(null));
         }
 
         [Fact]
@@ -103,10 +111,10 @@
         {
             // Arrange
             var station = new Station { StationId = ObjectId.GenerateNewId() };
-            _stationLogic = new StationLogic(station, _mockLogger);
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _stationLogic.SetFlightAsync(null!, null));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _sut.SetFlightAsync(null!, null));
         }
 
         [Fact]
@@ -115,173 +123,125 @@
             // Arrange
             var station = new Station { StationId = ObjectId.GenerateNewId() };
             var cts = new CancellationTokenSource();
-            _stationLogic = new StationLogic(station, _mockLogger);
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
             var mockFlightLogic = new Mock<IFlightLogic>();
             mockFlightLogic
                 .Setup(x => x.ThrowIfCancellationRequestedAsync(It.IsAny<CancellationTokenSource>()))
                 .Callback(cts.Cancel);
 
             // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object, cts);
+            await _sut.SetFlightAsync(mockFlightLogic.Object, cts);
 
             // Assert
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => _stationLogic.SetFlightAsync(Mock.Of<IFlightLogic>(), cts));
+                () => _sut.SetFlightAsync(Mock.Of<IFlightLogic>(), cts));
             mockFlightLogic.Verify(x => x.ThrowIfCancellationRequestedAsync(cts));
         }
 
         [Fact]
-        public async Task SetFlightAsync_WhenCalled_RaiseStationOccupiedEvent()
+        public async Task SetFlightAsync_WhenCalled_CallsRaiseFlightRunStartedAsyncOnFlight()
         {
             // Arrange
-            var tcs = new TaskCompletionSource<bool>();
-            var station = new Station { StationId = ObjectId.GenerateNewId() };
-            var flightId = ObjectId.GenerateNewId();
-            var mockFlightLogic = new Mock<IFlightLogic>();
-            mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            _stationLogic = new StationLogic(station, _mockLogger);
-            _onStationOccupiedAsync = (s, e) =>
-            {
-                tcs.SetResult(true);
-                return Task.CompletedTask;
-            };
-            _stationLogic.StationOccupiedAsync += _onStationOccupiedAsync;
-
-            // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object, null);
-
-            // Assert
-            bool result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
-            Assert.True(result, "The StationOccupied event was not raised within the timeout.");
-        }
-
-        [Fact]
-        public async Task SetFlightAsync_WhenCalled_RaiseStationClearingEvent()
-        {
-            // Arrange
-            var tcs = new TaskCompletionSource<bool>();
-            var station = new Station { StationId = ObjectId.GenerateNewId() };
-            var flightId = ObjectId.GenerateNewId();
-            var mockPrevStationLogic = new Mock<IStationLogic>();
-            var mockFlightLogic = new Mock<IFlightLogic>();
-            mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            _stationLogic = new StationLogic(station, _mockLogger);
-            mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            mockFlightLogic
-                .SetupGet(x => x.RouteId)
-                .Returns(ObjectId.GenerateNewId());
-            mockFlightLogic
-                .SetupGet(x => x.CurrentStation)
-                .Returns(mockPrevStationLogic.Object);
-            _onStationClearingAsync = (s, e) =>
-            {
-                tcs.SetResult(true);
-                return Task.CompletedTask;
-            };
-            mockPrevStationLogic.Object.StationClearingAsync += _onStationClearingAsync;
-            mockPrevStationLogic
-                .Setup(x => x.ClearAsync(It.IsAny<CancellationToken>()))
-                .Returns(async () => await mockPrevStationLogic
-                    .RaiseAsync(x => x.StationClearingAsync += null, null!, default!));
-
-            // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object, null);
-
-            // Assert
-            mockPrevStationLogic.VerifyAdd(
-                x => x.StationClearingAsync += It.IsAny<AsyncEventHandler<IStationClearingEventArgs>>(),
-                Times.Once);
-            bool result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
-            Assert.True(result, "The StationClearing event was not raised within the timeout.");
-        }
-
-        [Fact]
-        public async Task SetFlightAsync_WhenCalled_RaiseStationClearedEvent()
-        {
-            // Arrange
-            var tcs = new TaskCompletionSource<bool>();
-            var station = new Station { StationId = ObjectId.GenerateNewId() };
-            var flightId = ObjectId.GenerateNewId();
-            var mockPrevStationLogic = new Mock<IStationLogic>();
-            var mockFlightLogic = new Mock<IFlightLogic>();
-            mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            _stationLogic = new StationLogic(station, _mockLogger);
-            mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            mockFlightLogic
-                .SetupGet(x => x.RouteId)
-                .Returns(ObjectId.GenerateNewId());
-            mockFlightLogic
-                .SetupGet(x => x.CurrentStation)
-                .Returns(mockPrevStationLogic.Object);
-            _onStationClearedAsync = (s, e) =>
-            {
-                tcs.SetResult(true);
-                return Task.CompletedTask;
-            };
-            mockPrevStationLogic.Object.StationClearedAsync += _onStationClearedAsync;
-            mockPrevStationLogic
-                .Setup(x => x.ClearAsync(It.IsAny<CancellationToken>()))
-                .Returns(async () => await mockPrevStationLogic
-                    .RaiseAsync(x => x.StationClearedAsync += null, null!, default!));
-
-            // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object, null);
-
-            // Assert
-            mockPrevStationLogic.VerifyAdd(
-                x => x.StationClearedAsync += It.IsAny<AsyncEventHandler<IStationClearedEventArgs>>(),
-                Times.Once);
-            bool result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
-            Assert.True(result, "The StationCleared event was not raised within the timeout.");
-        }
-
-        [Fact]
-        public async Task SetFlightAsync_WhenCalled_CallsClear()
-        {
-            // Arrange
-            var flightId = ObjectId.GenerateNewId();
             var station = new Station { StationId = ObjectId.GenerateNewId() };
             var mockFlightLogic = new Mock<IFlightLogic>();
-            var mockPrevStationLogic = new Mock<IStationLogic>();
 
             mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            mockFlightLogic
-                .SetupGet(x => x.RouteId)
-                .Returns(ObjectId.GenerateNewId());
-            mockFlightLogic
-                .SetupGet(x => x.CurrentStation)
-                .Returns(mockPrevStationLogic.Object);
-            mockPrevStationLogic
-                .Setup(x => x.ClearAsync(It.IsAny<CancellationToken>()))
+                .Setup(x => x.RaiseFlightRunStartedAsync(station.StationId))
                 .Returns(Task.CompletedTask);
-            _stationLogic = new StationLogic(station, _mockLogger);
+
+            _sut = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
 
             // Act
-            await _stationLogic.SetFlightAsync(mockFlightLogic.Object);
+            await _sut.SetFlightAsync(mockFlightLogic.Object);
 
             // Assert
-            mockPrevStationLogic.Verify(x => x.ClearAsync(It.IsAny<CancellationToken>()), Times.Once);
+            mockFlightLogic.Verify(
+                x => x.RaiseFlightRunStartedAsync(station.StationId),
+                Times.Once(),
+                "StationLogic failed to notify the flight that the run started.");
         }
+
+        //[Fact]
+        //public async Task SetFlightAsync_WhenCalled_RaiseStationClearedEvent()
+        //{
+        //    // Arrange
+        //    var tcs = new TaskCompletionSource<bool>();
+        //    var station = new Station { StationId = ObjectId.GenerateNewId() };
+        //    var flightId = ObjectId.GenerateNewId();
+        //    var mockPrevStationLogic = new Mock<IStationLogic>();
+        //    var mockFlightLogic = new Mock<IFlightLogic>();
+        //    mockFlightLogic
+        //        .SetupGet(x => x.FlightId)
+        //        .Returns(flightId);
+        //    _stationLogic = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
+        //    mockFlightLogic
+        //        .SetupGet(x => x.FlightId)
+        //        .Returns(flightId);
+        //    mockFlightLogic
+        //        .SetupGet(x => x.RouteId)
+        //        .Returns(ObjectId.GenerateNewId());
+        //    mockFlightLogic
+        //        .SetupGet(x => x.CurrentStation)
+        //        .Returns(mockPrevStationLogic.Object);
+        //    _onStationClearedAsync = (s, e) =>
+        //    {
+        //        tcs.SetResult(true);
+        //        return Task.CompletedTask;
+        //    };
+        //    mockPrevStationLogic.Object.StationClearedAsync += _onStationClearedAsync;
+        //    mockPrevStationLogic
+        //        .Setup(x => x.ClearAsync(It.IsAny<CancellationToken>()))
+        //        .Returns(async () => await mockPrevStationLogic
+        //            .RaiseAsync(x => x.StationClearedAsync += null, null!, default!));
+
+        //    // Act
+        //    await _stationLogic.SetFlightAsync(mockFlightLogic.Object, null);
+
+        //    // Assert
+        //    mockPrevStationLogic.VerifyAdd(
+        //        x => x.StationClearedAsync += It.IsAny<AsyncEventHandler<IStationClearedEventArgs>>(),
+        //        Times.Once);
+        //    bool result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        //    Assert.True(result, "The StationCleared event was not raised within the timeout.");
+        //}
+
+        //[Fact]
+        //public async Task SetFlightAsync_WhenCalled_CallsClear()
+        //{
+        //    // Arrange
+        //    var flightId = ObjectId.GenerateNewId();
+        //    var station = new Station { StationId = ObjectId.GenerateNewId() };
+        //    var mockFlightLogic = new Mock<IFlightLogic>();
+        //    var mockPrevStationLogic = new Mock<IStationLogic>();
+
+        //    mockFlightLogic
+        //        .SetupGet(x => x.FlightId)
+        //        .Returns(flightId);
+        //    mockFlightLogic
+        //        .SetupGet(x => x.RouteId)
+        //        .Returns(ObjectId.GenerateNewId());
+        //    mockFlightLogic
+        //        .SetupGet(x => x.CurrentStation)
+        //        .Returns(mockPrevStationLogic.Object);
+        //    mockPrevStationLogic
+        //        .Setup(x => x.ClearAsync(It.IsAny<CancellationToken>()))
+        //        .Returns(Task.CompletedTask);
+        //    _stationLogic = new StationLogic(station, _mockDomainEvents.Object, _mockLogger);
+
+        //    // Act
+        //    await _stationLogic.SetFlightAsync(mockFlightLogic.Object);
+
+        //    // Assert
+        //    mockPrevStationLogic.Verify(x => x.ClearAsync(It.IsAny<CancellationToken>()), Times.Once);
+        //}
 
         public void Dispose()
         {
-            if (_stationLogic is not null)
+            if (_sut is not null)
             {
-                _stationLogic.StationOccupiedAsync -= _onStationOccupiedAsync;
-                _stationLogic.StationClearingAsync -= _onStationClearingAsync;
-                _stationLogic.StationClearedAsync -= _onStationClearedAsync;
+                //_stationLogic.StationOccupiedAsync -= _onStationOccupiedAsync;
+                //_stationLogic.StationClearingAsync -= _onStationClearingAsync;
+                //_stationLogic.StationClearedAsync -= _onStationClearedAsync;
             }
         }
     }

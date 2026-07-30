@@ -6,7 +6,7 @@
         private readonly ILogger<RouteLogic> _mockLogger;
         private readonly Mock<IDirectionLogicProvider> _mockDirectionLogicProvider;
         private readonly Mock<IStationLogicProvider> _mockStationLogicProvider;
-        private readonly IRouteLogicFactory _routeLogicFactory;
+        private readonly IRouteLogicFactory _sut;
         #endregion
 
         public RouteLogicFactoryTests()
@@ -15,10 +15,10 @@
             _mockDirectionLogicProvider = new Mock<IDirectionLogicProvider>();
             _mockStationLogicProvider = new Mock<IStationLogicProvider>();
 
-            _routeLogicFactory = new RouteLogicFactory(
-                _mockLogger,
+            _sut = new RouteLogicFactory(
                 _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
+                _mockStationLogicProvider.Object,
+                _mockLogger);
         }
 
         [Fact]
@@ -26,10 +26,11 @@
         {
             // Arrange
             var route = new Route();
-            var sections = new List<IRouteSectionDetails> { new Mock<IRouteSectionDetails>().Object };
+            var sections = new List<ISectionLogic> { Mock.Of<ISectionLogic>() };
+            var standaloneTLs = new List<IStationLogic> { Mock.Of<IStationLogic>() };
 
             // Act
-            var result = _routeLogicFactory.GetCreator(route, sections);
+            var result = _sut.GetCreator(route, sections, standaloneTLs);
 
             // Assert
             Assert.IsType<RouteLogicCreator>(result);
@@ -38,9 +39,10 @@
         [Fact]
         public void GetCreator_RouteIsNull_ThrowsArgumentNullException()
         {
-            var ex = Assert.Throws<ArgumentNullException>(() => _routeLogicFactory.GetCreator(
+            var ex = Assert.Throws<ArgumentNullException>(() => _sut.GetCreator(
                 null!,
-                Enumerable.Empty<IRouteSectionDetails>()));
+                Enumerable.Empty<ISectionLogic>(),
+                Enumerable.Empty<IStationLogic>()));
 
             Assert.Equal("route", ex.ParamName);
         }

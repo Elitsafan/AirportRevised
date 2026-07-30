@@ -4,6 +4,7 @@ namespace Airport.Domain.Tests.Creators
     {
         #region Fields
         private readonly Mock<IRouteLogic> _mockRouteLogic;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
         private readonly ILogger<FlightLogic> _mockFlightLogicLogger;
         private IFlightLogicCreator _landingLogicCreator = null!;
         private IFlightLogicCreator _departureLogicCreator = null!;
@@ -12,11 +13,12 @@ namespace Airport.Domain.Tests.Creators
         public FlightLogicCreatorTests()
         {
             _mockRouteLogic = new Mock<IRouteLogic>();
+            _mockDomainEvents = new Mock<IDomainEvents>();
             _mockFlightLogicLogger = Mock.Of<ILogger<FlightLogic>>();
         }
 
         [Fact]
-        public async Task CreateDepartureLogic_WhenCalled_ReturnsDepartureLogic()
+        public void CreateDepartureLogic_WhenCalled_ReturnsDepartureLogic()
         {
             // Arrange
             var departure = new Departure
@@ -33,16 +35,19 @@ namespace Airport.Domain.Tests.Creators
                     },
                 },
             };
+
             _mockRouteLogic
                 .SetupGet(x => x.RouteId)
                 .Returns(departure.RouteId.Value);
+
             _departureLogicCreator = new DepartureLogicCreator(
                 departure,
                 _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
                 _mockFlightLogicLogger);
 
             // Act
-            var result = await _departureLogicCreator.CreateAsync();
+            var result = _departureLogicCreator.Create();
 
             // Assert
             var flightLogic = Assert.IsType<FlightLogic>(result);
@@ -51,7 +56,7 @@ namespace Airport.Domain.Tests.Creators
         }
 
         [Fact]
-        public async Task CreateLandingLogic_WhenCalled_ReturnsLandingLogic()
+        public void CreateLandingLogic_WhenCalled_ReturnsLandingLogic()
         {
             // Arrange
             var landing = new Landing
@@ -68,16 +73,19 @@ namespace Airport.Domain.Tests.Creators
                     },
                 },
             };
+
             _mockRouteLogic
                 .SetupGet(x => x.RouteId)
                 .Returns(landing.RouteId.Value);
+
             _landingLogicCreator = new LandingLogicCreator(
                 landing,
                 _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
                 _mockFlightLogicLogger);
 
             // Act
-            var result = await _landingLogicCreator.CreateAsync();
+            var result = _landingLogicCreator.Create();
 
             // Assert
             var flightLogic = Assert.IsType<FlightLogic>(result);
