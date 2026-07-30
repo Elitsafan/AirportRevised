@@ -30,7 +30,7 @@ namespace Airport.Presentation.Tests.Controllers
         }
 
         [Fact]
-        public async Task AddLandingAsync_WhenCalled_Returns201()
+        public async Task AddLanding_WhenCalled_Returns202()
         {
             // Arrange
             var flightForCreationDto = new LandingForCreationDTO();
@@ -48,16 +48,14 @@ namespace Airport.Presentation.Tests.Controllers
             var result = await flightsController.AddLandingAsync(flightForCreationDto);
 
             // Assert
-            _mockFlightService.Verify(x => x.AddFlightAsync(
-                flightForCreationDto,
-                It.IsAny<CancellationToken>()), Times.Once);
-            var createdResult = Assert.IsType<CreatedAtRouteResult>(result);
+            _mockFlightService.Verify(x => x.AddFlightAsync(flightForCreationDto, default), Times.Once);
+            var createdResult = Assert.IsType<AcceptedAtRouteResult>(result);
             Assert.Equal(id, createdResult.RouteValues["id"]);
             Assert.Equal(flightDto, createdResult.Value);
         }
 
         [Fact]
-        public async Task AddDepartureAsync_WhenCalled_Returns201()
+        public async Task AddDeparture_WhenCalled_Returns202()
         {
             // Arrange
             var flightForCreationDto = new DepartureForCreationDTO();
@@ -75,10 +73,8 @@ namespace Airport.Presentation.Tests.Controllers
             var result = await flightsController.AddDepartureAsync(flightForCreationDto);
 
             // Assert
-            _mockFlightService.Verify(x => x.AddFlightAsync(
-                flightForCreationDto,
-                It.IsAny<CancellationToken>()), Times.Once);
-            var createdResult = Assert.IsType<CreatedAtRouteResult>(result);
+            _mockFlightService.Verify(x => x.AddFlightAsync(flightForCreationDto, default), Times.Once);
+            var createdResult = Assert.IsType<AcceptedAtRouteResult>(result);
             Assert.Equal(id, createdResult.RouteValues["id"]);
             Assert.Equal(flightDto, createdResult.Value);
         }
