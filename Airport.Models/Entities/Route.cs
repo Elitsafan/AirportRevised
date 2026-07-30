@@ -6,8 +6,6 @@ namespace Airport.Models.Entities
 {
     public class Route
     {
-        private List<Direction>? _directions;
-
         [BsonId]
         public ObjectId RouteId { get; set; }
 
@@ -18,14 +16,6 @@ namespace Airport.Models.Entities
 
         [BsonElement("directions")]
         [JsonProperty("directions")]
-        public List<Direction> Directions
-        {
-            get
-            {
-                _directions ??= new();
-                return _directions;
-            }
-            set => _directions = value;
-        }
+        public List<Direction> Directions { get; set; } = new();
     }
 }
