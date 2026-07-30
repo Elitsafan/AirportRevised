@@ -1,7 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using MongoDB.Driver;
-
-namespace Airport.Persistence.Configurations
+﻿namespace Airport.Persistence.Configurations
 {
     internal class FlightConfiguration
     {

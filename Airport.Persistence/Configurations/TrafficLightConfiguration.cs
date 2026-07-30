@@ -1,9 +1,4 @@
-﻿using Airport.Models.Entities;
-using Microsoft.Extensions.Options;
-using MongoDB.Bson;
-using MongoDB.Driver;
-
-namespace Airport.Persistence.Configurations
+﻿namespace Airport.Persistence.Configurations
 {
     internal class TrafficLightConfiguration
     {
@@ -28,12 +23,7 @@ namespace Airport.Persistence.Configurations
                 {
                     TrafficLightId = ObjectId.GenerateNewId(),
                     StationId = new ObjectId("000000000000000000000007"),
-                },
-                //new TrafficLight
-                //{
-                //    TrafficLightId = ObjectId.GenerateNewId(),
-                //    StationId = new ObjectId("000000000000000000000008"),
-                //}
+                }
             };
             await trafficLightsCollection.InsertManyAsync(data);
         }

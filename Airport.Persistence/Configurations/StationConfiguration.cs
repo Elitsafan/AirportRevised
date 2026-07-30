@@ -1,9 +1,4 @@
-﻿using Airport.Models.Entities;
-using Microsoft.Extensions.Options;
-using MongoDB.Bson;
-using MongoDB.Driver;
-
-namespace Airport.Persistence.Configurations
+﻿namespace Airport.Persistence.Configurations
 {
     internal class StationConfiguration
     {
@@ -17,22 +12,22 @@ namespace Airport.Persistence.Configurations
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000001"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
                 },
-                new() 
+                new()
                 {
                     StationId = new ObjectId("000000000000000000000002"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
                 },
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000003"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
                 },
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000004"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(1000),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(900),
                 },
                 new()
                 {
@@ -42,22 +37,67 @@ namespace Airport.Persistence.Configurations
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000006"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(900),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
                 },
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000007"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(900),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
                 },
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000008"),
-                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
                 },
                 new()
                 {
                     StationId = new ObjectId("000000000000000000000009"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000010"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(450),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000011"),
                     EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000012"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(800),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000013"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000014"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000015"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000016"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000017"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
+                },
+                new()
+                {
+                    StationId = new ObjectId("000000000000000000000018"),
+                    EstimatedWaitingTime = TimeSpan.FromMilliseconds(700),
                 }
             };
             await stationsCollection.InsertManyAsync(data);

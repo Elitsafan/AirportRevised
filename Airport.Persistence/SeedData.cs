@@ -1,6 +1,4 @@
 ﻿using Airport.Persistence.Configurations;
-using Microsoft.Extensions.Options;
-using MongoDB.Driver;
 
 namespace Airport.Persistence
 {
@@ -25,6 +23,10 @@ namespace Airport.Persistence
             await new RouteConfiguration()
                 .ConfigureAsync(client, configuration);
             await new StationConfiguration()
+                .ConfigureAsync(client, configuration);
+            await new SectionConfiguration()
+                .ConfigureAsync(client, configuration);
+            await new SyncerConfiguration()
                 .ConfigureAsync(client, configuration);
             await new TrafficLightConfiguration()
                 .ConfigureAsync(client, configuration);
