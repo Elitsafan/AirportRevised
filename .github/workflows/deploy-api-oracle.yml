@@ -66,10 +66,7 @@ jobs:
             ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST docker load
 
           # Deploy container on VM - pass connection string as SSH environment variable
-          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST \
-            MONGODB_CONN="$MONGODB_CONNECTION_STRING" \
-            API_IMAGE="${{ env.API_SERVICE_NAME }}:${{ github.sha }}" \
-            bash << 'ENDSSH'
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST bash << ENDSSH
 
           # Stop and remove old container
           docker stop airport-api 2>/dev/null || true
@@ -98,7 +95,8 @@ jobs:
           # Clean up old images (keep last 3)
           docker image prune -a -f --filter "until=72h" || true
 
-          echo "API deployed successfully" ENDSSH
+          echo "API deployed successfully"
+          ENDSSH
 
       - name: Health check
         env:

@@ -60,8 +60,6 @@ namespace Airport.Web
                 var config = provider.GetRequiredService<IOptions<AirportDbConfiguration>>().Value
                     ?? throw new InvalidOperationException("Database connection string is missing");
                 var settings = MongoClientSettings.FromConnectionString(config.ConnectionString);
-                if (string.IsNullOrWhiteSpace(config.ConnectionString))
-                    settings = MongoClientSettings.FromConnectionString(builder.Configuration.GetConnectionString("Default"));
                 settings.ConnectTimeout = TimeSpan.FromMinutes(1);
                 settings.MaxConnectionPoolSize = 25;
                 settings.MinConnectionPoolSize = 5;
