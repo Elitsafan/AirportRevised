@@ -37,7 +37,7 @@ An interactive airport management system demonstrating real-time flight control 
 
 ```
 Airport.Web/           # ASP.NET Core backend (API, SignalR, DI, etc.)
-AirportClient/        # Angular frontend (UI, services, components)
+AirportClient/         # Angular frontend (UI, services, components)
 Airport.Domain/        # Domain logic (entities, business rules)
 Airport.Models/        # Shared models and DTOs
 Airport.Services/      # Application services (business logic)
