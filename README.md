@@ -2,6 +2,10 @@
 
 An interactive airport management system demonstrating real-time flight control and monitoring.
 
+🚀 **Live Demo & Deployment Links:**
+- 🌐 **Client (Frontend):** [https://airport.view.elitzafan.com](https://airport.view.elitzafan.com)
+- ⚡ **Backend API (Swagger):** [https://airport.api.elitzafan.com/swagger](https://airport.api.elitzafan.com/swagger)
+
 ---
 
 ## Table of Contents

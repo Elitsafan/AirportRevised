@@ -80,14 +80,18 @@ jobs:
             -e "AirportDbConfiguration__ConnectionString=${MONGODB_CONN}" \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
             -e "ASPNETCORE_URLS=http://0.0.0.0:8080" \
-            ${API_IMAGE}
+            ${{ env.API_SERVICE_NAME }}:${{ github.sha }}
 
-          # Verify container is running
-          if docker ps | grep -q airport-api; then
-            echo "API container started successfully"
+          # Wait for container startup
+          sleep 3
+
+          # Verify container status is actually 'running' (not restarting or exited)
+          STATUS=\$(docker inspect --format='{{.State.Status}}' airport-api 2>/dev/null || echo "not_found")
+          if [ "\$STATUS" = "running" ]; then
+            echo "API container started successfully (Status: \$STATUS)"
             docker logs --tail 20 airport-api
           else
-            echo "API container failed to start"
+            echo "API container failed to start! Current status: \$STATUS"
             docker logs airport-api
             exit 1
           fi
