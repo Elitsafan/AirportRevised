@@ -51,7 +51,7 @@ jobs:
           ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_HOST }}
           ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
           ORACLE_VM_SSH_KEY: ${{ secrets.ORACLE_VM_SSH_KEY }}
-          MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
+          MONGODB_CONN: ${{ secrets.MONGODB_CONNECTION_STRING }}
         run: |
           # Create SSH key file
           mkdir -p ~/.ssh
