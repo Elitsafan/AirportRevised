@@ -243,6 +243,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnRouteUpdatedAsync(object? sender, IRouteUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             RemoveCacheEntriesWithRoutePrefix(args.RouteId);
@@ -257,6 +259,8 @@ namespace Airport.Domain.Providers
         // TODO: update instead of remove?
         protected virtual async Task OnRouteDeletedAsync(object? sender, IRouteDeletedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             RemoveCacheEntriesWithRoutePrefix(args.RouteId);
@@ -266,6 +270,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             var station = await _repoManager.StationRepository.GetByIdAsync(args.StationId);
@@ -287,6 +293,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
             // Get updated route directions
             var updatedStation = await _repoManager.StationRepository.GetByIdAsync(args.StationId);
@@ -323,6 +331,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
             // Remove from state cache
             _stationsStateCache.TryRemove(args.StationId, out var stationData);

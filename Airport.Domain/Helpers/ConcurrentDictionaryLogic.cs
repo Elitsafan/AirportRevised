@@ -75,13 +75,7 @@ namespace Airport.Domain.Helpers
             return _items.TryRemove(key, out TValue? _);
         }
 
-        public IReadOnlyList<T> GetValue(TKey key)
-        {
-            if (!_items.TryGetValue(key, out var value))
-                throw new KeyNotFoundException();
-
-            return value.ToList();
-        }
+        public bool TryGetValue(TKey key, out TValue? value) => _items.TryGetValue(key, out value);
 
         public async Task ClearAsync(CancellationToken ct = default)
         {

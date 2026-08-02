@@ -4,6 +4,5 @@
         where TKey : notnull
         where TValue : IEnumerable<T>
     {
-        IReadOnlyList<T> GetValue(TKey key);
     }
 }

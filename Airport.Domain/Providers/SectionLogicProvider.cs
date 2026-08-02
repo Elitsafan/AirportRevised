@@ -81,11 +81,14 @@ namespace Airport.Domain.Providers
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
 
-                var result = _routeToSections.GetValue(routeId);
+                if (_routeToSections.TryGetValue(routeId, out var result))
+                {
+                    entry.Size = result!.Count;
 
-                entry.Size = result.Count;
-
-                _logger.LogDebug("Cached {Count} sections of route id: {id}", result.Count, routeId);
+                    _logger.LogDebug("Cached {Count} sections of route id: {id}", result!.Count, routeId);
+                }
+                else
+                    entry.Size = 0;
 
                 return result;
 
@@ -150,6 +153,8 @@ namespace Airport.Domain.Providers
             if (args.SectionIds is null)
                 return;
 
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             // Get the sections, and filter the new sections only
@@ -184,6 +189,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationLogicUpdatedAsync(object? sender, IStationLogicUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             _cache.Remove(ALL_SECTIONS_KEY);
@@ -196,11 +203,12 @@ namespace Airport.Domain.Providers
                     .Select(async s => await _sectionLogicFactory.GetCreator(s).CreateAsync())))
                     .ToList();
 
-                var oldSections = _routeToSections.GetValue(sectionEntry.Key).ToList();
+                // TODO: add or update
+                _routeToSections.TryGetValue(sectionEntry.Key, out var oldSections);
 
-                if (await _routeToSections.TryUpdateAsync(sectionEntry.Key, updatedSections, oldSections))
+                if (await _routeToSections.TryUpdateAsync(sectionEntry.Key, updatedSections, oldSections!))
                 {
-                    oldSections.ForEach(s =>
+                    oldSections!.ForEach(s =>
                     {
                         s.Dispose();
 
@@ -214,9 +222,12 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnSectionsDeletedAsync(object? sender, ISectionsDeletedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
-            var oldSections = _routeToSections.GetValue(args.RouteId);
+            if (!_routeToSections.TryGetValue(args.RouteId, out var oldSections) || oldSections is null)
+                return;
 
             List<ISectionLogic> remainingSections = new();
 
@@ -224,7 +235,7 @@ namespace Airport.Domain.Providers
                 .ExceptBy(args.SectionIds ?? Enumerable.Empty<ObjectId>(), s => s.SectionId)
                 .ToList();
 
-            if (await _routeToSections.TryUpdateAsync(args.RouteId, remainingSections, oldSections.ToList()))
+            if (await _routeToSections.TryUpdateAsync(args.RouteId, remainingSections, oldSections))
             {
                 _cache.Remove(ALL_SECTIONS_KEY);
 

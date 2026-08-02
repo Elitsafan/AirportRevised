@@ -36,8 +36,7 @@ namespace Airport.Services.Services
         {
             _airportStateProvider.ThrowIfNotStarted();
 
-            var stations = await _repositoryManager.StationRepository
-                .GetAllAsync(ct);
+            var stations = await _repositoryManager.StationRepository.GetAllAsync(ct);
 
             foreach (var station in stations.Select(_mapper.Map<StationDTO>))
                 yield return station;
@@ -61,8 +60,7 @@ namespace Airport.Services.Services
             if (stationToCreate is null)
                 throw new ArgumentNullException(nameof(stationToCreate));
 
-            var station = await _repositoryManager.StationRepository
-                .AddOneAsync(_mapper.Map<Station>(stationToCreate), ct: ct);
+            var station = await _repositoryManager.StationRepository.AddOneAsync(_mapper.Map<Station>(stationToCreate), ct: ct);
 
             await _domainEvents.RaiseStationCreatedAsync(new StationCreatedEventArgs
             {
@@ -83,10 +81,10 @@ namespace Airport.Services.Services
                 throw new ArgumentNullException(nameof(stationToUpdate));
 
             var modifiedStation = _mapper.Map<Station>(stationToUpdate);
+
             modifiedStation.StationId = id;
 
-            var updateResult = await _repositoryManager.StationRepository
-                .UpdateStationAsync(modifiedStation, ct: ct);
+            var updateResult = await _repositoryManager.StationRepository.UpdateStationAsync(modifiedStation, ct: ct);
 
             await _domainEvents.RaiseStationUpdatedAsync(new StationUpdatedEventArgs
             {

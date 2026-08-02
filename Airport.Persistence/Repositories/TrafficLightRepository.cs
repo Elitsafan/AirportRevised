@@ -80,13 +80,15 @@ namespace Airport.Persistence.Repositories
             if (stationIds.Count == 0)
                 throw new EntityNotFoundException($"Route Id: {routeId} has no stations.");
 
-            var tlIdsOfSections = _sectionsCollection.AsQueryable()
+            var tlIdsOfSections = await _sectionsCollection.AsQueryable()
                 .Where(s => s.RouteId == routeId)
-                .SelectMany(s => s.Origin.Concat(s.Destination));
+                .SelectMany(s => s.Origin.Concat(s.Destination))
+                .ToListAsync(ct);
+
+            var standaloneIds = stationIds.Except(tlIdsOfSections).ToList();
 
             return await _trafficLightsCollection.AsQueryable()
-                .Where(tl => stationIds.Contains(tl.StationId))
-                .ExceptBy(tlIdsOfSections, tl => tl.StationId)
+                .Where(tl => standaloneIds.Contains(tl.StationId))
                 .ToListAsync(ct);
         }
     }

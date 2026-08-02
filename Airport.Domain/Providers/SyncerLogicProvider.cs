@@ -89,8 +89,36 @@ namespace Airport.Domain.Providers
         }
 
         #region Event Handlers
+        protected virtual async Task OnSectionProviderResettingAsync()
+        {
+            _logger.LogInformation("Resetting syncer logics and clearing cache");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Syncers reset successfully.");
+        }
+
+        protected virtual async Task OnSectionProviderRefreshingAsync()
+        {
+            _logger.LogInformation("Refreshing syncer logics and clearing cache");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Syncers refreshed successfully.");
+        }
+
         protected virtual async Task OnSyncersUpdatedAsync(object? sender, ISyncersUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             foreach (var syncerId in args.SyncerIds)
@@ -127,6 +155,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnSyncersDeletedAsync(object? sender, ISyncersDeletedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             foreach (var syncerId in args.SyncerIds)
@@ -137,32 +167,6 @@ namespace Airport.Domain.Providers
             }
 
             _cache.Remove(ALL_SYNCERS_KEY);
-        }
-
-        protected virtual async Task OnSectionProviderResettingAsync()
-        {
-            _logger.LogInformation("Resetting syncer logics and clearing cache");
-
-            using var _ = await _operationSemaphore.EnterAsync();
-
-            await InitializeAsync();
-
-            _isInitialized = true;
-
-            _logger.LogInformation("Syncers reset successfully.");
-        }
-
-        protected virtual async Task OnSectionProviderRefreshingAsync()
-        {
-            _logger.LogInformation("Refreshing syncer logics and clearing cache");
-
-            using var _ = await _operationSemaphore.EnterAsync();
-
-            await InitializeAsync();
-
-            _isInitialized = true;
-
-            _logger.LogInformation("Syncers refreshed successfully.");
         }
         #endregion
 

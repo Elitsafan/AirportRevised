@@ -13,22 +13,18 @@ namespace Airport.Domain.Helpers
             Dictionary<ObjectId, int>? comStationIds,
             CancellationToken ct = default)
         {
-            var ids = (await ValidateStationsExistenceAsync(directions, ct))
-                .ToList();
+            if (comStationIds is null || comStationIds.Count == 0)
+                return new();
 
-            if (comStationIds is not null)
-                ValidateSectionsStructure(directions, comStationIds, ct);
+            var ids = (await ValidateStationsExistenceAsync(directions, ct)).ToList();
+
+            ValidateSectionsStructure(directions, comStationIds, ct);
 
             var graph = CreateGraph(directions, ids);
 
             ValidateIfCircularRoute(graph);
 
-            if (comStationIds is null)
-                return new();
-
-            var trafficLightIds = comStationIds.Keys;
-
-            return graph.GetParsedSections(trafficLightIds);
+            return graph.GetParsedSections(comStationIds.Keys);
         }
 
         private async Task<IEnumerable<ObjectId>> ValidateStationsExistenceAsync(

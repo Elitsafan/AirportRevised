@@ -150,6 +150,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnRouteCreatedAsync(object? sender, IRouteCreatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             var newDirectionLogics = (await _repoManager.RouteRepository.GetByIdAsync(args.RouteId))
@@ -167,6 +169,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnRouteDeletedAsync(object? sender, IRouteDeletedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             // TODO: Dispose
@@ -182,16 +186,19 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationsByRouteUpdatedAsync(object? sender, IStationsByRouteUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
             // TODO: Dispose
-            var oldDirectionLogics = _routeToDirections.GetValue(args.RouteId).ToList();
+            _routeToDirections.TryGetValue(args.RouteId, out var oldDirectionLogics);
 
             var updatedDirectionLogics = (await _repoManager.RouteRepository.GetByIdAsync(args.RouteId))
                 .Directions
                 .Select(d => _directionLogicFactory.GetCreator(d).Create())
                 .ToList();
 
-            if (await _routeToDirections.TryUpdateAsync(args.RouteId, updatedDirectionLogics, oldDirectionLogics))
+            // TODO: add or update
+            if (await _routeToDirections.TryUpdateAsync(args.RouteId, updatedDirectionLogics, oldDirectionLogics!))
             {
                 _cache.Remove(ALL_DIRECTIONS_KEY);
 
@@ -208,6 +215,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationLogicUpdatedAsync(object? sender, IStationLogicUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             // If stationId does not exist on any direction
             if (_routeToDirections.Values
                 .SelectMany(x => x)
@@ -220,15 +229,16 @@ namespace Airport.Domain.Providers
 
             foreach (var routeEntry in await _repoManager.RouteRepository.DirectionsOfRoutesContainStationAsync(args.StationId))
             {
-                var oldDirections = _routeToDirections.GetValue(routeEntry.Key);
+                _routeToDirections.TryGetValue(routeEntry.Key, out var oldDirections);
 
                 // Create the new direction logics
                 var updatedDirections = routeEntry.Value
                     .Select(d => _directionLogicFactory.GetCreator(d).Create())
                     .ToList();
 
+                // TODO: add or update
                 // Update with the new value
-                if (await _routeToDirections.TryUpdateAsync(routeEntry.Key, updatedDirections, oldDirections.ToList()))
+                if (await _routeToDirections.TryUpdateAsync(routeEntry.Key, updatedDirections, oldDirections!))
                 {
                     // Dispose removed direction logics
 

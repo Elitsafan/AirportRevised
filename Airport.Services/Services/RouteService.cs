@@ -82,12 +82,14 @@ namespace Airport.Services.Services
             var newSections = _mapper.Map<List<Section>>(newSectionDtos);
 
             Route route;
-            List<Route> affectedRoutes;
+            List<Route>? affectedRoutes = null;
             List<ObjectId> syncerIds = new();
             List<ObjectId> deletedSyncerIds = new();
             List<ObjectId>[]? updatedSectionIds = null;
 
             using var session = await _client.StartSessionAsync(cancellationToken: ct);
+
+            session.StartTransaction();
 
             try
             {
@@ -96,19 +98,19 @@ namespace Airport.Services.Services
 
                 route = await _repoManager.RouteRepository.AddOneAsync(route, session, ct);
 
-                await ProcessSyncersAndSectionsAsync(route.RouteId, syncerIds, newSections, session, ct);
-
-                (updatedSectionIds, affectedRoutes) = await HandleAffectedRoutesAsync(
-                    route,
-                    syncerIds,
-                    deletedSyncerIds,
-                    updatedSectionIds,
-                    comStationIds,
-                    session,
-                    ct);
-
                 if (comStationIds.Count > 0)
                 {
+                    await ProcessSyncersAndSectionsAsync(route.RouteId, syncerIds, newSections, session, ct);
+
+                    (updatedSectionIds, affectedRoutes) = await HandleAffectedRoutesAsync(
+                        route,
+                        syncerIds,
+                        deletedSyncerIds,
+                        updatedSectionIds,
+                        comStationIds,
+                        session,
+                        ct);
+
                     var candidates = comStationIds
                         .Where(kvp => kvp.Value == 1)
                         .Select(kvp => kvp.Key)
@@ -125,26 +127,27 @@ namespace Airport.Services.Services
 
             await session.CommitTransactionAsync(ct);
 
-            // Syncers deleted event
-            await _domainEvents.RaiseSyncersDeletedAsync(new SyncersDeletedEventArgs
+            if (comStationIds.Count > 0)
             {
-                SyncerIds = deletedSyncerIds,
-            });
+                // Syncers deleted event
+                await _domainEvents.RaiseSyncersDeletedAsync(new SyncersDeletedEventArgs
+                {
+                    SyncerIds = deletedSyncerIds,
+                });
 
-            // Syncers updated event
-            await _domainEvents.RaiseSyncersUpdatedAsync(new SyncersUpdatedEventArgs
-            {
-                SyncerIds = syncerIds
-            });
+                // Syncers updated event
+                await _domainEvents.RaiseSyncersUpdatedAsync(new SyncersUpdatedEventArgs
+                {
+                    SyncerIds = syncerIds
+                });
 
-            // New sections created event
-            await _domainEvents.RaiseSectionsCreatedAsync(new SectionsCreatedEventArgs
-            {
-                RouteId = route.RouteId,
-                SectionIds = newSections
-                    .Select(s => s.SectionId)
-                    .ToList()
-            });
+                // New sections created event
+                await _domainEvents.RaiseSectionsCreatedAsync(new SectionsCreatedEventArgs
+                {
+                    RouteId = route.RouteId,
+                    SectionIds = newSections.Select(s => s.SectionId).ToList()
+                });
+            }
 
             // New route created event
             await _domainEvents.RaiseRouteCreatedAsync(new RouteCreatedEventArgs
@@ -157,7 +160,7 @@ namespace Airport.Services.Services
             });
 
             // Affected routes and sections updated events
-            for (int i = 0; i < affectedRoutes.Count; i++)
+            for (int i = 0; i < affectedRoutes?.Count; i++)
             {
                 await _domainEvents.RaiseSectionsDeletedAsync(new SectionsDeletedEventArgs
                 {
@@ -177,6 +180,7 @@ namespace Airport.Services.Services
             return _mapper.Map<RouteDTO>(route);
         }
 
+        // TODO: fix if (comStationIds.Count > 0)
         // TODO: tests for all UpdateResult values
         public async Task<UpdateResult> UpdateRouteAsync(
             ObjectId routeId,
@@ -218,6 +222,8 @@ namespace Airport.Services.Services
             var newSections = _mapper.Map<List<Section>>(newSectionDtos);
 
             using var session = await _client.StartSessionAsync(cancellationToken: ct);
+
+            session.StartTransaction();
 
             try
             {
@@ -366,6 +372,8 @@ namespace Airport.Services.Services
                 .ToList();
 
             using var session = await _client.StartSessionAsync(cancellationToken: ct);
+
+            session.StartTransaction();
 
             try
             {

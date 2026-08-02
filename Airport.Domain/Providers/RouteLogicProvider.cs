@@ -126,15 +126,13 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnRouteCreatedAsync(object? sender, IRouteCreatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
-            var route = await _repoManager
-                .RouteRepository
-                .GetByIdAsync(args.RouteId);
+            var route = await _repoManager.RouteRepository.GetByIdAsync(args.RouteId);
 
-            var sections = (await _sectionProvider
-                .GetByRouteIdAsync(args.RouteId))
-                .ToList();
+            var sections = (await _sectionProvider.GetByRouteIdAsync(args.RouteId)).ToList();
 
             List<IStationLogic>? standaloneTLs = null;
 
@@ -147,19 +145,23 @@ namespace Airport.Domain.Providers
 
             var routeLogic = await _routeLogicFactory.GetCreator(route, sections, standaloneTLs).CreateAsync();
 
-            if (string.Compare(routeLogic.RouteName, FlightType.Departure.ToString(), false) == 0 &&
-                _departureRoutes.TryAdd(routeLogic.RouteId, routeLogic))
+            if (string.Compare(routeLogic.RouteName, FlightType.Departure.ToString(), false) == 0)
             {
-                _cache.Remove(DEPARTURE_ROUTES_KEY);
+                if (_departureRoutes.TryAdd(routeLogic.RouteId, routeLogic))
+                {
+                    _cache.Remove(DEPARTURE_ROUTES_KEY);
 
-                _departureRoutesIdx = -1;
+                    _departureRoutesIdx = -1;
+                }
             }
-            else if (string.Compare(routeLogic.RouteName, FlightType.Landing.ToString(), false) == 0 &&
-                _landingRoutes.TryAdd(routeLogic.RouteId, routeLogic))
+            else if (string.Compare(routeLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
             {
-                _cache.Remove(LANDING_ROUTES_KEY);
+                if (_landingRoutes.TryAdd(routeLogic.RouteId, routeLogic))
+                {
+                    _cache.Remove(LANDING_ROUTES_KEY);
 
-                _landingRoutesIdx = -1;
+                    _landingRoutesIdx = -1;
+                }
             }
             else throw new InvalidOperationException("Route name is invalid.");
 
@@ -168,6 +170,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnRouteUpdatedAsync(object? sender, IRouteUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             var updatedRoute = await _repoManager.RouteRepository.GetByIdAsync(args.RouteId);
@@ -189,33 +193,41 @@ namespace Airport.Domain.Providers
                 .GetCreator(updatedRoute, updatedSections, updatedStandaloneTLs)
                 .CreateAsync();
 
-            if (string.Compare(newRouteLogic.RouteName, FlightType.Departure.ToString(), false) == 0 &&
-                _departureRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+            if (string.Compare(newRouteLogic.RouteName, FlightType.Departure.ToString(), false) == 0)
             {
-                _departureRoutes[newRouteLogic.RouteId] = newRouteLogic;
+                if (_departureRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                {
+                    _departureRoutes[newRouteLogic.RouteId] = newRouteLogic;
 
-                _cache.Remove(DEPARTURE_ROUTES_KEY);
+                    _cache.Remove(DEPARTURE_ROUTES_KEY);
 
-                _departureRoutesIdx = -1;
+                    _departureRoutesIdx = -1;
+
+                    oldRouteLogic?.Dispose();
+                }
             }
-            else if (string.Compare(newRouteLogic.RouteName, FlightType.Landing.ToString(), false) == 0 &&
-                _landingRoutes.TryGetValue(newRouteLogic.RouteId, out oldRouteLogic))
+            else if (string.Compare(newRouteLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
             {
-                _landingRoutes[newRouteLogic.RouteId] = newRouteLogic;
+                if (_landingRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                {
+                    _landingRoutes[newRouteLogic.RouteId] = newRouteLogic;
 
-                _cache.Remove(LANDING_ROUTES_KEY);
+                    _cache.Remove(LANDING_ROUTES_KEY);
 
-                _landingRoutesIdx = -1;
+                    _landingRoutesIdx = -1;
+
+                    oldRouteLogic?.Dispose();
+                }
             }
             else throw new InvalidOperationException("Route name is invalid.");
-
-            oldRouteLogic?.Dispose();
 
             _logger.LogInformation("Route Id: {RouteId} updated on cache.", args.RouteId);
         }
 
         protected virtual async Task OnRouteDeletedAsync(object? sender, IRouteDeletedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             if (_departureRoutes.TryRemove(args.RouteId, out var oldRouteLogic))
@@ -238,6 +250,8 @@ namespace Airport.Domain.Providers
 
         protected virtual async Task OnStationProviderUpdatedAsync(object? sender, IStationProviderUpdatedEventArgs args)
         {
+            await EnsureInitializedAsync();
+
             using var _ = await _operationSemaphore.EnterAsync();
 
             var relevantRouteIds = await _repoManager.RouteRepository.IdsOfRoutesContainStationAsync(args.StationId);
@@ -262,19 +276,25 @@ namespace Airport.Domain.Providers
                     .GetCreator(updatedRoute, updatedSections, updatedStandaloneTLs)
                     .CreateAsync();
 
-                if (string.Compare(newRouteLogic.RouteName, FlightType.Departure.ToString(), false) == 0 &&
-                    _departureRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                if (string.Compare(newRouteLogic.RouteName, FlightType.Departure.ToString(), false) == 0)
                 {
-                    _departureRoutes[newRouteLogic.RouteId] = newRouteLogic;
+                    if (_departureRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                    {
+                        _departureRoutes[newRouteLogic.RouteId] = newRouteLogic;
+
+                        oldRouteLogic?.Dispose();
+                    }
                 }
-                else if (string.Compare(newRouteLogic.RouteName, FlightType.Landing.ToString(), false) == 0 &&
-                    _landingRoutes.TryGetValue(newRouteLogic.RouteId, out oldRouteLogic))
+                else if (string.Compare(newRouteLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
                 {
-                    _landingRoutes[newRouteLogic.RouteId] = newRouteLogic;
+                    if (_landingRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                    {
+                        _landingRoutes[newRouteLogic.RouteId] = newRouteLogic;
+
+                        oldRouteLogic?.Dispose();
+                    }
                 }
                 else throw new InvalidOperationException("Route name is invalid.");
-
-                oldRouteLogic?.Dispose();
 
                 _logger.LogInformation("Route Id: {RouteId} updated on cache.", routeId);
             }

@@ -6,6 +6,7 @@
         ICollection<TKey> Keys { get; }
         ICollection<TValue> Values { get; }
 
+        bool TryGetValue(TKey key, out TValue? value);
         Task<bool> TryAddAsync(TKey key, TValue value, CancellationToken ct = default);
         Task AddOrUpdateAsync(
             TKey key,
