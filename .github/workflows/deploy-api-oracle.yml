@@ -76,7 +76,7 @@ jobs:
           docker run -d \
             --name airport-api \
             --restart unless-stopped \
-            -p 127.0.0.1:8080:8080 \
+            -p 8080:8080 \
             -e "AirportDbConfiguration__ConnectionString=${MONGODB_CONN}" \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
             -e "ASPNETCORE_URLS=http://0.0.0.0:8080" \
