@@ -1,4 +1,4 @@
-name: Deploy Airport Simulator to Oracle VM
+name: Deploy Airport Simulator to Oracle Compute VM
 
 on:
   push:
@@ -76,7 +76,6 @@ jobs:
             --name airport-simulator \
             --restart unless-stopped \
             --network host \
-            -e "FlightEndPointsConfiguration__BaseUrl=http://127.0.0.1:8080" \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
             ${SIMULATOR_IMAGE}
 
@@ -104,4 +103,3 @@ jobs:
         run: |
           echo "Simulator successfully deployed to Oracle Compute VM"
           echo "Image: ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }}"
-            --format='value(status.url)'
