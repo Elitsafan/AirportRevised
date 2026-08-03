@@ -1,4 +1,4 @@
-name: Deploy .NET 8 App to Oracle VM
+name: Deploy Airport Simulator to Oracle VM
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 env:
-  SERVICE_NAME: airport-simulator
+  SIMULATOR_SERVICE_NAME: airport-simulator
 
 jobs:
   deploy:
@@ -61,12 +61,16 @@ jobs:
           # Copy docker image to VM
           docker save ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }} | \
             ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_SIMULATOR_HOST docker load
+
           # Deploy container on VM
           ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_SIMULATOR_HOST bash << ENDSSH
+
           # Stop and remove old container
           docker stop airport-simulator 2>/dev/null || true
           docker rm airport-simulator 2>/dev/null || true
+
           # Run new container connected via host network to reach API locally at http://127.0.0.1:8080
+
           # No public ports exposed (-p omitted)
           docker run -d \
             --name airport-simulator \
@@ -75,17 +79,24 @@ jobs:
             -e "FlightEndPointsConfiguration__BaseUrl=http://127.0.0.1:8080" \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
             ${SIMULATOR_IMAGE}
-          # Verify container is running
-          if docker ps | grep -q airport-simulator; then
-            echo "Simulator container started successfully"
+
+          # Wait for container startup
+          sleep 3
+
+          # Verify container status is actually 'running'
+          STATUS=\$(docker inspect --format='{{.State.Status}}' airport-simulator 2>/dev/null || echo "not_found")
+          if [ "\$STATUS" = "running" ]; then
+            echo "Simulator container started successfully (Status: \$STATUS)"
             docker logs --tail 20 airport-simulator
           else
-            echo "Simulator container failed to start"
+            echo "Simulator container failed to start! Current status: \$STATUS"
             docker logs airport-simulator
             exit 1
           fi
+
           # Clean up old images
           docker image prune -a -f --filter "until=72h" || true
+
           echo "Simulator deployed successfully"
           ENDSSH
 
