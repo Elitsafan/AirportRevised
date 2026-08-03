@@ -1,4 +1,4 @@
-name: Deploy API to Oracle Compute VM
+name: Deploy Airport API to Oracle VM
 
 on:
   push:
