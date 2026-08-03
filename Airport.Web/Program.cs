@@ -16,9 +16,11 @@ namespace Airport.Web
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            builder.Services.Configure<AirportDbConfiguration>(
-                builder.Configuration.GetSection(nameof(AirportDbConfiguration)));
+            
+            builder.Services.Configure<AirportDbConfiguration>(builder.Configuration.GetSection(nameof(AirportDbConfiguration)));
+            
             builder.Services.AddEndpointsApiExplorer();
+            
             builder.Services.AddSwaggerGen(options =>
             {
                 // This tells Swagger to treat ObjectId as a simple string schema
@@ -29,7 +31,9 @@ namespace Airport.Web
                     Example = new OpenApiString("6962bc27216b2f3897a15ad0")
                 });
             });
+            
             builder.Services.AddSignalR(/*options => options.EnableDetailedErrors = true*/);
+            
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(
@@ -46,6 +50,7 @@ namespace Airport.Web
                             .AllowCredentials();
                     });
             });
+            
             builder.Services.AddControllers()
                 .AddNewtonsoftJson(options =>
                 {
@@ -53,7 +58,9 @@ namespace Airport.Web
                     options.SerializerSettings.Converters.Add(new TimeSpanConverter());
                 })
                 .AddApplicationPart(typeof(Presentation.AssemblyReference).Assembly);
+            
             builder.Services.AddAirportServices(builder.Configuration);
+            
             builder.Services.AddSingleton<IMongoClient>(provider =>
             {
                 // Not using builder.Configuration - ignores runtime environment variables
@@ -65,6 +72,7 @@ namespace Airport.Web
                 settings.MinConnectionPoolSize = 5;
                 return new MongoClient(settings);
             });
+            
             builder.Services.AddAutoMapper(cfg =>
             {
                 var autoMapperKey = builder.Configuration.GetSection(nameof(AutoMapper))["Key"];
@@ -74,7 +82,9 @@ namespace Airport.Web
                 cfg.AddProfile<RouteProfile>();
                 cfg.AddProfile<DirectionProfile>();
             });
+            
             builder.Services.AddTransient<ExceptionHandlingMiddleware>();
+            
             builder.Services.AddMemoryCache(options =>
             {
                 options.SizeLimit = 1024;
@@ -85,13 +95,17 @@ namespace Airport.Web
             await using (var scope = app.Services.CreateAsyncScope())
             {
                 var domainEvents = scope.ServiceProvider.GetRequiredService<IDomainEvents>();
+
                 await domainEvents.RaiseSystemResetRequestedAsync();
+
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
                 logger.LogInformation("Running on {Environment} environment",
                     Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
             }
 
             app.UseMiddleware<ExceptionHandlingMiddleware>();
+
             if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
             {
                 app.UseSwagger();
@@ -110,6 +124,7 @@ namespace Airport.Web
             app.UseAuthorization();
             app.MapHub<AirportHub>("/airporthub");
             app.MapControllers();
+
             await app.RunAsync();
         }
 

@@ -45,7 +45,7 @@ jobs:
 
       - name: Deploy to Oracle VM via SSH
         env:
-          ORACLE_VM_SIMULATOR_HOST: ${{ secrets.ORACLE_VM_SIMULATOR_HOST }}
+          ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_SIMULATOR_HOST }}
           ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
           ORACLE_VM_SIMULATOR_SSH_KEY: ${{ secrets.ORACLE_VM_SIMULATOR_SSH_KEY }}
           SIMULATOR_IMAGE: ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }}
@@ -56,14 +56,14 @@ jobs:
           chmod 600 ~/.ssh/oracle_key
 
           # Add host to known_hosts
-          ssh-keyscan -H $ORACLE_VM_SIMULATOR_HOST >> ~/.ssh/known_hosts
+          ssh-keyscan -H $ORACLE_VM_HOST >> ~/.ssh/known_hosts
 
           # Copy docker image to VM
           docker save ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }} | \
-            ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_SIMULATOR_HOST docker load
+            ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST docker load
 
           # Deploy container on VM
-          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_SIMULATOR_HOST bash << ENDSSH
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST bash << ENDSSH
 
           # Stop and remove old container
           docker stop airport-simulator 2>/dev/null || true
