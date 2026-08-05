@@ -1,4 +1,4 @@
-namespace OnionArchitecture.Simulator.Tests
+namespace Airport.Simulator.Tests
 {
     public class FlightGeneratorTests
     {

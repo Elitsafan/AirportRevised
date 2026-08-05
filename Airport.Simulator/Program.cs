@@ -55,15 +55,19 @@ namespace Airport.Simulator
                 .Build();
 
             await using var scope = host.Services.CreateAsyncScope();
+
             _logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
             var flightLauncherService = scope
                 .ServiceProvider
                 .GetRequiredService<IFlightLauncherService>();
+
             _logger.LogInformation("Starting Airport Simulator...");
+
             var startResponse = await flightLauncherService.StartAsync();
-            flightLauncherService
-                .StartStandbyModeAsync()
-                .Forget();
+
+            flightLauncherService.StartStandbyModeAsync().Forget();
+
             _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
             _logger.LogInformation("Running on {Environment} environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
 #if TEST
@@ -73,9 +77,7 @@ namespace Airport.Simulator
                 .ToListAsync()
                 .Forget();
 #else
-            flightLauncherService
-                .SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/)
-                .Forget();
+            flightLauncherService.SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/).Forget();
 #endif
             await host.RunAsync();
         }
