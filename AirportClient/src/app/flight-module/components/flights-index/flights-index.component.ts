@@ -49,6 +49,6 @@ export class FlightsIndexComponent implements OnInit, OnDestroy {
   onRefresh(event?: Event) {
     this.loading = true;
     this.errorMessage = null;
-    this.flightSvc.updateFlights(new HttpParams().set("minutesPassed", environment.flightRefreshMinutes));
+    this.flightSvc.updateFlights(new HttpParams().set(environment.minutesPassedArg, environment.flightRefreshMinutes));
   }
 }

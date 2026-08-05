@@ -5,6 +5,7 @@ import { AirportService } from './airport.service';
 export abstract class BaseAirportDataService<T> {
   protected dataSubject: BehaviorSubject<T>;
   protected errorSubject: ReplaySubject<any>;
+  protected fetchDataParams?: HttpParams;
 
   protected constructor(
     protected airportSvc: AirportService,
@@ -25,11 +26,11 @@ export abstract class BaseAirportDataService<T> {
   protected initialize(): void {
     if (!this.airportSvc.hasStarted) {
       this.airportSvc.start().subscribe({
-        next: () => this.fetchData(),
+        next: () => this.fetchData(this.fetchDataParams),
         error: err => this.errorSubject.next(err)
       });
     } else {
-      this.fetchData();
+      this.fetchData(this.fetchDataParams);
     }
   }
 

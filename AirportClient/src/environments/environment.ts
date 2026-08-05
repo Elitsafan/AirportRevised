@@ -16,6 +16,7 @@ export const environment = {
     retryCount: 5,
     retryDelayMs: 5000
   },
+  minutesPassedArg: "minutesPassed",
   flightRefreshMinutes: 7,
   //landingColors: [
   //  "#666666",

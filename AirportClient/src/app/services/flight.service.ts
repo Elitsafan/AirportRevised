@@ -6,6 +6,7 @@ import { Flight } from "../flight-module/models/flight.model";
 import { HttpParams } from "@angular/common/http";
 import { IFlight } from "../interfaces/iflight.interface";
 import { BaseAirportDataService } from "./base-airport-data.service";
+import { environment } from "src/environments/environment";
 
 @Injectable({
   providedIn: 'root'
@@ -19,6 +20,7 @@ export class FlightService extends BaseAirportDataService<Flight[]> implements O
     private colorSvc: ColorService
   ) {
     super(airportSvc, []);
+    this.fetchDataParams = new HttpParams().set(environment.minutesPassedArg, environment.flightRefreshMinutes);
     this.initialize();
   }
 
