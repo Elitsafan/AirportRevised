@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Configuration;
 
-namespace Airport.Simulator
+namespace Airport.Simulator.Services
 {
     public class KeepAliveService : BackgroundService
     {
@@ -40,14 +40,31 @@ namespace Airport.Simulator
 
         protected override async Task ExecuteAsync(CancellationToken ct)
         {
-            var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.KeepAliveInterval);
+            using var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.KeepAliveInterval);
+
+            try
+            {
+                var startResponse = await StartApiAsync(ct);
+
+                _logger.LogInformation("Starting Airport Simulator...");
+                _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Initial API startup failed after retries: {Message}", ex.Message);
+            }
 
             while (await periodicTimer.WaitForNextTickAsync(ct))
-            {
-                var result = await StartApiAsync(ct);
+                try
+                {
+                    var result = await StartApiAsync(ct);
 
-                _logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
-            }
+                    _logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Keep-alive ping failed: {Message}", ex.Message);
+                }
         }
 
         private void ValidateFlightEndpointsConfiguration()

@@ -86,15 +86,11 @@ namespace Airport.Simulator.Services
                 yield return await flight;
             yield break;
         }
-        // Send a request to Start endpoint
-        public async Task<HttpResponseMessage> StartAsync(CancellationToken ct = default) =>
-            await _client.GetAsync(_flightsConfig.Start, ct);
 
-        public async Task<HttpResponseMessage> LaunchOneAsync(
-            FlightForCreationDTO flight,
-            CancellationToken ct = default)
+        public async Task<HttpResponseMessage> LaunchOneAsync(FlightForCreationDTO flight, CancellationToken ct = default)
         {
             _logger.LogInformation("Launching {FlightType}...", flight.FlightType);
+
             return flight.FlightType == FlightType.Landing
                 ? await _client.PostAsJsonAsync(
                     _flightsConfig.Landing,
@@ -108,13 +104,15 @@ namespace Airport.Simulator.Services
         // Launches a flight according to _flightTimeoutConfiguration.Timeout
         public async Task SetFlightTimeoutAsync(FlightType? flightType, CancellationToken ct = default)
         {
-            var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.SendFlightTimeout);
+            using var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.SendFlightTimeout);
+
             while (await periodicTimer.WaitForNextTickAsync(ct))
             {
                 var flight = _flightGenerator.GenerateFlight(flightType ?? (_random.Next() % 2 == 0
                     ? FlightType.Landing
                     : FlightType.Departure));
-                /*var result = */LaunchOneAsync(flight, ct).Forget();
+                /*var result = */
+                LaunchOneAsync(flight, ct).Forget();
                 //_logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
             }
         }
@@ -127,11 +125,7 @@ namespace Airport.Simulator.Services
                     _logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));
         }
 
-        public async ValueTask DisposeAsync()
-        {
-            _client?.Dispose();
-            await ValueTask.CompletedTask;
-        }
+        public void Dispose() => _client?.Dispose();
 
         private void ValidateFlightsConfiguration()
         {

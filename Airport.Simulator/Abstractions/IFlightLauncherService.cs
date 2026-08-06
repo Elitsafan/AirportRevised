@@ -3,9 +3,8 @@ using Airport.Models.Enums;
 
 namespace Airport.Simulator.Abstractions
 {
-    public interface IFlightLauncherService : IAsyncDisposable
+    public interface IFlightLauncherService : IDisposable
     {
-        Task<HttpResponseMessage> StartAsync(CancellationToken ct = default);
         IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(params string[]? args);
         IAsyncEnumerable<HttpResponseMessage> LaunchManyAsync(
             int n = 6,
