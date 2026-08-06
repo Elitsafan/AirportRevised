@@ -1,8 +1,6 @@
-﻿using Airport.Simulator.Abstractions;
-
-namespace Airport.Simulator.Configurations
+﻿namespace Airport.Simulator.Configurations
 {
-    internal class FlightEndPointsConfiguration : IFlightEndPointsConfiguration
+    public class FlightEndPointsConfiguration
     {
         public string BaseUrl { get; set; } = null!;
         public string Start { get; set; } = null!;

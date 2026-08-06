@@ -10,7 +10,8 @@ import { StationIdMapperService } from '../../../services/station-id-mapper.serv
 })
 export class StationComponent {
   @Input() station?: Station;
-  @Input() flightType?: FlightType;
+  @Input() routeId?: string;
+  //@Input() flightType?: FlightType;
 
   constructor(private stationIdMapper: StationIdMapperService) { }
 

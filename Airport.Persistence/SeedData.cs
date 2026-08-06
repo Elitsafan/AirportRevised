@@ -1,6 +1,4 @@
 ﻿using Airport.Persistence.Configurations;
-using Microsoft.Extensions.Options;
-using MongoDB.Driver;
 
 namespace Airport.Persistence
 {
@@ -9,12 +7,13 @@ namespace Airport.Persistence
         public static async Task InitializeAsync(
             IMongoClient client,
             IOptions<AirportDbConfiguration> configuration,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            if ((await (await client.ListDatabaseNamesAsync(cancellationToken))
-                .ToListAsync(cancellationToken: cancellationToken))
+            if ((await (await client.ListDatabaseNamesAsync(ct))
+                .ToListAsync(cancellationToken: ct))
                 .Any(name => configuration.Value.DatabaseName == name))
                 return;
+
             await new DepartureConfiguration()
                 .ConfigureAsync(client, configuration);
             await new FlightConfiguration()
@@ -25,6 +24,10 @@ namespace Airport.Persistence
                 .ConfigureAsync(client, configuration);
             await new StationConfiguration()
                 .ConfigureAsync(client, configuration);
+            await new SectionConfiguration()
+                .ConfigureAsync(client, configuration);
+            await new SyncerConfiguration()
+                .ConfigureAsync(client, configuration);
             await new TrafficLightConfiguration()
                 .ConfigureAsync(client, configuration);
         }
@@ -32,12 +35,12 @@ namespace Airport.Persistence
         public static async Task DeleteAsync(
             IMongoClient client,
             IOptions<AirportDbConfiguration> configuration,
-            CancellationToken cancellationToken = default)
+            CancellationToken ct = default)
         {
-            if ((await (await client.ListDatabaseNamesAsync(cancellationToken))
-                .ToListAsync(cancellationToken: cancellationToken))
+            if ((await (await client.ListDatabaseNamesAsync(ct))
+                .ToListAsync(cancellationToken: ct))
                 .Any(name => configuration.Value.DatabaseName == name))
-                await client.DropDatabaseAsync(configuration.Value.DatabaseName, cancellationToken);
+                await client.DropDatabaseAsync(configuration.Value.DatabaseName, ct);
         }
     }
 }

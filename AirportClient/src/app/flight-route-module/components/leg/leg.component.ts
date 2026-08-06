@@ -9,7 +9,8 @@ import { FlightType } from '../../../types/flight.type';
 })
 export class LegComponent {
   @Input() stations?: Station[];
-  @Input() flightType?: FlightType;
+  @Input() routeId?: string;
+  //@Input() flightType?: FlightType;
 
   trackByStationId(index: number, station: Station): string {
     return station.stationId;

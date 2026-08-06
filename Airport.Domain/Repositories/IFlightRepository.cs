@@ -1,23 +1,21 @@
-﻿using Airport.Models.Enums;
+﻿using Airport.Models;
 
 namespace Airport.Domain.Repositories
 {
     public interface IFlightRepository : IRepository<Flight>
     {
-        Task<Flight> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default);
-        Task<UpdateResult> UpdateFlightAsync(Flight flight, bool upsert = false, CancellationToken ct = default);
-        /// <summary>
-        /// Oreders flight by the earliest entrance
-        /// </summary>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default);
-        /// <summary>
-        /// Flights older than <paramref name="timePassed"/> will not be retrieved.
-        /// </summary>
-        /// <param name="timePassed"></param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        Task<IEnumerable<Flight>> FilterByTimePassedAsync(TimeSpan timePassed, CancellationToken ct = default);
+        Task<Flight> GetByIdAsync(ObjectId id, CancellationToken ct = default);
+        Task<IEnumerable<Flight>> FilterByTimePassedAsync(
+            TimeSpan timePassed,
+            CancellationToken ct = default);
+        Task<IPagedList<TResult>> GetPagedFlightsAsync<TResult>(
+            Func<Flight, TResult> func,
+            int pageNumber,
+            int pageSize,
+            CancellationToken ct = default)
+            where TResult : class;
+        void AddCompletedFlight(Flight flight);
+        Task<long> FlushAsync(IClientSessionHandle? session = null, CancellationToken ct = default);
+        Task<long> EnforceStorageLimitAsync(IClientSessionHandle? session = null, CancellationToken ct = default);
     }
 }

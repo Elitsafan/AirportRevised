@@ -1,211 +1,112 @@
-﻿namespace Airport.Services.Tests
+﻿using Airport.Contracts.EventArgs.FlightEventArgs;
+using Airport.Contracts.Helpers;
+using Airport.Services.Services;
+using Airport.Services.Tests.Stubs;
+using Microsoft.VisualStudio.Threading;
+
+namespace Airport.Services.Tests
 {
     public class AirportHubServiceTests
     {
         #region Fields
-        private ILogger<AirportHubService> _mockLogger;
-        private Mock<IHubContext<AirportHub>> _mockHubContext;
-        private Mock<IStationLogicProvider> _mockStationLogicProvider;
-        private Mock<IFlightLogic> _mockFlightLogic;
+        private readonly Mock<IHubContext<AirportHub>> _mockHubContext;
+        private readonly Mock<IHubClients> _mockClients;
+        private readonly Mock<IClientProxy> _mockClientProxy;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
+        private readonly Mock<IStationLogicProvider> _mockStationProvider;
+        private readonly Mock<ILogger<AirportHubService>> _mockLogger;
+        private readonly AirportHubService _sut;
         #endregion
 
         public AirportHubServiceTests()
         {
-            _mockLogger = Mock.Of<ILogger<AirportHubService>>();
             _mockHubContext = new Mock<IHubContext<AirportHub>>();
-            _mockStationLogicProvider = new Mock<IStationLogicProvider>();
-            _mockFlightLogic = new Mock<IFlightLogic>();
-        }
+            _mockClients = new Mock<IHubClients>();
+            _mockClientProxy = new Mock<IClientProxy>();
 
-        [Fact]
-        public async Task AirportHubService_Created_NotNullAsync()
-        {
-            var airportHubService = await AirportHubService.CreateAsync(
-                _mockStationLogicProvider.Object,
-                _mockLogger,
+            _mockHubContext.Setup(h => h.Clients).Returns(_mockClients.Object);
+            _mockClients.Setup(c => c.All).Returns(_mockClientProxy.Object);
+
+            _mockDomainEvents = new Mock<IDomainEvents>();
+            _mockStationProvider = new Mock<IStationLogicProvider>();
+            _mockLogger = new Mock<ILogger<AirportHubService>>();
+
+            _sut = new AirportHubService(
+                _mockStationProvider.Object,
+                _mockDomainEvents.Object,
+                _mockLogger.Object,
                 _mockHubContext.Object);
-
-            Assert.NotNull(airportHubService);
         }
 
         [Fact]
-        public async Task RegisterFlightRunDone_HandlerRegisteredAsync()
+        public async Task FlightRunStarted_ShouldProcessStation_AndSendSignalRMessage()
         {
-            var jsonSerializerSettings = new JsonSerializerSettings()
+            // Arrange
+            var mockEventArgs = new Mock<IFlightRunStartedEventArgs>();
+
+            var fakeStationData = new StationChangedDataStub
             {
-                Formatting = Formatting.Indented,
-                ContractResolver = new DefaultContractResolver { NamingStrategy = new CamelCaseNamingStrategy() },
-                DateFormatHandling = DateFormatHandling.IsoDateFormat,
+                StationId = ObjectId.GenerateNewId(),
             };
-            var flightId = ObjectId.GenerateNewId();
-            var mockEventArgs = new Mock<IFlightRunDoneEventArgs>();
-            var mockHubClients = new Mock<IHubClients>();
-            var mockClientsProxy = new Mock<IClientProxy>();
-            var airportHubService = await AirportHubService.CreateAsync(
-                _mockStationLogicProvider.Object,
-                _mockLogger,
-                _mockHubContext.Object);
+            var expectedDataList = new List<IStationChangedData> { fakeStationData };
 
-            airportHubService.RegisterFlightRunDone(_mockFlightLogic.Object);
+            _mockStationProvider
+                .Setup(p => p.ProcessFlightStartedAsync(mockEventArgs.Object, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expectedDataList);
 
-            _mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            mockHubClients
-                .SetupGet(x => x.All)
-                .Returns(mockClientsProxy.Object);
-            _mockHubContext
-                .SetupGet(x => x.Clients)
-                .Returns(mockHubClients.Object);
-            mockClientsProxy
-                .Setup(x => x.SendCoreAsync(
-                    nameof(IFlightLogic.FlightRunDone),
-                    new object[] { JsonConvert.SerializeObject(flightId, jsonSerializerSettings) },
-                    CancellationToken.None))
-                .Returns(Task.CompletedTask)
-                .Verifiable();
-            mockEventArgs
-                .SetupGet(x => x.Flight)
-                .Returns(_mockFlightLogic.Object);
+            // Act
+            await _sut.StartAsync(default);
 
-            await _mockFlightLogic
-                .RaiseAsync(x => x.FlightRunDone += null, null!, mockEventArgs.Object);
+            await _mockDomainEvents.RaiseAsync(
+                e => e.FlightRunStarted += null,
+                this,
+                mockEventArgs.Object);
 
-            mockClientsProxy.Verify();
+            // Assert
+            _mockStationProvider.Verify(
+                p => p.ProcessFlightStartedAsync(mockEventArgs.Object, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            _mockClientProxy.Verify(
+                c => c.SendCoreAsync(
+                    nameof(IDomainEvents.FlightRunStarted),
+                    It.Is<object[]>(args => args.Length == 1 && args[0] is string),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
-        public async Task StationOccupiedAsyncEvent_Raised_CallsSendCoreAsync()
+        public async Task StopAsync_ShouldUnsubscribeFromEvents()
         {
-            var stationId = ObjectId.GenerateNewId();
-            var flightId = ObjectId.GenerateNewId();
-            var flightType = FlightType.Landing;
-            var expected = Enumerable.Repeat(new
-            {
-                stationId,
-                flight = new
-                {
-                    flightId,
-                    flightType
-                }
-            },
-            1);
-            var jsonSerializerSettings = new JsonSerializerSettings()
-            {
-                Formatting = Formatting.Indented,
-                ContractResolver = new DefaultContractResolver { NamingStrategy = new CamelCaseNamingStrategy() },
-                DateFormatHandling = DateFormatHandling.IsoDateFormat,
-            };
-            var mockEventArgs = new Mock<IStationOccupiedEventArgs>();
-            var mockStationLogic = new Mock<IStationLogic>();
-            var mockHubClients = new Mock<IHubClients>();
-            var mockClientsProxy = new Mock<IClientProxy>();
+            // Arrange
+            await _sut.StartAsync(CancellationToken.None);
 
-            _mockStationLogicProvider
-                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IStationLogic[] { mockStationLogic.Object });
-            var airportHubService = await AirportHubService.CreateAsync(
-                _mockStationLogicProvider.Object,
-                _mockLogger,
-                _mockHubContext.Object);
+            var mockFlightStartedEventArgs = new Mock<IFlightRunStartedEventArgs>();
+            var mockFlightDoneEventArgs = new Mock<IFlightRunDoneEventArgs>();
 
-            _mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            mockHubClients
-                .SetupGet(x => x.All)
-                .Returns(mockClientsProxy.Object);
-            _mockHubContext
-                .SetupGet(x => x.Clients)
-                .Returns(mockHubClients.Object);
-            mockClientsProxy
-                .Setup(x => x.SendCoreAsync(
-                    nameof(IStationLogic.StationOccupiedAsync),
-                    new object[] { JsonConvert.SerializeObject(expected, jsonSerializerSettings) },
-                    CancellationToken.None))
-                .Returns(Task.CompletedTask)
-                .Verifiable();
-            mockStationLogic
-                .SetupGet(x => x.CurrentFlightId)
-                .Returns(flightId);
-            mockStationLogic
-                .SetupGet(x => x.CurrentFlightType)
-                .Returns(flightType);
-            mockStationLogic
-                .SetupGet(x => x.StationId)
-                .Returns(stationId);
+            // Act
+            await _sut.StopAsync(CancellationToken.None);
 
-            await mockStationLogic
-                .RaiseAsync(x => x.StationOccupiedAsync += null, null!, mockEventArgs.Object);
+            _mockDomainEvents.Object.FlightRunStarted += (sender, args) => Task.CompletedTask;
+            _mockDomainEvents.Object.FlightRunDone += (sender, args) => Task.CompletedTask;
 
-            mockClientsProxy.Verify();
-        }
+            await _mockDomainEvents.RaiseAsync(
+                e => e.FlightRunStarted += null,
+                this,
+                mockFlightStartedEventArgs.Object);
 
-        [Fact]
-        public async Task StationClearedAsyncEvent_Raised_CallsSendCoreAsync()
-        {
-            var stationId = ObjectId.GenerateNewId();
-            var flightId = ObjectId.GenerateNewId();
-            var flightType = FlightType.Landing;
-            var expected = Enumerable.Repeat(new
-            {
-                stationId,
-                flight = new
-                {
-                    flightId,
-                    flightType
-                }
-            },
-            1);
-            var jsonSerializerSettings = new JsonSerializerSettings()
-            {
-                Formatting = Formatting.Indented,
-                ContractResolver = new DefaultContractResolver { NamingStrategy = new CamelCaseNamingStrategy() },
-                DateFormatHandling = DateFormatHandling.IsoDateFormat,
-            };
-            var mockEventArgs = new Mock<IStationClearedEventArgs>();
-            var mockStationLogic = new Mock<IStationLogic>();
-            var mockHubClients = new Mock<IHubClients>();
-            var mockClientsProxy = new Mock<IClientProxy>();
+            await _mockDomainEvents.RaiseAsync(
+                e => e.FlightRunDone += null,
+                this,
+                mockFlightDoneEventArgs.Object);
 
-            _mockStationLogicProvider
-                .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IStationLogic[] { mockStationLogic.Object });
-            var airportHubService = await AirportHubService.CreateAsync(
-                _mockStationLogicProvider.Object,
-                _mockLogger,
-                _mockHubContext.Object);
-
-            _mockFlightLogic
-                .SetupGet(x => x.FlightId)
-                .Returns(flightId);
-            mockHubClients
-                .SetupGet(x => x.All)
-                .Returns(mockClientsProxy.Object);
-            _mockHubContext
-                .SetupGet(x => x.Clients)
-                .Returns(mockHubClients.Object);
-            mockClientsProxy
-                .Setup(x => x.SendCoreAsync(
-                    nameof(IStationLogic.StationClearedAsync),
-                    new object[] { JsonConvert.SerializeObject(expected, jsonSerializerSettings) },
-                    CancellationToken.None))
-                .Returns(Task.CompletedTask)
-                .Verifiable();
-            mockStationLogic
-                .SetupGet(x => x.CurrentFlightId)
-                .Returns(flightId);
-            mockStationLogic
-                .SetupGet(x => x.CurrentFlightType)
-                .Returns(flightType);
-            mockStationLogic
-                .SetupGet(x => x.StationId)
-                .Returns(stationId);
-
-            await mockStationLogic
-                .RaiseAsync(x => x.StationClearedAsync += null, null!, mockEventArgs.Object);
-
-            mockClientsProxy.Verify();
+            // Assert
+            _mockClientProxy.Verify(
+                c => c.SendCoreAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<object[]>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }

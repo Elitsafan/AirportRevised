@@ -16,5 +16,6 @@ namespace Airport.Models.DTOs
             set => _stationOccupationDetails = value;
         }
         public ObjectId? RouteId { get; set; }
+        public List<OccupationDetails> StationOccupationDetails { get; set; } = new();
     }
 }

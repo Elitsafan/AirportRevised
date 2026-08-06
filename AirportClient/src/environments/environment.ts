@@ -6,8 +6,8 @@ export const environment = {
   summaryEP: '/api/Airport/Summary',
   flightsEP: '/api/Flights',
   flightRunDone: 'FlightRunDone',
-  stationClearedAsync: 'StationClearedAsync',
-  stationOccupiedAsync: 'StationOccupiedAsync',
+  stationCleared: 'StationCleared',
+  flightRunStarted: 'FlightRunStarted',
   timeout: {
     minutes: 1,
     hours: 0
@@ -16,6 +16,7 @@ export const environment = {
     retryCount: 5,
     retryDelayMs: 5000
   },
+  minutesPassedArg: "minutesPassed",
   flightRefreshMinutes: 7,
   //landingColors: [
   //  "#666666",

@@ -1,9 +1,10 @@
-﻿using Airport.Simulator.Abstractions;
-
-namespace Airport.Simulator.Configurations
+﻿namespace Airport.Simulator.Configurations
 {
-    internal class FlightTimeoutConfiguration : IFlightTimeoutConfiguration
+    public class FlightTimeoutConfiguration
     {
-        public double Timeout { get; set; }
+        public TimeSpan SendFlightTimeout { get; set; }
+        public TimeSpan StandbyTimeout { get; set; }
+        public int AutoFlightCount { get; set; }
+        public TimeSpan KeepAliveInterval { get; set; }
     }
 }

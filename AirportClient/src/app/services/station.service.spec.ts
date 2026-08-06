@@ -12,7 +12,7 @@ describe('StationService', () => {
   let airportSvcSpy: jasmine.SpyObj<AirportService>;
   let signalrSvcSpy: jasmine.SpyObj<SignalrService>;
   let colorSvcSpy: jasmine.SpyObj<ColorService>;
-  let stationOccupiedSubject: BehaviorSubject<any>;
+  let flightRunStartedSubject: BehaviorSubject<any>;
   let stationClearedSubject: BehaviorSubject<any>;
   let connectionErrorSubject: BehaviorSubject<any>;
 
@@ -25,11 +25,11 @@ describe('StationService', () => {
     });
     colorSvcSpy = jasmine.createSpyObj('ColorService', ['getColor']);
 
-    stationOccupiedSubject = new BehaviorSubject<any>(null);
+    flightRunStartedSubject = new BehaviorSubject<any>(null);
     stationClearedSubject = new BehaviorSubject<any>(null);
     connectionErrorSubject = new BehaviorSubject<any>(null);
 
-    Object.defineProperty(signalrSvcSpy, 'stationOccupiedData$', { get: () => stationOccupiedSubject.asObservable() });
+    Object.defineProperty(signalrSvcSpy, 'flightRunStartedData$', { get: () => flightRunStartedSubject.asObservable() });
     Object.defineProperty(signalrSvcSpy, 'stationClearedData$', { get: () => stationClearedSubject.asObservable() });
     Object.defineProperty(signalrSvcSpy, 'connectionError$', { get: () => connectionErrorSubject.asObservable() });
 
@@ -96,7 +96,7 @@ describe('StationService', () => {
         flight: { flightId: 'f1', flightType: 'Landing' }
       }];
 
-      stationOccupiedSubject.next(updateData);
+      flightRunStartedSubject.next(updateData);
 
       service.stations$!.subscribe(stations => {
         const s1 = stations.find(s => s.stationId === 's1');
@@ -108,13 +108,13 @@ describe('StationService', () => {
 
     it('should clear station flight when station is cleared', () => {
       // Initial state with occupied station
-      const mockStations = [{ stationId: 's1', flight: undefined }]; // Logic populates flight later or we assume empty start
+      const mockStations = [{ stationId: 's1', flight: null }]; // Logic populates flight later or we assume empty start
       airportSvcSpy.getStatus.and.returnValue(of({ stations: mockStations } as any));
 
       service.startService();
 
       // Simulate occupation first
-      stationOccupiedSubject.next([{ stationId: 's1', flight: { flightId: 'f1' } }]);
+      flightRunStartedSubject.next([{ stationId: 's1', flight: { flightId: 'f1' } }]);
 
       // Simulate clearance (flight is null/undefined in update?)
       // Looking at code: data: IStationChangedData -> flight?: IFlight.
@@ -123,8 +123,8 @@ describe('StationService', () => {
 
       service.stations$!.subscribe(stations => {
         const s1 = stations.find(s => s.stationId === 's1');
-        if (s1 && s1.flight === undefined) {
-          expect(s1.flight).toBeUndefined();
+        if (s1 && s1.flight === null) {
+          expect(s1.flight).toBeNull();
         }
       });
     });

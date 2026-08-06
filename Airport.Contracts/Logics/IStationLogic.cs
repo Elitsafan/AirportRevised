@@ -1,27 +1,12 @@
-﻿using Airport.Contracts.EventArgs;
-using Airport.Models.Enums;
-using Microsoft.VisualStudio.Threading;
-using MongoDB.Bson;
+﻿using Airport.Models.Enums;
 
 namespace Airport.Contracts.Logics
 {
-    public interface IStationLogic
+    public interface IStationLogic : IDisposable
     {
-        /// <summary>
-        /// Invoked when station is occupied
-        /// </summary>
-        event AsyncEventHandler<IStationOccupiedEventArgs>? StationOccupiedAsync;
-        /// <summary>
-        /// Invoked when station is clearing
-        /// </summary>
-        event AsyncEventHandler<IStationClearingEventArgs>? StationClearingAsync;
-        /// <summary>
-        /// Invoked when station is cleared
-        /// </summary>
-        event AsyncEventHandler<IStationClearedEventArgs>? StationClearedAsync;
         ObjectId StationId { get; }
         /// <summary>
-        /// Represents the <see cref="FlightType"/> of the current flight
+        /// Represents the <see cref="FlightType"/> of the current flight inside the <see cref="IStationLogic"/>
         /// </summary>
         FlightType? CurrentFlightType { get; }
         /// <summary>
@@ -40,9 +25,11 @@ namespace Airport.Contracts.Logics
         /// <returns></returns>
         Task<IStationLogic> SetFlightAsync(IFlightLogic flightLogic, CancellationTokenSource? cts = null);
         /// <summary>
-        /// Clears the station from the flight
+        /// Clear the station from the flight
         /// </summary>
+        /// <param name="newStationId">The next station id</param>
+        /// <param name="ct"></param>
         /// <returns></returns>
-        Task ClearAsync(CancellationToken ct = default);
+        Task ClearAsync(ObjectId? newStationId, CancellationToken ct = default);
     }
 }

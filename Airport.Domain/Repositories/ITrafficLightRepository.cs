@@ -2,19 +2,8 @@
 {
     public interface ITrafficLightRepository : IRepository<TrafficLight>
     {
-        Task<IEnumerable<TrafficLight>> GetTrafficLightsByRouteIdAsync(
-            ObjectId routeId,
-            CancellationToken ct = default);
-        /// <summary>
-        /// Gets the very next traffic lights that come after <paramref name="id"/>
-        /// </summary>
-        /// <param name="routeId"></param>
-        /// <param name="id"></param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
-        Task<IEnumerable<TrafficLight>> GetNextTrafficLightsAsync(
-            ObjectId routeId,
-            ObjectId id,
-            CancellationToken ct = default);
+        Task<IEnumerable<TrafficLight>> GetTrafficLightsByRouteIdAsync(ObjectId routeId, CancellationToken ct = default);
+        Task<bool> DeleteByStationIdAsync(ObjectId id, IClientSessionHandle? session = null, CancellationToken ct = default);
+        Task<IEnumerable<TrafficLight>> GetStandaloneTLsAsync(ObjectId routeId, CancellationToken ct = default);
     }
 }

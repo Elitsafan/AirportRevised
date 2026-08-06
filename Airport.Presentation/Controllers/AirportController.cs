@@ -1,7 +1,9 @@
 ﻿using Airport.Models;
-using Airport.Presentation.Extensions;
+using Airport.Presentation.Filters;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Airport.Presentation.Controllers
 {
@@ -17,6 +19,11 @@ namespace Airport.Presentation.Controllers
         [HttpGet]
         public async Task<IActionResult> StartAsync(CancellationToken ct = default) =>
             Ok(await _airportService.StartAsync(ct));
+
+        // GET: api/Airport/Restart
+        [HttpGet]
+        public async Task<IActionResult> RestartAsync(CancellationToken ct = default) =>
+            Ok(await _airportService.RestartAsync(ct));
 
         // GET: api/Airport/Status
         [HttpGet]

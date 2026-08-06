@@ -5,35 +5,40 @@
         #region Fields
         private readonly Route _route;
         private readonly ILogger<RouteLogic> _logger;
-        private readonly IDirectionLogicProvider _directionLogicProvider;
-        private readonly IStationLogicProvider _stationLogicProvider;
-        private readonly IEnumerable<IRouteSectionDetails>? _sections;
+        private readonly IDirectionLogicProvider _directionProvider;
+        private readonly IStationLogicProvider _stationProvider;
+        private readonly List<ISectionLogic> _sections;
+        private readonly List<IStationLogic> _standaloneTrafficLights;
         #endregion
 
         public RouteLogicCreator(
             Route route,
-            ILogger<RouteLogic> logger,
-            IEnumerable<IRouteSectionDetails>? sections,
-            IDirectionLogicProvider directionLogicProvider,
-            IStationLogicProvider stationLogicProvider)
+            IEnumerable<ISectionLogic>? sections,
+            IEnumerable<IStationLogic>? standaloneTrafficLights,
+            IDirectionLogicProvider directionProvider,
+            IStationLogicProvider stationProvider,
+            ILogger<RouteLogic> logger)
         {
             _route = route;
+            _sections = sections is null
+                ? new()
+                : sections.ToList();
+            _standaloneTrafficLights = standaloneTrafficLights is null
+                ? new()
+                : standaloneTrafficLights.ToList();
+            _directionProvider = directionProvider;
+            _stationProvider = stationProvider;
             _logger = logger;
-            _sections = sections;
-            _directionLogicProvider = directionLogicProvider;
-            _stationLogicProvider = stationLogicProvider;
         }
 
-        public async Task<IRouteLogic> CreateAsync()
+        public async Task<IRouteLogic> CreateAsync(CancellationToken ct = default)
         {
-            List<IStationLogic> stations;
-            List<IDirectionLogic> directions;
-            var trafficLights = new List<IStationLogic>(_sections?
-                .SelectMany(s => s.RouteSection.AllTrafficLights)
-                .Distinct() ?? Enumerable.Empty<IStationLogic>());
-
-            stations = new List<IStationLogic>(await _stationLogicProvider.FindStationLogicsByRouteIdAsync(_route.RouteId));
-            directions = new List<IDirectionLogic>(await _directionLogicProvider.GetDirectionsByRouteIdAsync(_route.RouteId));
+            var stations = (await _stationProvider.GetByRouteIdAsync(_route.RouteId, ct)).ToList();
+            var directions = (await _directionProvider.GetByRouteIdAsync(_route.RouteId, ct)).ToList();
+            var sectionTrafficLights = _sections
+                .SelectMany(s => s.TrafficLights)
+                .Distinct()
+                .ToList();
 
             return new RouteLogic(
                 _route,
@@ -41,7 +46,8 @@
                 _sections,
                 stations,
                 directions,
-                trafficLights);
+                _standaloneTrafficLights,
+                sectionTrafficLights);
         }
     }
 }

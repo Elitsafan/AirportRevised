@@ -1,6 +1,4 @@
-﻿using Airport.Domain.EventArgs;
-using Airport.Domain.Helpers;
-using Airport.Models.Enums;
+﻿using Airport.Domain.EventArgs.StationEventArgs;
 
 namespace Airport.Domain.Logics
 {
@@ -9,19 +7,18 @@ namespace Airport.Domain.Logics
         #region Fields
         private readonly AsyncSemaphore _semaphore;
         private readonly Station _station;
-        private readonly ILogger<IStationLogic> _logger;
+        private readonly IDomainEvents _domainEvents;
+        private readonly ILogger<StationLogic> _logger;
         private IFlightLogic? _flightLogic;
         private AsyncSemaphore.Releaser _releaser;
-        public event AsyncEventHandler<IStationClearingEventArgs>? StationClearingAsync;
-        public event AsyncEventHandler<IStationOccupiedEventArgs>? StationOccupiedAsync;
-        public event AsyncEventHandler<IStationClearedEventArgs>? StationClearedAsync;
         #endregion
 
-        public StationLogic(Station station, ILogger<IStationLogic> logger)
+        public StationLogic(Station station, IDomainEvents domainEvents, ILogger<StationLogic> logger)
         {
-            _station = station;
-            _logger = logger;
             _semaphore = new AsyncSemaphore(1);
+            _station = station;
+            _domainEvents = domainEvents;
+            _logger = logger;
         }
 
         #region Properties
@@ -35,87 +32,73 @@ namespace Airport.Domain.Logics
         {
             if (flightLogic is null)
                 throw new ArgumentNullException(nameof(flightLogic));
+
             _releaser = await _semaphore.EnterAsync(cts.GetToken());
             try
             {
                 await flightLogic.ThrowIfCancellationRequestedAsync(cts);
+
                 _flightLogic = flightLogic;
-                if (_flightLogic.CurrentStation is not null)
-                    await _flightLogic.CurrentStation.ClearAsync();
+
+                var newFlight = _flightLogic.CurrentStation is null;
+
+                if (!newFlight)
+                    await _flightLogic.CurrentStation!.ClearAsync(StationId);
+
                 var occupationDetails = _flightLogic.RegisterStationOccupiedDetails(StationId, DateTime.Now);
-                await RaiseStationOccupiedAsync();
-            }
-            catch (ObjectDisposedException)
-            {
-                _releaser.Dispose();
-                throw;
+
+                if (newFlight)
+                    await _flightLogic.RaiseFlightRunStartedAsync(StationId);
             }
             catch (Exception ex)
             {
-                if (ex is OperationCanceledException)
-                    _releaser.Dispose();
-                else
-                    _logger.LogError(ex, $"{flightLogic.FlightId} | Station: {StationId}");
+                _flightLogic = null;
+                _releaser.Dispose();
+
+                if (ex is not OperationCanceledException)
+                    _logger.LogError(ex, "FlightId: {FlightId} | StationId: {StationId}", flightLogic.FlightId, StationId);
+
                 throw;
             }
             return this;
         }
 
-        public async Task ClearAsync(CancellationToken cancellationToken = default)
+        public async Task ClearAsync(ObjectId? newStationId, CancellationToken ct = default)
         {
             if (_flightLogic is null)
                 throw new InvalidOperationException("No flight set.");
-            var routeId = _flightLogic.RouteId;
+
             _flightLogic.RegisterStationClearedDetails(_flightLogic.CurrentStation!.StationId, DateTime.Now);
-            await RaiseStationClearingAsync();
+
+            var routeId = _flightLogic.RouteId;
             var flightId = _flightLogic.FlightId;
+            var flightType = _flightLogic.FlightType;
+
             _flightLogic = null;
+
             _releaser.Dispose();
-            await RaiseStationClearedAsync(routeId, flightId);
+
+            await RaiseStationClearedAsync(newStationId, routeId, flightId, flightType);
         }
 
         public void Dispose() => _semaphore?.Dispose();
 
         public override bool Equals(object? obj) => obj is StationLogic stationLogic &&
-            _station.StationId.Equals(stationLogic._station.StationId);
+            StationId.Equals(stationLogic.StationId);
 
-        public override int GetHashCode() => _station.StationId.GetHashCode();
+        public override int GetHashCode() => StationId.GetHashCode();
 
-        protected virtual async Task RaiseStationOccupiedAsync()
-        {
-            if (StationOccupiedAsync is not null)
-                await StationOccupiedAsync.InvokeAsync(
-                    this,
-                    new StationOccupiedEventArgs
-                    {
-                        StationLogic = this,
-                        FlightId = _flightLogic!.FlightId
-                    });
-        }
-
-        protected virtual async Task RaiseStationClearingAsync()
-        {
-            if (StationClearingAsync is not null)
-                await StationClearingAsync.InvokeAsync(
-                    this,
-                    new StationClearingEventArgs
-                    {
-                        StationLogic = this,
-                        FlightId = _flightLogic!.FlightId
-                    });
-        }
-
-        protected virtual async Task RaiseStationClearedAsync(ObjectId routeId, ObjectId flightId)
-        {
-            if (StationClearedAsync is not null)
-                await StationClearedAsync.InvokeAsync(
-                    this,
-                    new StationClearedEventArgs
-                    {
-                        StationLogic = this,
-                        RouteId = routeId,
-                        FlightId = flightId
-                    });
-        }
+        protected virtual async Task RaiseStationClearedAsync(
+            ObjectId? newStationId,
+            ObjectId routeId,
+            ObjectId flightId,
+            FlightType flightType) => await _domainEvents.RaiseStationClearedAsync(new StationClearedEventArgs
+            {
+                CurrentStationId = newStationId,
+                OldStationId = StationId,
+                RouteId = routeId,
+                FlightId = flightId,
+                FlightType = flightType
+            });
     }
 }

@@ -5,6 +5,7 @@ export class Flight implements IFlight {
 
   constructor(
     public flightId: string,
+    public routeId: string,
     public flightType: FlightType,
     public color: string,
     public stationId?: string) { }

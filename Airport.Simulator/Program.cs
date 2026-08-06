@@ -1,27 +1,30 @@
 ﻿//#define TEST
+using Airport.Simulator.Abstractions;
+using Airport.Simulator.Configurations;
+using Airport.Simulator.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Airport.Simulator.Abstractions;
-using Airport.Simulator.Configurations;
-using Airport.Simulator.Services;
+using Microsoft.VisualStudio.Threading;
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Retry;
+#if TEST
+using Microsoft.VisualStudio.Threading; 
+#endif
 
 namespace Airport.Simulator
 {
     public class Program
     {
         private static ILogger<Program> _logger = null!;
-        private static IConfiguration Configuration { get; set; } = null!;
 
         public static async Task Main(params string[] args)
         {
             // Global exception handling
             AppDomain.CurrentDomain.UnhandledException += GlobalUnhandledExceptionHandler;
+
             using var host = Host
                 .CreateDefaultBuilder(args)
                 .UseEnvironment(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")
@@ -33,40 +36,46 @@ namespace Airport.Simulator
                         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                         .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
                         .AddEnvironmentVariables();
-                    Configuration = config.Build();
+
+                    config.Build();
                 })
-                .ConfigureServices(hostingContext =>
+                .ConfigureServices((hostingContext, config) =>
                 {
+                    // Background sevice to keep target alive
+                    config.AddHostedService<KeepAliveService>();
+
+                    config.AddHttpClient(nameof(KeepAliveService)).AddPolicyHandler(GetRetryPolicy());
+
                     // Http client
-                    hostingContext.AddHttpClient<IFlightLauncherService, FlightLauncherService>()
-                        .AddPolicyHandler(GetRetryPolicy());
-                    hostingContext.AddScoped<IFlightGenerator, FlightGenerator>();
-                    hostingContext.Configure<FlightEndPointsConfiguration>(
-                        Configuration.GetSection(nameof(FlightEndPointsConfiguration)));
-                    hostingContext.Configure<FlightTimeoutConfiguration>(
-                        Configuration.GetSection(nameof(FlightTimeoutConfiguration)));
-                    hostingContext.AddSingleton<IFlightEndPointsConfiguration>(
-                        provider => provider.GetRequiredService<IOptions<FlightEndPointsConfiguration>>().Value);
-                    hostingContext.AddSingleton<IFlightTimeoutConfiguration>(
-                        provider => provider.GetRequiredService<IOptions<FlightTimeoutConfiguration>>().Value);
+                    config.AddHttpClient<IFlightLauncherService, FlightLauncherService>().AddPolicyHandler(GetRetryPolicy());
+
+                    config.AddScoped<IFlightGenerator, FlightGenerator>();
+
+                    config.Configure<FlightEndPointsConfiguration>(
+                        hostingContext.Configuration.GetSection(nameof(FlightEndPointsConfiguration)));
+
+                    config.Configure<FlightTimeoutConfiguration>(
+                        hostingContext.Configuration.GetSection(nameof(FlightTimeoutConfiguration)));
                 })
                 .Build();
 
+            await using var scope = host.Services.CreateAsyncScope();
+
+            var flightLauncherService = scope.ServiceProvider.GetRequiredService<IFlightLauncherService>();
+
+            flightLauncherService.StartStandbyModeAsync().Forget();
+
             _logger = host.Services.GetRequiredService<ILogger<Program>>();
-            await using IFlightLauncherService flightLauncherService = host.Services
-                .CreateAsyncScope()
-                .ServiceProvider
-                .GetRequiredService<IFlightLauncherService>();
-            _logger.LogInformation("Starting Airport Simulator...");
-            var startResponse = await flightLauncherService.StartAsync();
-            _logger.LogInformation("Start response received with status: {StatusCode}", startResponse.StatusCode);
+
+            _logger.LogInformation("Running on {Environment} environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
 #if TEST
             await Console.Out.WriteLineAsync(startResponse.StatusCode.ToString());
-            await flightLauncherService
+            flightLauncherService
                 .LaunchManyAsync(args)
-                .ToListAsync();
+                .ToListAsync()
+                .Forget();
 #else
-            await flightLauncherService.SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/);
+            flightLauncherService.SetFlightTimeoutAsync(/*Models.Enums.FlightType.Landing*/).Forget();
 #endif
             await host.RunAsync();
         }
@@ -78,17 +87,20 @@ namespace Airport.Simulator
             .WaitAndRetryAsync(6, retryAttempt =>
             {
                 var delay = TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+
                 Console.WriteLine($"Retry attempt {retryAttempt}, waiting {delay.TotalSeconds} seconds");
+
                 return delay;
             });
 
-        // Exception handler
+        // Global unhandled exception handler
         private static void GlobalUnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs e)
         {
-            Console.WriteLine(e.ExceptionObject.ToString());
-            _logger.LogError(e.ExceptionObject.ToString());
+            _logger.LogError("{Exception}", e.ExceptionObject.ToString());
+
             Console.WriteLine("Press Enter to Exit");
             Console.ReadLine();
+
             Environment.Exit(0);
         }
     }

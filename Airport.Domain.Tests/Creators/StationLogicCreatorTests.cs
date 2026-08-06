@@ -3,13 +3,29 @@
     public class StationLogicCreatorTests
     {
         [Fact]
-        public void CreateStationLogic_ReturnsNotNull()
+        public void Create_WhenCalled_ReturnsStationLogicWithCorrectValues()
         {
-            var station = new Station();
-            IStationLogicCreator creator = new StationLogicCreator(station, Mock.Of<ILogger<IStationLogic>>());
-            var stationLogic = creator.Create();
+            // Arrange
+            var mockDomainEvents = new Mock<IDomainEvents>();
+            var station = new Station
+            {
+                StationId = ObjectId.GenerateNewId(),
+                EstimatedWaitingTime = TimeSpan.FromSeconds(555),
+            };
+            var mockLogger = Mock.Of<ILogger<StationLogic>>();
 
-            Assert.NotNull(stationLogic);
+            var creator = new StationLogicCreator(station, mockDomainEvents.Object, mockLogger);
+
+            // Act
+            var result = creator.Create();
+
+            // Assert
+            var stationLogic = Assert.IsType<StationLogic>(result);
+
+            Assert.Equal(station.StationId, stationLogic.StationId);
+            Assert.Equal(station.EstimatedWaitingTime, stationLogic.EstimatedWaitingTime);
+            Assert.Null(stationLogic.CurrentFlightType);
+            Assert.Null(stationLogic.CurrentFlightId);
         }
     }
 }

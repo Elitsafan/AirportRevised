@@ -1,0 +1,105 @@
+name: Deploy Airport Simulator to Oracle Compute VM
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - 'Airport.Simulator/**'
+      - 'Airport.Models/**'
+      - 'Airport.Contracts/**'
+      - 'Dockerfile.simulator'
+      - '.github/workflows/deploy-simulator-oracle.yml'
+
+  workflow_dispatch:
+
+env:
+  SIMULATOR_SERVICE_NAME: airport-simulator
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        run: dotnet test --verbosity normal
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image for ARM64
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -f Dockerfile.simulator \
+            -t ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.SIMULATOR_SERVICE_NAME }}:latest \
+            --load \
+            .
+
+      - name: Deploy to Oracle VM via SSH
+        env:
+          ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_SIMULATOR_HOST }}
+          ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
+          ORACLE_VM_SIMULATOR_SSH_KEY: ${{ secrets.ORACLE_VM_SIMULATOR_SSH_KEY }}
+          SIMULATOR_IMAGE: ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }}
+        run: |
+          # Create SSH key file
+          mkdir -p ~/.ssh
+          echo "$ORACLE_VM_SIMULATOR_SSH_KEY" > ~/.ssh/oracle_key
+          chmod 600 ~/.ssh/oracle_key
+
+          # Add host to known_hosts
+          ssh-keyscan -H $ORACLE_VM_HOST >> ~/.ssh/known_hosts
+
+          # Copy docker image to VM
+          docker save ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }} | \
+            ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST docker load
+
+          # Deploy container on VM
+          ssh -i ~/.ssh/oracle_key $ORACLE_VM_USER@$ORACLE_VM_HOST bash << ENDSSH
+
+          # Stop and remove old container
+          docker stop airport-simulator 2>/dev/null || true
+          docker rm airport-simulator 2>/dev/null || true
+
+          # Run new container connected via host network to reach API locally at http://127.0.0.1:8080
+
+          # No public ports exposed (-p omitted)
+          docker run -d \
+            --name airport-simulator \
+            --restart unless-stopped \
+            --network host \
+            -e "ASPNETCORE_ENVIRONMENT=Production" \
+            ${SIMULATOR_IMAGE}
+
+          # Wait for container startup
+          sleep 3
+
+          # Verify container status is actually 'running'
+          STATUS=\$(docker inspect --format='{{.State.Status}}' airport-simulator 2>/dev/null || echo "not_found")
+          if [ "\$STATUS" = "running" ]; then
+            echo "Simulator container started successfully (Status: \$STATUS)"
+            docker logs --tail 20 airport-simulator
+          else
+            echo "Simulator container failed to start! Current status: \$STATUS"
+            docker logs airport-simulator
+            exit 1
+          fi
+
+          # Clean up old images
+          docker image prune -a -f --filter "until=72h" || true
+
+          echo "Simulator deployed successfully"
+          ENDSSH
+
+      - name: Notify deployment
+        run: |
+          echo "Simulator successfully deployed to Oracle Compute VM"
+          echo "Image: ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }}"

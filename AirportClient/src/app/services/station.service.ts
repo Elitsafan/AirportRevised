@@ -14,7 +14,7 @@ import { ColorService } from "./color.service";
 
 export class StationService implements OnDestroy {
   private stations: Station[];
-  private stationOccupiedSubscription?: Subscription;
+  private flightRunStartedSubscription?: Subscription;
   private stationClearedSubscription?: Subscription;
   private connectionErrorSubscription?: Subscription;
   private stationsSubject = new BehaviorSubject<Station[]>([]);
@@ -44,7 +44,7 @@ export class StationService implements OnDestroy {
     }
 
     if (this.airportSvc.hasStarted) {
-      if (!this.stationOccupiedSubscription) {
+      if (!this.flightRunStartedSubscription) {
         this.handleStationsSubscription();
       }
       this.fetch();
@@ -52,7 +52,7 @@ export class StationService implements OnDestroy {
       this.airportSvc.start()
         .subscribe({
           next: () => {
-            if (!this.stationOccupiedSubscription) {
+            if (!this.flightRunStartedSubscription) {
               this.handleStationsSubscription();
             }
             this.fetch();
@@ -66,7 +66,7 @@ export class StationService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stationOccupiedSubscription?.unsubscribe();
+    this.flightRunStartedSubscription?.unsubscribe();
     this.stationClearedSubscription?.unsubscribe();
     this.connectionErrorSubscription?.unsubscribe();
   }
@@ -75,10 +75,11 @@ export class StationService implements OnDestroy {
     return flight
       ? new Flight(
         flight.flightId,
+        flight.routeId,
         flight.flightType,
         this.colorSvc.getColor(flight.flightId, flight.flightType),
         stationId)
-      : undefined;
+      : null;
   }
 
   private fetch(): void {
@@ -86,7 +87,7 @@ export class StationService implements OnDestroy {
       .pipe(map(status => status.stations))
       .subscribe({
         next: stations => {
-          this.stations = stations.map(station => new Station(station.stationId));
+          this.stations = stations.map(station => new Station(station.stationId, station.flight));
           this.stationsSubject.next(this.stations);
         },
         error: error => {
@@ -97,7 +98,7 @@ export class StationService implements OnDestroy {
   }
 
   private handleStationsSubscription() {
-    this.stationOccupiedSubscription = this.signalRSvc.stationOccupiedData$
+    this.flightRunStartedSubscription = this.signalRSvc.flightRunStartedData$
       ?.subscribe(data => this.stationSubscriptionEventHandler(data))
     this.stationClearedSubscription = this.signalRSvc.stationClearedData$
       ?.subscribe(data => this.stationSubscriptionEventHandler(data))
@@ -106,7 +107,7 @@ export class StationService implements OnDestroy {
   private stationSubscriptionEventHandler(data: IStationChangedData) {
     if (data && this.stations?.length) {
       // Update flights only, identifying the station by its ID
-      data.forEach((changedStation) => {
+      data.forEach(changedStation => {
         const stationToUpdate = this.stations.find(s => s.stationId === changedStation.stationId);
         if (stationToUpdate) {
           stationToUpdate.flight = this.flightResolver(

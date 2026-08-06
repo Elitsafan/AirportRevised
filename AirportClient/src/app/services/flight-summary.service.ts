@@ -34,7 +34,7 @@ export class FlightSummaryService extends BaseAirportDataService<IAirportSummary
 
   // Gets flights summaries
   protected fetchData(params?: HttpParams) {
-    if(!params) params = new HttpParams();
+    if (!params) params = new HttpParams();
     this.airportSvc.getSummary(params)
       .subscribe({
         next: (data) => this.dataSubject.next(data),

@@ -31,8 +31,8 @@ describe('FlightListComponent', () => {
 
   it('should resolve the flights list', fakeAsync(() => {
     const mockFlights: IFlight[] = [
-      new Flight('1', 'Departure', 'To NY', 'Green'),
-      new Flight('2', 'Landing', 'From LA', 'Blue')
+      new Flight('1', 'routeDeparture', 'Departure', 'To NY', 'Green'),
+      new Flight('2', 'routeLanding', 'Landing', 'From LA', 'Blue')
     ];
 
     // Test filtering if applicable, or just basic rendering

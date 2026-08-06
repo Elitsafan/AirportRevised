@@ -71,8 +71,8 @@ describe('FlightRouteService', () => {
                 directions: [{ from: 's1', to: 's2' }]
             }];
             const mockStations = [
-                new Station('s1', undefined),
-                new Station('s2', undefined)
+                new Station('s1', null),
+                new Station('s2', null)
             ];
 
             airportSvcSpy.getStatus.and.returnValue(of({ routes: mockRoutes } as any));

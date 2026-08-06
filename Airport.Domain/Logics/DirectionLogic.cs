@@ -10,7 +10,7 @@
         public ObjectId To => _direction.To;
 
         public override bool Equals(object? obj) => obj is DirectionLogic directionLogic &&
-            From == directionLogic.From && 
+            From == directionLogic.From &&
             To == directionLogic.To;
 
         public override int GetHashCode() => HashCode.Combine(From, To);

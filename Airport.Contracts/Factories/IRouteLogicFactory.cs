@@ -1,11 +1,7 @@
-﻿using Airport.Contracts.Creators;
-using Airport.Contracts.Helpers;
-using Airport.Models.Entities;
-
-namespace Airport.Contracts.Factories
+﻿namespace Airport.Contracts.Factories
 {
     public interface IRouteLogicFactory
     {
-        IRouteLogicCreator GetCreator(Route route, IEnumerable<IRouteSectionDetails>? sections);
+        IRouteLogicCreator GetCreator(Route route, IEnumerable<ISectionLogic>? sections, IEnumerable<IStationLogic>? standaloneTLs);
     }
 }

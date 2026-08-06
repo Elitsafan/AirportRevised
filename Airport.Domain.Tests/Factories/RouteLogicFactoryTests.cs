@@ -3,10 +3,10 @@
     public class RouteLogicFactoryTests
     {
         #region Fields
-        private ServiceProvider _serviceProvider;
-        private ILogger<RouteLogic> _mockLogger;
-        private Mock<IDirectionLogicProvider> _mockDirectionLogicProvider;
-        private Mock<IStationLogicProvider> _mockStationLogicProvider;
+        private readonly ILogger<RouteLogic> _mockLogger;
+        private readonly Mock<IDirectionLogicProvider> _mockDirectionLogicProvider;
+        private readonly Mock<IStationLogicProvider> _mockStationLogicProvider;
+        private readonly IRouteLogicFactory _sut;
         #endregion
 
         public RouteLogicFactoryTests()
@@ -15,24 +15,36 @@
             _mockDirectionLogicProvider = new Mock<IDirectionLogicProvider>();
             _mockStationLogicProvider = new Mock<IStationLogicProvider>();
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddSingleton<ILogger<RouteLogic>>(_mockLogger);
-            serviceCollection.AddSingleton<IDirectionLogicProvider>(_mockDirectionLogicProvider.Object);
-            serviceCollection.AddSingleton<IStationLogicProvider>(_mockStationLogicProvider.Object);
-            _serviceProvider = serviceCollection.BuildServiceProvider();
+            _sut = new RouteLogicFactory(
+                _mockDirectionLogicProvider.Object,
+                _mockStationLogicProvider.Object,
+                _mockLogger);
         }
 
         [Fact]
-        public void GetCreator_WhenCalled_ReturnsNotNull()
+        public void GetCreator_WhenCalled_ReturnsRouteLogicCreator()
         {
-            IRouteLogicFactory routeLogicFactory = new RouteLogicFactory(_serviceProvider);
-            var mockCollection = new IRouteSectionDetails[]
-            {
-                new Mock<IRouteSectionDetails>().Object,
-            };
-            var creator = routeLogicFactory.GetCreator(new Route(), mockCollection);
+            // Arrange
+            var route = new Route();
+            var sections = new List<ISectionLogic> { Mock.Of<ISectionLogic>() };
+            var standaloneTLs = new List<IStationLogic> { Mock.Of<IStationLogic>() };
 
-            Assert.NotNull(creator);
+            // Act
+            var result = _sut.GetCreator(route, sections, standaloneTLs);
+
+            // Assert
+            Assert.IsType<RouteLogicCreator>(result);
+        }
+
+        [Fact]
+        public void GetCreator_RouteIsNull_ThrowsArgumentNullException()
+        {
+            var ex = Assert.Throws<ArgumentNullException>(() => _sut.GetCreator(
+                null!,
+                Enumerable.Empty<ISectionLogic>(),
+                Enumerable.Empty<IStationLogic>()));
+
+            Assert.Equal("route", ex.ParamName);
         }
     }
 }

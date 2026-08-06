@@ -1,21 +1,24 @@
-﻿using Airport.Domain.Helpers;
-using Airport.Domain.Repositories;
-using Airport.Models.Enums;
+﻿using Airport.Contracts.EventArgs.RouteEventArgs;
+using Airport.Contracts.EventArgs.StationEventArgs;
 using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Concurrent;
 
 namespace Airport.Domain.Providers
 {
     public class RouteLogicProvider : IRouteLogicProvider
     {
         #region Fields
-        private int _countLandingRoutes;
-        private int _countDepartureRoutes;
+        private int _landingRoutesIdx;
+        private int _departureRoutesIdx;
         private bool _isInitialized;
-        private readonly List<IRouteLogic> _landingRoutes;
-        private readonly List<IRouteLogic> _departureRoutes;
-        private readonly AsyncSemaphore _initializationSemaphore;
-        private readonly IServiceProvider _serviceProvider;
-        private readonly IStationLogicProvider _stationLogicProvider;
+        private readonly ConcurrentDictionary<ObjectId, IRouteLogic> _landingRoutes;
+        private readonly ConcurrentDictionary<ObjectId, IRouteLogic> _departureRoutes;
+        private readonly AsyncSemaphore _operationSemaphore;
+        private readonly AsyncSemaphore _landingIterationSemaphore;
+        private readonly AsyncSemaphore _departureIterationSemaphore;
+        private readonly IRepositoryManager _repoManager;
+        private readonly IStationLogicProvider _stationProvider;
+        private readonly ISectionLogicProvider _sectionProvider;
         private readonly IRouteLogicFactory _routeLogicFactory;
         private readonly IMemoryCache _cache;
         private readonly IDomainEvents _domainEvents;
@@ -29,86 +32,343 @@ namespace Airport.Domain.Providers
         #endregion
 
         public RouteLogicProvider(
-            IServiceProvider serviceProvider,
-            IStationLogicProvider stationLogicProvider,
+            IRepositoryManager repoManager,
+            IStationLogicProvider stationProvider,
+            ISectionLogicProvider sectionProvider,
             IRouteLogicFactory routeLogicFactory,
             IMemoryCache cache,
             IDomainEvents domainEvents,
             ILogger<RouteLogicProvider> logger)
         {
-            _serviceProvider = serviceProvider;
-            _stationLogicProvider = stationLogicProvider;
+            _repoManager = repoManager;
+            _stationProvider = stationProvider;
+            _sectionProvider = sectionProvider;
             _routeLogicFactory = routeLogicFactory;
             _cache = cache;
             _domainEvents = domainEvents;
             _logger = logger;
             _landingRoutes = new();
             _departureRoutes = new();
-            _initializationSemaphore = new(1);
+            _operationSemaphore = new(1);
+            _landingIterationSemaphore = new(1);
+            _departureIterationSemaphore = new(1);
 
-            _domainEvents.StationCreated += OnStationCreatedAsync;
-            _domainEvents.StationDeleted += OnStationDeletedAsync;
-            _domainEvents.StationUpdated += OnStationUpdatedAsync;
-            _domainEvents.DataRefreshed += OnDataRefreshedAsync;
-            _domainEvents.SystemResetRequested += OnSystemResetRequestedAsync;
+            _domainEvents.SectionProviderReset += OnSectionProviderResetAsync;
+            _domainEvents.SectionProviderRefreshed += OnSectionProviderRefreshedAsync;
+
+            _domainEvents.RouteCreated += OnRouteCreatedAsync;
+            _domainEvents.RouteUpdated += OnRouteUpdatedAsync;
+            _domainEvents.RouteDeleted += OnRouteDeletedAsync;
+
+            _domainEvents.StationProviderUpdated += OnStationProviderUpdatedAsync;
         }
 
-        public async Task<IEnumerable<IRouteLogic>> GetLandingRoutesAsync(CancellationToken ct = default)
+        public async Task<IRouteLogic> GetNextRouteAsync(FlightType flightType, CancellationToken ct = default) =>
+            // await EnsureInitializedAsync(ct);
+            flightType == FlightType.Landing
+                ? await GetNextLandingRouteAsync(ct)
+                : await GetNextDepartureRouteAsync(ct);
+
+        public void Dispose()
+        {
+            _domainEvents.SectionProviderReset -= OnSectionProviderResetAsync;
+            _domainEvents.SectionProviderRefreshed -= OnSectionProviderRefreshedAsync;
+
+            _domainEvents.RouteCreated -= OnRouteCreatedAsync;
+            _domainEvents.RouteUpdated -= OnRouteUpdatedAsync;
+            _domainEvents.RouteDeleted -= OnRouteDeletedAsync;
+
+            _domainEvents.StationProviderUpdated -= OnStationProviderUpdatedAsync;
+
+            _cache.Dispose();
+            _operationSemaphore.Dispose();
+            _landingIterationSemaphore.Dispose();
+            _departureIterationSemaphore.Dispose();
+
+            foreach (var route in _departureRoutes.Values)
+                route.Dispose();
+            foreach (var route in _landingRoutes.Values)
+                route.Dispose();
+
+            _departureRoutes.Clear();
+
+            _landingRoutes.Clear();
+
+            GC.SuppressFinalize(this);
+        }
+
+        #region Event Handlers
+        protected virtual async Task OnSectionProviderResetAsync()
+        {
+            _logger.LogInformation("Resetting route logics and clearing cache.");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Route logics reset successfully.");
+        }
+
+        protected virtual async Task OnSectionProviderRefreshedAsync()
+        {
+            _logger.LogInformation("Refreshing route logics and clearing cache.");
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            await InitializeAsync();
+
+            _isInitialized = true;
+
+            _logger.LogInformation("Route logics refreshed successfully.");
+        }
+
+        protected virtual async Task OnRouteCreatedAsync(object? sender, IRouteCreatedEventArgs args)
+        {
+            await EnsureInitializedAsync();
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            var route = await _repoManager.RouteRepository.GetByIdAsync(args.RouteId);
+
+            var sections = (await _sectionProvider.GetByRouteIdAsync(args.RouteId)).ToList();
+
+            List<IStationLogic>? standaloneTLs = null;
+
+            if (args.StandaloneTLIds is not null)
+                standaloneTLs = (await _stationProvider.GetTrafficLightsByRouteIdAsync(args.RouteId))
+                    .IntersectBy(
+                        args.StandaloneTLIds,
+                        tl => tl.StationId)
+                    .ToList();
+
+            var routeLogic = await _routeLogicFactory.GetCreator(route, sections, standaloneTLs).CreateAsync();
+
+            if (string.Compare(routeLogic.RouteName, FlightType.Departure.ToString(), false) == 0)
+            {
+                if (_departureRoutes.TryAdd(routeLogic.RouteId, routeLogic))
+                {
+                    _cache.Remove(DEPARTURE_ROUTES_KEY);
+
+                    _departureRoutesIdx = -1;
+                }
+            }
+            else if (string.Compare(routeLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
+            {
+                if (_landingRoutes.TryAdd(routeLogic.RouteId, routeLogic))
+                {
+                    _cache.Remove(LANDING_ROUTES_KEY);
+
+                    _landingRoutesIdx = -1;
+                }
+            }
+            else throw new InvalidOperationException("Route name is invalid.");
+
+            _logger.LogInformation("Route id: {RouteId} added to cache.", routeLogic.RouteId);
+        }
+
+        protected virtual async Task OnRouteUpdatedAsync(object? sender, IRouteUpdatedEventArgs args)
+        {
+            await EnsureInitializedAsync();
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            var updatedRoute = await _repoManager.RouteRepository.GetByIdAsync(args.RouteId);
+
+            var updatedSections = (await _sectionProvider
+                .GetByRouteIdAsync(args.RouteId))
+                .ToList();
+
+            List<IStationLogic>? updatedStandaloneTLs = null;
+
+            if (args.StandaloneTLIds is not null)
+                updatedStandaloneTLs = (await _stationProvider.GetTrafficLightsByRouteIdAsync(args.RouteId))
+                    .IntersectBy(
+                        args.StandaloneTLIds,
+                        tl => tl.StationId)
+                    .ToList();
+
+            var newRouteLogic = await _routeLogicFactory
+                .GetCreator(updatedRoute, updatedSections, updatedStandaloneTLs)
+                .CreateAsync();
+
+            if (string.Compare(newRouteLogic.RouteName, FlightType.Departure.ToString(), false) == 0)
+            {
+                if (_departureRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                {
+                    _departureRoutes[newRouteLogic.RouteId] = newRouteLogic;
+
+                    _cache.Remove(DEPARTURE_ROUTES_KEY);
+
+                    _departureRoutesIdx = -1;
+
+                    oldRouteLogic?.Dispose();
+                }
+            }
+            else if (string.Compare(newRouteLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
+            {
+                if (_landingRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                {
+                    _landingRoutes[newRouteLogic.RouteId] = newRouteLogic;
+
+                    _cache.Remove(LANDING_ROUTES_KEY);
+
+                    _landingRoutesIdx = -1;
+
+                    oldRouteLogic?.Dispose();
+                }
+            }
+            else throw new InvalidOperationException("Route name is invalid.");
+
+            _logger.LogInformation("Route Id: {RouteId} updated on cache.", args.RouteId);
+        }
+
+        protected virtual async Task OnRouteDeletedAsync(object? sender, IRouteDeletedEventArgs args)
+        {
+            await EnsureInitializedAsync();
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            if (_departureRoutes.TryRemove(args.RouteId, out var oldRouteLogic))
+            {
+                _cache.Remove(DEPARTURE_ROUTES_KEY);
+
+                _departureRoutesIdx = -1;
+            }
+            else if (_landingRoutes.TryRemove(args.RouteId, out oldRouteLogic))
+            {
+                _cache.Remove(LANDING_ROUTES_KEY);
+
+                _landingRoutesIdx = -1;
+            }
+
+            oldRouteLogic?.Dispose();
+
+            _logger.LogInformation("Route Id: {RouteId} removed from cache.", args.RouteId);
+        }
+
+        protected virtual async Task OnStationProviderUpdatedAsync(object? sender, IStationProviderUpdatedEventArgs args)
+        {
+            await EnsureInitializedAsync();
+
+            using var _ = await _operationSemaphore.EnterAsync();
+
+            var relevantRouteIds = await _repoManager.RouteRepository.IdsOfRoutesContainStationAsync(args.StationId);
+
+            foreach (var routeId in relevantRouteIds)
+            {
+                var updatedRoute = await _repoManager.RouteRepository.GetByIdAsync(routeId);
+
+                var updatedSections = (await _sectionProvider
+                    .GetByRouteIdAsync(routeId))
+                    .ToList();
+
+                var updatedStandaloneTLs = (await _stationProvider.GetTrafficLightsByRouteIdAsync(routeId))
+                    .Join(
+                        await _repoManager.TrafficLightRepository.GetStandaloneTLsAsync(routeId),
+                        sl => sl.StationId,
+                        tl => tl.StationId,
+                        (sl, tl) => sl)
+                    .ToList();
+
+                var newRouteLogic = await _routeLogicFactory
+                    .GetCreator(updatedRoute, updatedSections, updatedStandaloneTLs)
+                    .CreateAsync();
+
+                if (string.Compare(newRouteLogic.RouteName, FlightType.Departure.ToString(), false) == 0)
+                {
+                    if (_departureRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                    {
+                        _departureRoutes[newRouteLogic.RouteId] = newRouteLogic;
+
+                        oldRouteLogic?.Dispose();
+                    }
+                }
+                else if (string.Compare(newRouteLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
+                {
+                    if (_landingRoutes.TryGetValue(newRouteLogic.RouteId, out var oldRouteLogic))
+                    {
+                        _landingRoutes[newRouteLogic.RouteId] = newRouteLogic;
+
+                        oldRouteLogic?.Dispose();
+                    }
+                }
+                else throw new InvalidOperationException("Route name is invalid.");
+
+                _logger.LogInformation("Route Id: {RouteId} updated on cache.", routeId);
+            }
+
+            ResetRoutesCounters();
+
+            _cache.Remove(LANDING_ROUTES_KEY);
+
+            _cache.Remove(DEPARTURE_ROUTES_KEY);
+        }
+        #endregion
+
+        private async Task<List<IRouteLogic>> GetLandingRoutesAsync(CancellationToken ct = default)
         {
             await EnsureInitializedAsync(ct);
 
             return _cache.GetOrCreate(LANDING_ROUTES_KEY, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-                entry.Size = _landingRoutes!.Count;
-                return _landingRoutes;
+
+                entry.Size = _landingRoutes.Count;
+
+                return _landingRoutes.Values.ToList();
             })!;
         }
 
-        public async Task<IEnumerable<IRouteLogic>> GetDepartureRoutesAsync(CancellationToken ct = default)
+        private async Task<List<IRouteLogic>> GetDepartureRoutesAsync(CancellationToken ct = default)
         {
             await EnsureInitializedAsync(ct);
 
             return _cache.GetOrCreate(DEPARTURE_ROUTES_KEY, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = DefaultCacheExpiration;
-                entry.Size = _departureRoutes!.Count;
-                return _departureRoutes;
+
+                entry.Size = _departureRoutes.Count;
+
+                return _departureRoutes.Values.ToList();
             })!;
         }
 
-        public async Task<IRouteLogic?> GetNextRouteAsync(FlightType flightType, CancellationToken ct = default)
+        private async Task<IRouteLogic> GetNextDepartureRouteAsync(CancellationToken ct = default)
         {
-            await EnsureInitializedAsync(ct);
-            return flightType == FlightType.Landing
-                ? await GetNextLandingRouteAsync(ct)
-                : await GetNextDepartureRouteAsync(ct);
+            var list = await GetDepartureRoutesAsync(ct);
+
+            if (list.Count == 0)
+                throw new LogicProvisionFailedException("Error while providing route.");
+
+            using var _ = await _departureIterationSemaphore.EnterAsync(ct);
+
+            _departureRoutesIdx = Interlocked.Increment(ref _departureRoutesIdx) % list.Count;
+
+            return list[_departureRoutesIdx];
         }
 
-        public void Dispose()
+        private async Task<IRouteLogic> GetNextLandingRouteAsync(CancellationToken ct = default)
         {
-            _initializationSemaphore?.Dispose();
-            GC.SuppressFinalize(this);
+            var list = await GetLandingRoutesAsync(ct);
+
+            if (list.Count == 0)
+                throw new LogicProvisionFailedException("Error while providing route.");
+
+            using var _ = await _landingIterationSemaphore.EnterAsync(ct);
+
+            _landingRoutesIdx = Interlocked.Increment(ref _landingRoutesIdx) % list.Count;
+
+            return list[_landingRoutesIdx];
         }
-
-        // Iterator for getting the next route
-        private async Task<IRouteLogic?> GetNextDepartureRouteAsync(CancellationToken ct = default) =>
-            (await GetDepartureRoutesAsync(ct)).Any()
-            ? _departureRoutes[Interlocked.Increment(ref _countDepartureRoutes) % _departureRoutes.Count]
-            : null;
-
-        // Iterator for getting the next route
-        private async Task<IRouteLogic?> GetNextLandingRouteAsync(CancellationToken ct = default) =>
-            (await GetLandingRoutesAsync(ct)).Any()
-            ? _landingRoutes[Interlocked.Increment(ref _countLandingRoutes) % _landingRoutes.Count]
-            : null;
 
         private async Task EnsureInitializedAsync(CancellationToken ct = default)
         {
             if (_isInitialized)
                 return;
 
-            using var releaser = await _initializationSemaphore.EnterAsync(ct);
+            using var _ = await _operationSemaphore.EnterAsync(ct);
 
             if (_isInitialized)
                 return;
@@ -116,247 +376,73 @@ namespace Airport.Domain.Providers
             await InitializeAsync(ct);
 
             _isInitialized = true;
-            _logger.LogDebug("Routes cache was successfully populated.");
-        }
-
-        private async Task RefreshAsync(CancellationToken ct = default)
-        {
-            _logger.LogInformation("Refreshing route logics and clearing cache");
-
-            using var releaser = await _initializationSemaphore.EnterAsync(ct);
-            // Clear cache first
-            InvalidateCache();
-
-            // Clear existing route logics
-            _landingRoutes.Clear();
-            _departureRoutes.Clear();
-
-            // Re-initialize
-            _isInitialized = false;
-            await InitializeAsync(ct);
-            _isInitialized = true;
 
             _logger.LogDebug("Routes cache was successfully populated.");
-            _logger.LogInformation("Route logics refreshed successfully");
         }
 
         private void InvalidateCache()
         {
             _logger.LogDebug("Invalidating all cache entries");
 
-            // Remove the main cache entry
             _cache.Remove(LANDING_ROUTES_KEY);
             _cache.Remove(DEPARTURE_ROUTES_KEY);
         }
 
-        #region Event Handlers
-        protected virtual async Task OnDataRefreshedAsync() => await RefreshAsync();
-
-        protected virtual async Task OnSystemResetRequestedAsync() => await RefreshAsync();
-
-        protected virtual async Task OnStationUpdatedAsync(object? sender, IStationUpdatedEventArgs args)
+        private async Task InitializeAsync(CancellationToken ct = default)
         {
-            var releaser = await _initializationSemaphore.EnterAsync();
-            try
-            {
-                InvalidateCache();
-            }
-            finally { releaser.Dispose(); }
-        }
+            var routes = await _repoManager.RouteRepository.GetAllAsync(ct);
 
-        protected virtual async Task OnStationDeletedAsync(object? sender, IStationDeletedEventArgs args)
-        {
-            var releaser = await _initializationSemaphore.EnterAsync();
-            try
-            {
-                InvalidateCache();
-            }
-            finally { releaser.Dispose(); }
-        }
+            if (!routes.Any())
+                throw new EntityNotFoundException("No routes found.");
 
-        protected virtual async Task OnStationCreatedAsync(object? sender, IStationCreatedEventArgs args)
-        {
-            var releaser = await _initializationSemaphore.EnterAsync();
-            try
-            {
-                InvalidateCache();
-            }
-            finally { releaser.Dispose(); }
-        }
-        #endregion
+            Clear();
 
-        private async Task InitializeAsync(CancellationToken ct)
-        {
-            ResetRoutesCounters();
-            HashSet<IRouteSection> sections = new(new RouteSectionComparer());
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var routeRepository = scope
-                .ServiceProvider
-                .GetRequiredService<IRepositoryManager>()
-                .RouteRepository;
-            var routes = await GetRoutesAsync(routeRepository, ct);
+            var allSections = await _sectionProvider.GetAllAsync(ct);
+
             foreach (Route route in routes)
             {
-                // gets the traffic lights of the route
-                var trafficLights = new List<IStationLogic>(
-                    await _stationLogicProvider.FindTrafficLightsByRouteIdAsync(route.RouteId, ct));
-                foreach (IStationLogic trafficLight in trafficLights)
-                {
-                    var nextTrafficLights = (await _stationLogicProvider
-                        .FindNextTrafficLightsAsync(route.RouteId, trafficLight.StationId, ct))
-                        .ToArray();
-                    if (nextTrafficLights.Length == 0)
-                        continue;
+                var standaloneTLs = (await _stationProvider
+                    .GetTrafficLightsByRouteIdAsync(route.RouteId, ct))
+                    .ToList();
 
-                    // Gets the stations between the current trafficlight and the next traffic lights 
-                    var stationsBetween = (await routeRepository.GetStationsBetweenAsync(
-                        route,
-                        trafficLight.StationId,
-                        nextTrafficLights[0].StationId,
-                        ct))
-                        .ToArray();
+                allSections.TryGetValue(route.RouteId, out var sections);
 
-                    // A common trafficlight between the section's destination
-                    // and the next trafficlights, so that the destination of the section exists
-                    // is the source of another section (traffic on the opposite direction).
-                    var sectionExist = sections.SingleOrDefault(
-                        rs => rs.RouteId == route.RouteId &&
-                        rs.Destination.Intersect(nextTrafficLights).Any());
+                var routeLogic = await _routeLogicFactory
+                    .GetCreator(route, sections, standaloneTLs)
+                    .CreateAsync(ct);
 
-                    // add it to the section exists
-                    if (sectionExist is not null)
-                        sectionExist.AddToSource(trafficLight);
-                    else await CreateNewSectionAsync(
-                        sections,
-                        route,
-                        trafficLight,
-                        nextTrafficLights,
-                        stationsBetween,
-                        ct);
-                }
+                AddRouteLogic(routeLogic);
             }
 
-            var sectionDetailsList = CreateSectionsDetails(sections);
-
-            // Creates route logics
-            IRouteLogic[] routeLogics = await CreateRoutesLogicAsync(
-                routes,
-                sectionDetailsList,
-                ct);
-
-            // Sets the route logics collections
-            _landingRoutes.AddRange(routeLogics
-                .Where(rl => string.Compare(rl.RouteName, FlightType.Landing.ToString(), false) == 0));
-            _departureRoutes.AddRange(routeLogics
-                .Where(rl => string.Compare(rl.RouteName, FlightType.Departure.ToString(), false) == 0));
-
             ResetRoutesCounters();
+        }
+
+        private void AddRouteLogic(IRouteLogic routeLogic)
+        {
+            if (string.Compare(routeLogic.RouteName, FlightType.Landing.ToString(), false) == 0)
+                _landingRoutes.TryAdd(routeLogic.RouteId, routeLogic);
+            else
+                _departureRoutes.TryAdd(routeLogic.RouteId, routeLogic);
+        }
+
+        private void Clear()
+        {
+            InvalidateCache();
+
+            foreach (var route in _landingRoutes.Values)
+                route.Dispose();
+            foreach (var route in _departureRoutes.Values)
+                route.Dispose();
+
+            _landingRoutes.Clear();
+
+            _departureRoutes.Clear();
         }
 
         private void ResetRoutesCounters()
         {
-            _countDepartureRoutes = -1;
-            _countLandingRoutes = -1;
+            _departureRoutesIdx = -1;
+            _landingRoutesIdx = -1;
         }
-
-        private async Task<IEnumerable<Route>> GetRoutesAsync(
-            IRouteRepository routeRepository,
-            CancellationToken ct = default)
-        {
-            var routes = await routeRepository.GetAllAsync(ct);
-            if (!routes.Any())
-                throw new EntityNotFoundException("No routes found.");
-            return routes;
-        }
-
-        private static Dictionary<ISet<IStationLogic>, List<ObjectId>> GetHelperForCommonTrafficLights(
-            HashSet<IRouteSection> sections)
-        {
-            Dictionary<ISet<IStationLogic>, List<ObjectId>> trafficLightsToRouteIds = new(
-                new StationLogicSetComparer());
-            foreach (IRouteSection section in sections)
-                if (!trafficLightsToRouteIds.TryAdd(section.AllTrafficLights, new() { section.RouteId }))
-                    trafficLightsToRouteIds[section.AllTrafficLights].Add(section.RouteId);
-            return trafficLightsToRouteIds;
-        }
-
-        // Creates a new section with a source and a destination
-        // according to the current traffic light and its next traffic lights and the stations between
-        private async Task CreateNewSectionAsync(
-            HashSet<IRouteSection> sections,
-            Route route,
-            IStationLogic trafficLight,
-            IStationLogic[] nextTrafficLights,
-            Station[] stationsBetween,
-            CancellationToken ct = default)
-        {
-            var source = new IStationLogic[] { trafficLight };
-            var allStations = source
-                .Concat(nextTrafficLights)
-                .Concat(await Task.WhenAll(
-                    stationsBetween.Select(
-                        async s => await _stationLogicProvider.GetStationLogicByIdAsync(s.StationId, ct))));
-            sections.Add(new RouteSection(
-                source,
-                nextTrafficLights,
-                allStations,
-                route.RouteId));
-        }
-
-        private List<IRouteSectionDetails>? CreateSectionsDetails(HashSet<IRouteSection> sections)
-        {
-            if (sections.Count == 0)
-                return null;
-            var destSynchronizerDic = CreateDestSynchronizerDic(sections);
-            var trafficLightsToRouteIds = GetHelperForCommonTrafficLights(sections);
-            List<IRouteSectionDetails> sectionDetailsList = new();
-            foreach (var kvp in trafficLightsToRouteIds)
-            {
-                // Calculates possible occupation:
-                // sum of stations + occupation * each route,
-                // so when all stations is occupied, there is still a place on the section for each route.
-                int occupationCapacity = kvp.Key.Count + kvp.Value.Count;
-                var commonSections = sections.IntersectBy(kvp.Value, section => section.RouteId);
-                IEnumerable<ISet<IStationLogic>> commonKeys = commonSections
-                    .Select(sec => sec.Destination)
-                    .Intersect(destSynchronizerDic.Keys)
-                    .Where(sec => destSynchronizerDic[sec] is not null);
-                Dictionary<ISet<IStationLogic>, AsyncSemaphore> commonDestToSem = new();
-                foreach (ISet<IStationLogic> key in commonKeys)
-                    commonDestToSem.Add(key, destSynchronizerDic[key]!);
-                ISectionSynchronizerDetails synchronizer = new SectionSynchronizerDetails(
-                    commonSections,
-                    commonDestToSem,
-                    occupationCapacity);
-                foreach (var routeId in kvp.Value)
-                {
-                    var section = commonSections.Single(
-                        sec => sec.AllTrafficLights.SetEquals(kvp.Key) &&
-                        sec.RouteId == routeId);
-                    sectionDetailsList.Add(new RouteSectionDetails(section, synchronizer));
-                }
-            }
-            return sectionDetailsList;
-        }
-
-        private Dictionary<ISet<IStationLogic>, AsyncSemaphore?> CreateDestSynchronizerDic(
-            HashSet<IRouteSection> sections) => new(
-                sections.GroupBy(
-                    rs => rs.Destination,
-                    (key, collection) => new KeyValuePair<ISet<IStationLogic>, AsyncSemaphore?>(
-                        key,
-                        collection.Count() > 1
-                            ? new AsyncSemaphore(key.Count)
-                            : null),
-                    new StationLogicSetComparer()),
-                new StationLogicSetComparer());
-
-        private async Task<IRouteLogic[]> CreateRoutesLogicAsync(
-            IEnumerable<Route> routes,
-            List<IRouteSectionDetails>? sectionDetails,
-            CancellationToken ct = default) => await Task.WhenAll(
-                routes.Select(async r => await _routeLogicFactory
-                    .GetCreator(r, sectionDetails?.FindAll(sd => sd.RouteSection.RouteId == r.RouteId))
-                    .CreateAsync()));
     }
 }

@@ -2,8 +2,8 @@
 {
     public class LogicProvisionFailedException : Exception
     {
-        public LogicProvisionFailedException() { }
-
+        public LogicProvisionFailedException()
+            : base() { }
         public LogicProvisionFailedException(string message)
             : base(message) { }
 

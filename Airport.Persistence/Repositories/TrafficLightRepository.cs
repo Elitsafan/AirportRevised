@@ -1,9 +1,6 @@
 ﻿using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
 using Airport.Models.Entities;
-using Microsoft.Extensions.Options;
-using MongoDB.Bson;
-using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 
 namespace Airport.Persistence.Repositories
@@ -11,110 +8,88 @@ namespace Airport.Persistence.Repositories
     internal sealed class TrafficLightRepository : ITrafficLightRepository
     {
         #region Fields
-        private readonly IOptions<AirportDbConfiguration> _dbConfiguration;
         private readonly IMongoCollection<TrafficLight> _trafficLightsCollection;
         private readonly IMongoCollection<Route> _routesCollection;
+        private readonly IMongoCollection<Section> _sectionsCollection;
         #endregion
 
         public TrafficLightRepository(IMongoClient client, IOptions<AirportDbConfiguration> dbConfiguration)
         {
-            _dbConfiguration = dbConfiguration;
             _trafficLightsCollection = client
                 .GetDatabase(dbConfiguration.Value.DatabaseName)
                 .GetCollection<TrafficLight>(dbConfiguration.Value.TrafficLightsCollectionName);
-            _routesCollection = client!
-                .GetDatabase(_dbConfiguration.Value.DatabaseName)
-                .GetCollection<Route>(_dbConfiguration.Value.RoutesCollectionName);
+
+            _routesCollection = client
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
+
+            _sectionsCollection = client
+                .GetDatabase(dbConfiguration.Value.DatabaseName)
+                .GetCollection<Section>(dbConfiguration.Value.SectionsCollectionName);
         }
 
         public async Task<IEnumerable<TrafficLight>> GetAllAsync(CancellationToken ct = default) =>
-            await _trafficLightsCollection
-                .Find(Builders<TrafficLight>.Filter.Empty)
-                .ToListAsync(ct);
+            await _trafficLightsCollection.AsQueryable().ToListAsync(ct);
 
-        public async Task<TrafficLight> AddOneAsync(TrafficLight trafficLight, CancellationToken ct = default)
+        public async Task<TrafficLight> AddOneAsync(TrafficLight trafficLight, IClientSessionHandle? session = null, CancellationToken ct = default)
         {
-            await _trafficLightsCollection.InsertOneAsync(trafficLight, null, ct);
+            if (session is null)
+                await _trafficLightsCollection.InsertOneAsync(trafficLight, cancellationToken: ct);
+            else
+                await _trafficLightsCollection.InsertOneAsync(session, trafficLight, null, ct);
+
             return trafficLight;
         }
 
-        public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
-            (await _trafficLightsCollection.DeleteOneAsync(tl => tl.TrafficLightId == id, ct)).DeletedCount > 0;
+        public async Task<bool> DeleteOneAsync(ObjectId id, IClientSessionHandle? session = null, CancellationToken ct = default) => session is null
+            ? (await _trafficLightsCollection.DeleteOneAsync(tl => tl.TrafficLightId == id, cancellationToken: ct)).DeletedCount > 0
+            : (await _trafficLightsCollection.DeleteOneAsync(session, tl => tl.TrafficLightId == id, null, ct)).DeletedCount > 0;
 
-        public async Task<IEnumerable<TrafficLight>> GetNextTrafficLightsAsync(
-            ObjectId routeId,
-            ObjectId id,
-            CancellationToken ct = default)
-        {
-            var route = await _routesCollection
-                .Find(r => r.RouteId == routeId)
-                .FirstOrDefaultAsync(ct)
-                ?? throw new EntityNotFoundException($"Route with Id: {routeId} not found.");
-
-            var tls = await GetTrafficLightsByRouteIdAsync(routeId, ct);
-            var trafficLight = await _trafficLightsCollection
-                .Find(tl => tl.TrafficLightId == id)
-                .FirstOrDefaultAsync(ct);
-            if (trafficLight is null)
-                if (tls.All(tl => tl.StationId != id))
-                    throw new ArgumentException(
-                        "The route with the provided id doesn't have the traffic light with the provided station id.",
-                        nameof(id));
-                // If id provided is a station id 
-                else return (await GetNextTrafficLightsAsync(route, id, ct))
-                    .ToArray();
-            // If id provided is a trafficlight id 
-            return (await GetNextTrafficLightsAsync(route, trafficLight.StationId, ct))
-                .ToArray();
-        }
+        public async Task<bool> DeleteByStationIdAsync(ObjectId id, IClientSessionHandle? session = null, CancellationToken ct = default) => session is null
+            ? (await _trafficLightsCollection.DeleteOneAsync(tl => tl.StationId == id, cancellationToken: ct)).DeletedCount > 0
+            : (await _trafficLightsCollection.DeleteOneAsync(session, tl => tl.StationId == id, null, ct)).DeletedCount > 0;
 
         public async Task<IEnumerable<TrafficLight>> GetTrafficLightsByRouteIdAsync(
             ObjectId routeId,
             CancellationToken ct = default)
         {
-            var directionIds = _routesCollection.AsQueryable()
-                .Where(r => r.RouteId == routeId)
-                .SelectMany(r => r.Directions
-                    .SelectMany(d => new[] { d.From, d.To })
-                    .Distinct());
-            var result = await _trafficLightsCollection
-                .AsQueryable()
-                .Where(tl => directionIds.Contains(tl.StationId))
+            var stationIds = _routesCollection.AsQueryable()
+                .FirstOrDefault(r => r.RouteId == routeId)?.Directions
+                .SelectMany(d => new[] { d.From, d.To })
+                .Distinct()
+                .ToList()
+                ?? throw new EntityNotFoundException($"Route id: {routeId} not found.");
+
+            if (stationIds.Count == 0)
+                throw new EntityNotFoundException($"Route Id: {routeId} has no stations.");
+
+            return await _trafficLightsCollection.AsQueryable()
+                .Where(tl => stationIds.Contains(tl.StationId))
                 .ToListAsync(ct);
-
-            if (result.Count == 0 && !await _routesCollection
-                .Find(r => r.RouteId == routeId)
-                .AnyAsync(ct))
-                throw new EntityNotFoundException($"Route with Id: {routeId} not found.");
-
-            return result;
         }
 
-        private async Task<IEnumerable<TrafficLight>> GetNextTrafficLightsAsync(
-            Route route,
-            ObjectId stationId,
-            CancellationToken ct = default)
+        public async Task<IEnumerable<TrafficLight>> GetStandaloneTLsAsync(ObjectId routeId, CancellationToken ct = default)
         {
-            var nextDirections = route.Directions
-                .Where(d => d.From == stationId)
-                .ToArray();
-            if (nextDirections.Length == 0)
-                return Array.Empty<TrafficLight>();
-
-            var targetStationsIds = nextDirections
-                .Select(d => d.To)
+            var stationIds = _routesCollection.AsQueryable()
+                .FirstOrDefault(r => r.RouteId == routeId)?.Directions
+                .SelectMany(d => new[] { d.From, d.To })
                 .Distinct()
-                .ToList();
-            var trafficLights = await _trafficLightsCollection
-                .Find(Builders<TrafficLight>.Filter.In(tl => tl.StationId, targetStationsIds))
-                .ToListAsync();
-            if (trafficLights.Count > 0)
-                return trafficLights;
-            // If no trafficlights were found
-            return (await Task.WhenAll(nextDirections
-                .Select(async d => await GetNextTrafficLightsAsync(route, d.To, ct))))
-                .SelectMany(x => x)
-                .ToArray();
+                .ToList()
+                ?? throw new EntityNotFoundException($"Route id: {routeId} not found.");
+
+            if (stationIds.Count == 0)
+                throw new EntityNotFoundException($"Route Id: {routeId} has no stations.");
+
+            var tlIdsOfSections = await _sectionsCollection.AsQueryable()
+                .Where(s => s.RouteId == routeId)
+                .SelectMany(s => s.Origin.Concat(s.Destination))
+                .ToListAsync(ct);
+
+            var standaloneIds = stationIds.Except(tlIdsOfSections).ToList();
+
+            return await _trafficLightsCollection.AsQueryable()
+                .Where(tl => standaloneIds.Contains(tl.StationId))
+                .ToListAsync(ct);
         }
     }
 }

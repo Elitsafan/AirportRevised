@@ -1,6 +1,4 @@
 ﻿using Airport.Domain.Helpers;
-using Airport.Models.DTOs;
-using Airport.Models.Entities;
 using Airport.Models.Enums;
 using AutoMapper;
 

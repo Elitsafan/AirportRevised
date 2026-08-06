@@ -34,26 +34,24 @@ namespace Airport.Presentation.Controllers
                 : Ok(flightDto);
         }
 
-        // POST: api/Flights/AddLanding/...
-        [HttpPost("[action]/{id}")]
+        // POST: api/Flights/AddLanding
+        [HttpPost("[action]")]
         public async Task<IActionResult> AddLandingAsync(
-            ObjectId id,
-            [FromBody] LandingForCreationDTO flightForCreation,
+            [FromBody] LandingForCreationDTO flightToCreate,
             CancellationToken ct = default)
         {
-            var flightDto = await _flightSvc.AddFlightAsync(id, flightForCreation, ct);
-            return CreatedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
+            var flightDto = await _flightSvc.AddFlightAsync(flightToCreate, ct);
+            return AcceptedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
         }
 
-        // POST: api/Flights/AddDeparture/...
-        [HttpPost("[action]/{id}")]
+        // POST: api/Flights/AddDeparture
+        [HttpPost("[action]")]
         public async Task<IActionResult> AddDepartureAsync(
-            ObjectId id,
-            [FromBody] DepartureForCreationDTO flightForCreation,
+            [FromBody] DepartureForCreationDTO flightToCreate,
             CancellationToken ct = default)
         {
-            var flightDto = await _flightSvc.AddFlightAsync(id, flightForCreation, ct);
-            return CreatedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
+            var flightDto = await _flightSvc.AddFlightAsync(flightToCreate, ct);
+            return AcceptedAtRoute("FlightById", new { id = flightDto.FlightId }, flightDto);
         }
 
         // DELETE: api/Flights/{id}

@@ -3,106 +3,56 @@
     public class RouteLogicTests
     {
         #region Fields
-        private ILogger<RouteLogic> _mockLogger;
-        private Mock<IDirectionLogicProvider> _mockDirectionLogicProvider;
-        private Mock<IStationLogicProvider> _mockStationLogicProvider;
-        private IRouteLogic _routeLogic = null!;
+        private readonly ILogger<RouteLogic> _mockLogger;
+        private IRouteLogic _sut = null!;
         #endregion
 
-        public RouteLogicTests()
-        {
-            _mockLogger = Mock.Of<ILogger<RouteLogic>>();
-            _mockDirectionLogicProvider = new Mock<IDirectionLogicProvider>();
-            _mockStationLogicProvider = new Mock<IStationLogicProvider>();
-        }
+        public RouteLogicTests() => _mockLogger = Mock.Of<ILogger<RouteLogic>>();
 
         [Fact]
-        public async Task RouteLogic_Created_NotNullAsync()
+        public async Task EnterLegAsync_WhenCalled_ReturnsEnteredStation()
         {
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IStationLogic[]
-                {
-                    new Mock<IStationLogic>().Object,
-                });
-
-            _routeLogic = await RouteLogic.CreateAsync(
-                new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
-                _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
-
-            Assert.NotNull(_routeLogic);
-        }
-
-        [Fact]
-        public async Task RouteLogic_RouteNotExist_ThrowsInvalidOperationExceptionAsync()
-        {
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new InvalidOperationException("Route not found."));
-            await Assert.ThrowsAsync<InvalidOperationException>(() => RouteLogic.CreateAsync(
-                new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
-                _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object));
-        }
-
-        [Fact]
-        public async Task StartRunAsync_WhenCalled_ReturnsValueAsync()
-        {
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Enumerable.Repeat(Mock.Of<IStationLogic>(), 2));
-            _routeLogic = await RouteLogic.CreateAsync(
-                new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
-                _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
-
-            var releaser = await _routeLogic.StartRunAsync();
-            releaser.Dispose();
-        }
-
-        [Fact]
-        public async Task EnterLegAsync_WhenCalled_ReturnsEnteredStationAsync()
-        {
+            // Arrange
             var mockFlightLogic = new Mock<IFlightLogic>();
             var mockStations = Enumerable.Repeat(new Mock<IStationLogic>(), 2).ToArray();
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(mockStations.Select(ms => ms.Object));
             mockStations[0]
-                .Setup(x => x.SetFlightAsync(mockFlightLogic.Object, It.IsAny<CancellationTokenSource>()))
+                .Setup(x => x.SetFlightAsync(
+                    mockFlightLogic.Object,
+                    It.IsAny<CancellationTokenSource>()))
                 .ReturnsAsync(mockStations[0].Object);
 
-            _routeLogic = await RouteLogic.CreateAsync(
+            _sut = new RouteLogic(
                 new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
                 _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
+                Enumerable.Empty<ISectionLogic>(),
+                mockStations.Select(ms => ms.Object),
+                Enumerable.Empty<IDirectionLogic>(),
+                Enumerable.Empty<IStationLogic>(),
+                Enumerable.Empty<IStationLogic>());
 
-            var enteredStation = await _routeLogic.EnterLegAsync(mockFlightLogic.Object, _routeLogic.GetNextLeg());
+            // Act
+            var enteredStation = await _sut.EnterLegAsync(mockFlightLogic.Object, _sut.GetNextLeg());
 
+            // Assert
             Assert.NotNull(enteredStation);
+
+            mockStations[0].Verify(
+                x => x.SetFlightAsync(
+                    mockFlightLogic.Object,
+                    It.IsAny<CancellationTokenSource>()),
+                Times.Once());
         }
 
         [Fact]
-        public async Task EnterLegAsync_WhenCalled_ThrowsInvalidOperationExceptionAsync()
+        public async Task EnterLegAsync_WhenCalled_ThrowsInvalidOperationException()
         {
+            // Arrange
             var mockFlightLogic = new Mock<IFlightLogic>();
             var mockStations = new Mock<IStationLogic>[]
             {
                 new Mock<IStationLogic>(),
                 new Mock<IStationLogic>()
             };
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(mockStations.Select(ms => ms.Object).ToArray());
             mockStations[0]
                 .SetupGet(x => x.StationId)
                 .Returns(ObjectId.GenerateNewId());
@@ -110,51 +60,82 @@
                 .SetupGet(x => x.StationId)
                 .Returns(ObjectId.GenerateNewId());
 
-            _routeLogic = await RouteLogic.CreateAsync(
+            _sut = new RouteLogic(
                 new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
                 _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
+                Enumerable.Empty<ISectionLogic>(),
+                mockStations.Select(ms => ms.Object),
+                Enumerable.Empty<IDirectionLogic>(),
+                Enumerable.Empty<IStationLogic>(),
+                Enumerable.Empty<IStationLogic>());
+
             var mockLogger = Mock.Of<ILogger<IStationLogic>>();
-            await Assert.ThrowsAsync<InvalidOperationException>(() => _routeLogic.EnterLegAsync(
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.EnterLegAsync(
                 mockFlightLogic.Object,
-                _routeLogic
+                _sut
                     .GetNextLeg()
                     .Append(new Mock<IStationLogic>().Object)));
         }
 
         [Fact]
-        public async Task GetNextLeg_WhenCalled_ReturnsFirstStationAsync()
+        public void GetNextLeg_WhenCalled_ReturnsFirstStation()
         {
-            var mockStationLogic1 = Mock.Of<IStationLogic>();
+            // Arrange
+            var mockStations = new Mock<IStationLogic>[]
+            {
+                new Mock<IStationLogic>(),
+                new Mock<IStationLogic>()
+            };
+            mockStations[0]
+                .SetupGet(x => x.StationId)
+                .Returns(ObjectId.GenerateNewId());
+            mockStations[1]
+                .SetupGet(x => x.StationId)
+                .Returns(ObjectId.GenerateNewId());
 
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IStationLogic[]
-                {
-                        mockStationLogic1,
-                });
-
-            _routeLogic = await RouteLogic.CreateAsync(
+            _sut = new RouteLogic(
                 new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
                 _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
+                Enumerable.Empty<ISectionLogic>(),
+                mockStations.Select(ms => ms.Object),
+                Enumerable.Empty<IDirectionLogic>(),
+                Enumerable.Empty<IStationLogic>(),
+                Enumerable.Empty<IStationLogic>());
 
-            Assert.Contains(
-                _routeLogic.GetNextLeg(),
-                item => item == mockStationLogic1);
+            // Act
+            var nextLeg = _sut.GetNextLeg();
+
+            // Assert
+            Assert.Contains(nextLeg, item => item.StationId == mockStations[0].Object.StationId);
         }
 
         [Fact]
-        public async Task GetNextLeg_WhenCalled_ReturnsNextStationAsync()
+        public void GetNextLeg_WhenCalled_ReturnsNextStation()
         {
+            // Arrange
+            var route = new Route
+            {
+                Directions = new List<Direction>
+                {
+                    new()
+                    {
+                        From = ObjectId.Parse("000000000000000000000001"),
+                        To = ObjectId.Parse("000000000000000000000002")
+                    }
+                }
+            };
             var mockStationLogicLogger = new Mock<ILogger<IStationLogic>>();
             var mockStationLogic1 = new Mock<IStationLogic>();
             var mockStationLogic2 = new Mock<IStationLogic>();
-            var mockDirectionLogic = new Mock<IDirectionLogic>();
+            var mockStations = new Mock<IStationLogic>[]
+            {
+                mockStationLogic1,
+                mockStationLogic2
+            };
+            var mockDirection1 = new Mock<IDirectionLogic>();
+            var mockDirections = new Mock<IDirectionLogic>[] { mockDirection1 };
 
             mockStationLogic1
                 .SetupGet(x => x.StationId)
@@ -162,34 +143,27 @@
             mockStationLogic2
                 .SetupGet(x => x.StationId)
                 .Returns(ObjectId.Parse("000000000000000000000002"));
-            mockDirectionLogic
+            mockDirection1
                 .SetupGet(x => x.From)
                 .Returns(ObjectId.Parse("000000000000000000000001"));
-            mockDirectionLogic
+            mockDirection1
                 .SetupGet(x => x.To)
                 .Returns(ObjectId.Parse("000000000000000000000002"));
 
-            _mockStationLogicProvider
-                .Setup(x => x.FindStationLogicsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IStationLogic[]
-                {
-                        mockStationLogic1.Object,
-                        mockStationLogic2.Object,
-                });
-            _mockDirectionLogicProvider
-                .Setup(x => x.GetDirectionsByRouteIdAsync(It.IsAny<ObjectId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IDirectionLogic[] { mockDirectionLogic.Object });
-
-            _routeLogic = await RouteLogic.CreateAsync(
+            _sut = new RouteLogic(
                 new Route(),
-                It.IsAny<IEnumerable<IRouteSectionDetails>>(),
                 _mockLogger,
-                _mockDirectionLogicProvider.Object,
-                _mockStationLogicProvider.Object);
+                Enumerable.Empty<ISectionLogic>(),
+                mockStations.Select(ms => ms.Object),
+                mockDirections.Select(md => md.Object),
+                Enumerable.Empty<IStationLogic>(),
+                Enumerable.Empty<IStationLogic>());
 
-            Assert.Contains(
-                _routeLogic.GetNextLeg(mockStationLogic1.Object),
-                item => item == mockStationLogic2.Object);
+            // Act
+            var nextLeg = _sut.GetNextLeg(mockStationLogic1.Object);
+
+            // Assert
+            Assert.Contains(nextLeg, item => item.StationId == mockStations[1].Object.StationId);
         }
     }
 }

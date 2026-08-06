@@ -2,15 +2,17 @@
 using Airport.Models.Enums;
 using Airport.Simulator.Abstractions;
 
-namespace Airport.Simulator.Services
+namespace Airport.Simulator
 {
     internal class FlightGenerator : IFlightGenerator
     {
         public IEnumerable<FlightForCreationDTO> GenerateFlights(int n)
         {
             List<FlightForCreationDTO> flights = new();
+
             for (int i = 1; i <= n; i++)
                 flights.Add(GenerateFlight(i % 2 == 0 ? FlightType.Departure : FlightType.Landing));
+
             return flights;
         }
 

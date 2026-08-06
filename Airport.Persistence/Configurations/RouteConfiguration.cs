@@ -1,9 +1,4 @@
-﻿using Airport.Models.Entities;
-using Microsoft.Extensions.Options;
-using MongoDB.Bson;
-using MongoDB.Driver;
-
-namespace Airport.Persistence.Configurations
+﻿namespace Airport.Persistence.Configurations
 {
     internal class RouteConfiguration
     {
@@ -12,9 +7,10 @@ namespace Airport.Persistence.Configurations
             var routesCollection = client
                 .GetDatabase(dbConfiguration.Value.DatabaseName)
                 .GetCollection<Route>(dbConfiguration.Value.RoutesCollectionName);
+
             var data = new List<Route>
             {
-                new Route
+                new()
                 {
                     RouteId = new ObjectId("650abb1ee574435a814d7ec0"),
                     RouteName = "Landing",
@@ -52,7 +48,7 @@ namespace Airport.Persistence.Configurations
                         },
                     }
                 },
-                new Route
+                new()
                 {
                     RouteId = new ObjectId("650abb1ee574435a814d7ec1"),
                     RouteName = "Departure",
@@ -89,23 +85,33 @@ namespace Airport.Persistence.Configurations
                 //        new Direction
                 //        {
                 //            From = new ObjectId("000000000000000000000001"),
-                //            To = new ObjectId("000000000000000000000002")
+                //            To = new ObjectId("000000000000000000000014")
                 //        },
                 //        new Direction
                 //        {
-                //            From = new ObjectId("000000000000000000000002"),
-                //            To = new ObjectId("000000000000000000000003")
-                //        },
-                //        new Direction
-                //        {
-                //            From = new ObjectId("000000000000000000000003"),
+                //            From = new ObjectId("000000000000000000000014"),
                 //            To = new ObjectId("000000000000000000000004")
                 //        },
                 //        new Direction
                 //        {
                 //            From = new ObjectId("000000000000000000000004"),
-                //            To = new ObjectId("000000000000000000000009"),
+                //            To = new ObjectId("000000000000000000000015"),
                 //        },
+                //        new Direction
+                //        {
+                //            From = new ObjectId("000000000000000000000015"),
+                //            To = new ObjectId("000000000000000000000006"),
+                //        },
+                //        new Direction
+                //        {
+                //            From = new ObjectId("000000000000000000000015"),
+                //            To = new ObjectId("000000000000000000000007"),
+                //        },
+                //        new Direction
+                //        {
+                //            From = new ObjectId("000000000000000000000015"),
+                //            To = new ObjectId("000000000000000000000016"),
+                //        }
                 //    }
                 //},
                 //new Route
@@ -116,24 +122,29 @@ namespace Airport.Persistence.Configurations
                 //    {
                 //        new Direction
                 //        {
-                //            From = new ObjectId("000000000000000000000006"),
-                //            To = new ObjectId("000000000000000000000008")
+                //            From = new ObjectId("000000000000000000000010"),
+                //            To = new ObjectId("000000000000000000000011")
                 //        },
                 //        new Direction
                 //        {
-                //            From = new ObjectId("000000000000000000000007"),
-                //            To = new ObjectId("000000000000000000000008")
+                //            From = new ObjectId("000000000000000000000011"),
+                //            To = new ObjectId("000000000000000000000012")
                 //        },
                 //        new Direction
                 //        {
-                //            From = new ObjectId("000000000000000000000008"),
-                //            To = new ObjectId("000000000000000000000004")
+                //            From = new ObjectId("000000000000000000000012"),
+                //            To = new ObjectId("000000000000000000000013")
                 //        },
                 //        new Direction
                 //        {
-                //            From = new ObjectId("000000000000000000000004"),
+                //            From = new ObjectId("000000000000000000000013"),
                 //            To = new ObjectId("000000000000000000000001"),
                 //        },
+                //        new Direction
+                //        {
+                //            From = new ObjectId("000000000000000000000013"),
+                //            To = new ObjectId("000000000000000000000004"),
+                //        }
                 //    }
                 //}
             };

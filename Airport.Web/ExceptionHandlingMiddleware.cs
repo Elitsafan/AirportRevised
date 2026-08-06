@@ -18,7 +18,7 @@ namespace Airport.Web
             }
             catch (Exception e)
             {
-                _logger.LogError(e, e.Message);
+                _logger.LogError(e, "An unhandled exception occurred during the request execution.");
 
                 await HandleExceptionAsync(context, e);
             }
@@ -36,8 +36,11 @@ namespace Airport.Web
                 InvalidRouteStructureException => StatusCodes.Status400BadRequest,
                 MissingRouteStationsException => StatusCodes.Status400BadRequest,
                 ArgumentNullException => StatusCodes.Status400BadRequest,
+                ArgumentException => StatusCodes.Status400BadRequest,
                 AirportNotStartedException => StatusCodes.Status400BadRequest,
+                InvalidDeletionException => StatusCodes.Status400BadRequest,
                 EntityNotFoundException => StatusCodes.Status404NotFound,
+                LogicNotFoundException => StatusCodes.Status404NotFound,
                 LogicProvisionFailedException => StatusCodes.Status404NotFound,
                 OperationCanceledException => 444,
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
@@ -52,8 +55,10 @@ namespace Airport.Web
                 AirportNotStartedException or
                 EntityNotFoundException or
                 ArgumentNullException or
+                ArgumentException or
                 OperationCanceledException or
                 InvalidOperationException or
+                InvalidDeletionException or
                 LogicProvisionFailedException or
                 MissingRouteStationsException or
                 InvalidRouteStructureException or

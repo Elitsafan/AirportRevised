@@ -2,10 +2,11 @@
 
 namespace Airport.Services.Abstractions
 {
-    public interface IAirportService : IAsyncDisposable
+    public interface IAirportService
     {
-        Task<IAirportStatus> GetStatusAsync(CancellationToken ct = default);
         Task<string> StartAsync(CancellationToken ct = default);
+        Task<string> RestartAsync(CancellationToken ct = default);
+        Task<IAirportStatus> GetStatusAsync(CancellationToken ct = default);
         Task<SummaryWithMetadata> GetSummaryWithMetadataAsync(
             GetSummaryParameters parameters,
             CancellationToken ct = default);

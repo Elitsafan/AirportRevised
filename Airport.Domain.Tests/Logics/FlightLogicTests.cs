@@ -1,91 +1,84 @@
-﻿namespace Airport.Domain.Tests.Logics
+﻿using Airport.Contracts.EventArgs.FlightEventArgs;
+
+namespace Airport.Domain.Tests.Logics
 {
-    public class FlightLogicTests : IDisposable
+    public class FlightLogicTests
     {
         #region Fields
-        private Mock<IRouteLogic> _mockRouteLogic;
-        private Mock<IStationLogic> _mockStationLogic;
-        private ILogger<FlightLogic> _mockLogger;
-        private IFlightLogic _flightLogic;
-        private bool _eventFired;
+        private readonly Mock<IRouteLogic> _mockRouteLogic;
+        private readonly Mock<IStationLogic> _mockStationLogic;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
+        private readonly ILogger<FlightLogic> _mockLogger;
+        private IFlightLogic _sut = null!;
         #endregion
 
         public FlightLogicTests()
         {
             _mockRouteLogic = new Mock<IRouteLogic>();
+            _mockDomainEvents = new Mock<IDomainEvents>();
             _mockLogger = Mock.Of<ILogger<FlightLogic>>();
             _mockStationLogic = new Mock<IStationLogic>();
-            _eventFired = false;
-            _flightLogic = null!;
         }
 
         [Fact]
-        public void FlightLogic_Created_NotNull()
+        public async Task RaiseFlightRunDoneAsync_WhenCalled_FlightRunDoneEventIsInvoked()
         {
-            _flightLogic = new FlightLogic(new Landing(), _mockRouteLogic.Object, _mockLogger);
-            Assert.NotNull(_flightLogic);
+            // Arange
+            _sut = new FlightLogic(
+                new Landing(),
+                _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
+                _mockLogger);
+
+            // Act
+            await _sut.RaiseFlightRunDoneAsync();
+
+            // Assert
+            _mockDomainEvents.Verify(
+                x => x.RaiseFlightRunDoneAsync(It.IsAny<IFlightRunDoneEventArgs>()),
+                Times.Once,
+                "FlightLogic failed to trigger RaiseFlightRunDoneAsync on IDomainEvents.");
         }
 
         [Fact]
-        public async Task RaiseFlightRunDoneAsync_WhenCalled_FlightRunDoneEventIsInvokedAsync()
+        public async Task RaiseFlightRunStartedAsync_WhenCalled_FlightRunStartedEventIsInvoked()
         {
+            // Arrange
             var flight = new Landing();
-            _eventFired = false;
-            _flightLogic = new FlightLogic(flight, _mockRouteLogic.Object, _mockLogger);
-            _flightLogic.FlightRunDone += OnFlightRunDoneAsync;
-            await _flightLogic.RaiseFlightRunDoneAsync();
+            var stationId = new ObjectId();
 
-            Assert.True(_eventFired);
-        }
+            _sut = new FlightLogic(
+                flight,
+                _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
+                _mockLogger);
 
-        [Fact]
-        public void RaiseFlightRunDoneAsync_WhenNotCalled_FlightRunDoneEventIsNotInvoked()
-        {
-            var flight = new Landing();
-            var eventFired = false;
-            _flightLogic = new FlightLogic(flight, _mockRouteLogic.Object, _mockLogger);
-            _flightLogic.FlightRunDone += OnFlightRunDoneAsync;
+            // Act
+            await _sut.RaiseFlightRunStartedAsync(stationId);
 
-            Assert.False(eventFired);
-        }
-
-        [Fact]
-        public async Task RaiseFlightRunStartedAsync_WhenCalled_FlightRunStartedEventIsInvokedAsync()
-        {
-            var nextLeg = new IStationLogic[] { _mockStationLogic.Object };
-            var mockEventArgs = new Mock<IStationOccupiedEventArgs>();
-            _mockRouteLogic
-                .Setup(x => x.GetNextLeg(null))
-                .Returns(nextLeg);
-            var flight = new Landing();
-            _eventFired = false;
-            _flightLogic = new FlightLogic(flight, _mockRouteLogic.Object, _mockLogger);
-            mockEventArgs
-                .SetupGet(x => x.FlightId)
-                .Returns(_flightLogic.FlightId);
-            _mockRouteLogic
-                .Setup(x => x.EnterLegAsync(
-                    _flightLogic,
-                    It.IsAny<IEnumerable<IStationLogic>>(),
-                    It.IsAny<CancellationToken>()))
-                .Callback(() => _mockStationLogic
-                    .RaiseAsync(x => x.StationOccupiedAsync += null, null!, mockEventArgs.Object)
-                    .Wait())
-                .ReturnsAsync(_mockStationLogic.Object);
-            _flightLogic.FlightRunStarted += OnFlightRunStartedAsync;
-
-            await _flightLogic.RunAsync();
-            Assert.True(_eventFired);
+            // Assert
+            _mockDomainEvents.Verify(
+                x => x.RaiseFlightRunStartedAsync(It.IsAny<IFlightRunStartedEventArgs>()),
+                Times.Once,
+                "FlightLogic failed to trigger RaiseFlightRunStartedAsync on IDomainEvents.");
         }
 
         [Fact]
         public void RegisterStationOccupiedDetails_WhenCalled_StationOccupiedRegistered()
         {
-            _flightLogic = new FlightLogic(new Departure(), _mockRouteLogic.Object, _mockLogger);
+            // Arange
+            _sut = new FlightLogic(
+                new Departure(),
+                _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
+                _mockLogger);
             var id = ObjectId.GenerateNewId();
             var dt = DateTime.Now;
-            var actual = _flightLogic.RegisterStationOccupiedDetails(id, dt);
 
+            // Act
+            var actual = _sut.RegisterStationOccupiedDetails(id, dt);
+
+            // Assert
             Assert.True(id == actual.StationId);
             Assert.True(dt == actual.Entrance);
             Assert.Null(actual.Exit);
@@ -94,85 +87,79 @@
         [Fact]
         public void RegisterStationClearedDetails_WhenCalled_StationClearedDetailsRegistered()
         {
-            _flightLogic = new FlightLogic(new Departure(), _mockRouteLogic.Object, _mockLogger);
+            // Arange
+            _sut = new FlightLogic(
+                new Departure(),
+                _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
+                _mockLogger);
             var id = ObjectId.GenerateNewId();
             var dtEntrance = DateTime.Now;
             var dtExit = DateTime.Now.AddSeconds(2);
-            _flightLogic.RegisterStationOccupiedDetails(id, dtEntrance);
-            var actual = _flightLogic.RegisterStationClearedDetails(id, dtExit);
+            _sut.RegisterStationOccupiedDetails(id, dtEntrance);
 
+            // Act
+            var actual = _sut.RegisterStationClearedDetails(id, dtExit);
+
+            // Assert
             Assert.True(id == actual.StationId);
             Assert.True(dtEntrance == actual.Entrance);
             Assert.True(dtExit == actual.Exit);
         }
 
         [Fact]
-        public async Task ThrowIfCancellationRequestedAsync_WhenCalledTwice_ThrowsExceptionAsync()
+        public async Task ThrowIfCancellationRequestedAsync_WhenCalledTwice_ThrowsException()
         {
-            _flightLogic = new FlightLogic(new Departure(), _mockRouteLogic.Object, _mockLogger);
+            // Arange
+            _sut = new FlightLogic(
+                new Departure(),
+                _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
+                _mockLogger);
+
             CancellationTokenSource cts = new();
-            await _flightLogic.ThrowIfCancellationRequestedAsync(cts);
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => _flightLogic.ThrowIfCancellationRequestedAsync(cts));
+            // Act
+            await _sut.ThrowIfCancellationRequestedAsync(cts);
+
+            // Assert
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _sut.ThrowIfCancellationRequestedAsync(cts));
         }
 
         [Fact]
-        public async Task RunAsync_WhenCalled_RunsFlightAsync()
+        public async Task RunAsync_WhenCalled_RunsFlight()
         {
+            // Arange
             _mockRouteLogic
-                .Setup(x => x.GetNextLeg(null))
-                .Returns(() => new IStationLogic[] { _mockStationLogic.Object });
+                .SetupSequence(x => x.GetNextLeg(null))
+                .Returns(() => new[] { _mockStationLogic.Object })
+                .Returns(Enumerable.Empty<IStationLogic>); // Anyway the test will stop here
             _mockRouteLogic
                 .Setup(x => x.EnterLegAsync(
                     It.IsAny<IFlightLogic>(),
                     It.IsAny<IEnumerable<IStationLogic>>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(_mockStationLogic.Object);
-            _flightLogic = new FlightLogic(new Departure(), _mockRouteLogic.Object, _mockLogger);
-            var task = _flightLogic.RunAsync();
-            await task;
-            Assert.True(task.IsCompletedSuccessfully);
-        }
 
-        [Fact]
-        public async Task RunAsync_WhenCalled_StartRunAsyncCalledAsync()
-        {
-            _mockRouteLogic
-                .Setup(x => x.GetNextLeg(null))
-                .Returns(() => new IStationLogic[] { _mockStationLogic.Object });
-            _mockRouteLogic
-                .Setup(x => x.EnterLegAsync(
-                    It.IsAny<IFlightLogic>(),
+            _sut = new FlightLogic(
+                new Departure(),
+                _mockRouteLogic.Object,
+                _mockDomainEvents.Object,
+                _mockLogger);
+
+            // Act
+            await _sut.RunAsync();
+
+            // Assert
+            _mockRouteLogic.Verify(x => x.StartRunAsync(It.IsAny<CancellationToken>()), Times.Once);
+            _mockRouteLogic.Verify(
+                x => x.EnterLegAsync(
+                    _sut,
                     It.IsAny<IEnumerable<IStationLogic>>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(_mockStationLogic.Object);
-            _flightLogic = new FlightLogic(new Departure(), _mockRouteLogic.Object, _mockLogger);
-            await _flightLogic.RunAsync(It.IsAny<CancellationToken>());
-
-            _mockRouteLogic
-                .Verify(x => x.StartRunAsync(It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        private async Task OnFlightRunStartedAsync(object? sender, IFlightRunStartedEventArgs args)
-        {
-            _eventFired = true;
-            await Task.CompletedTask;
-        }
-
-        private async Task OnFlightRunDoneAsync(object? sender, IFlightRunDoneEventArgs args)
-        {
-            _eventFired = true;
-            await Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            if (_flightLogic is not null)
-            {
-                _flightLogic.FlightRunStarted -= OnFlightRunStartedAsync;
-                _flightLogic.FlightRunDone -= OnFlightRunDoneAsync;
-            }
+                    It.IsAny<CancellationToken>()),
+                Times.AtLeastOnce);
+            _mockRouteLogic.Verify(x => x.GetNextLeg(It.IsAny<IStationLogic>()), Times.AtLeastOnce);
+            _mockStationLogic.Verify(x => x.ClearAsync(null, It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 }

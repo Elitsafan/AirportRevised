@@ -2,22 +2,41 @@
 {
     public class StationLogicFactoryTests
     {
-        private ServiceProvider _serviceProvider;
+        #region Fields
+        private IStationLogicFactory _sut = null!;
+        private readonly Mock<IDomainEvents> _mockDomainEvents;
+        private readonly ILogger<StationLogic> _logger;
+        #endregion
 
         public StationLogicFactoryTests()
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddSingleton<ILogger<StationLogic>>(Mock.Of<ILogger<StationLogic>>());
-            _serviceProvider = serviceCollection.BuildServiceProvider();
+            _mockDomainEvents = new Mock<IDomainEvents>();
+            _logger = Mock.Of<ILogger<StationLogic>>();
         }
 
         [Fact]
-        public void GetCreator_WhenCalled_ReturnsNotNull()
+        public void GetCreator_WhenCalled_ReturnsStationLogicCreator()
         {
-            IStationLogicFactory stationLogicFactory = new StationLogicFactory(_serviceProvider);
-            var creator = stationLogicFactory.GetCreator(new Station());
+            // Arrange
+            var station = new Station();
+            _sut = new StationLogicFactory(_mockDomainEvents.Object, _logger);
 
-            Assert.NotNull(creator);
+            // Act
+            var result = _sut.GetCreator(station);
+
+            // Assert
+            Assert.IsType<StationLogicCreator>(result);
+        }
+
+        [Fact]
+        public void GetCreator_StationIsNull_ThrowsArgumentNullException()
+        {
+            // Arrange
+            _sut = new StationLogicFactory(_mockDomainEvents.Object, _logger);
+
+            // Act & Assert
+            var ex = Assert.Throws<ArgumentNullException>(() => _sut.GetCreator(null!));
+            Assert.Equal("station", ex.ParamName);
         }
     }
 }

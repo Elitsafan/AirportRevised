@@ -2,8 +2,8 @@
 {
     public class StationEntranceFailedException : Exception
     {
-        public StationEntranceFailedException() { }
-
+        public StationEntranceFailedException()
+            : base() { }
         public StationEntranceFailedException(string message)
             : base(message) { }
 

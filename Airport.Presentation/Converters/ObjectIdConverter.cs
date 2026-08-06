@@ -8,7 +8,7 @@ namespace Airport.Presentation.Converters
         public override ObjectId ReadJson(JsonReader reader, Type objectType, ObjectId existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
             if (!ObjectId.TryParse((string?)reader.Value, out ObjectId result))
-                throw new ArgumentException("Cannot parse Id.");
+                throw new ArgumentException("Cannot parse id.");
             return result;
         }
 

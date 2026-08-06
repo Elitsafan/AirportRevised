@@ -1,8 +1,5 @@
 ﻿using Airport.Contracts.Logics;
-using Airport.Models.DTOs;
-using Airport.Models.Entities;
 using Airport.Models.Enums;
-using AutoMapper;
 
 namespace Airport.Services.MappingConfigurations
 {
@@ -12,7 +9,8 @@ namespace Airport.Services.MappingConfigurations
         {
             CreateMap<Station, StationDTO>()
                 .ForMember(dest => dest.WaitingTime, opt => opt.MapFrom(src => src.EstimatedWaitingTime));
-            CreateMap<StationDTO, Station>();
+            CreateMap<StationDTO, Station>()
+                .ForMember(dest => dest.EstimatedWaitingTime, opt => opt.MapFrom(src => src.WaitingTime));
             CreateMap<StationForCreationDTO, Station>();
             CreateMap<StationForUpdateDTO, Station>();
             CreateMap<IStationLogic, StationDTO>()

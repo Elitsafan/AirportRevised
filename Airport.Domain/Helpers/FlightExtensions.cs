@@ -1,6 +1,4 @@
-﻿using Airport.Models.Enums;
-
-namespace Airport.Domain.Helpers
+﻿namespace Airport.Domain.Helpers
 {
     public static class FlightExtensions
     {

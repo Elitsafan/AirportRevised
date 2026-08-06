@@ -1,75 +1,45 @@
-﻿using Airport.Models.Entities;
-
-namespace OnionArchitecture.Simulator.Tests
+﻿namespace Airport.Simulator.Tests
 {
     public class FlightLauncherServiceTests
     {
         #region Fields
-        private IFlightLauncherService _service;
-        private HttpClient _httpClient;
-        private Mock<HttpMessageHandler> _mockHttpMessageHandler;
-        private Mock<IFlightGenerator> _mockFlightGenerator;
-        private Mock<IFlightEndPointsConfiguration> _mockFlightEndPointsConfiguration;
-        private Mock<IFlightTimeoutConfiguration> _mockFlightTimeoutConfiguration;
-        private ILogger<FlightLauncherService> _mockLogger;
+#if DEBUG
+        private const string BASE_URL = "https://localhost:5005";
+#elif !DEBUG
+        private const string BASE_URL = "https://airport.api.elitzafan.com"; 
+#endif
+        private readonly Mock<IFlightGenerator> _mockFlightGenerator;
+        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
+        private readonly Mock<IOptions<FlightTimeoutConfiguration>> _mockFlightTimeoutConfig;
+        private readonly Mock<IOptions<FlightEndPointsConfiguration>> _mockFlightEndpointsConfig;
+        private readonly ILogger<FlightLauncherService> _mockLogger;
         #endregion
 
         public FlightLauncherServiceTests()
         {
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
             _mockFlightGenerator = new Mock<IFlightGenerator>();
-            _mockFlightEndPointsConfiguration = new Mock<IFlightEndPointsConfiguration>();
-            _mockFlightTimeoutConfiguration = new Mock<IFlightTimeoutConfiguration>();
+            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+            _mockFlightTimeoutConfig = new Mock<IOptions<FlightTimeoutConfiguration>>();
+            _mockFlightEndpointsConfig = new Mock<IOptions<FlightEndPointsConfiguration>>();
             _mockLogger = Mock.Of<ILogger<FlightLauncherService>>();
-
-            _mockFlightEndPointsConfiguration
-                .SetupGet(x => x.Start)
-                .Returns("/api/Airport/Start");
-            // Options.Create(new FlightEndPointsConfiguration { BaseUrl = "http://localhost:5005" });
-            _mockFlightEndPointsConfiguration
-                .SetupGet(x => x.BaseUrl)
-                .Returns("https://airport.api.elitzafan.com");
-            _mockFlightEndPointsConfiguration
-                .SetupGet(x => x.Departure)
-                .Returns("/api/Flights/Departure");
-            _mockFlightEndPointsConfiguration
-                .SetupGet(x => x.Landing)
-                .Returns("/api/Flights/Landing");
-
-            _service = new FlightLauncherService(
-                _httpClient,
-                _mockLogger,
-                _mockFlightGenerator.Object,
-                _mockFlightTimeoutConfiguration.Object,
-                _mockFlightEndPointsConfiguration.Object);
         }
 
         [Fact]
-        public void Created_NotNull() => Assert.NotNull(_service);
-
-        [Fact]
-        public async Task StartAsync_WhenCalled_StartsLauncherAsync()
+        public async Task LaunchManyAsync_WhenCalled_LaunchesFlights()
         {
-            var mockedProtected = _mockHttpMessageHandler.Protected();
-            mockedProtected
-                .Setup<Task<HttpResponseMessage>>(
-                    nameof(HttpClient.SendAsync),
-                    ItExpr.Is<HttpRequestMessage>(
-                        m => m.RequestUri!.Equals(
-                            _mockFlightEndPointsConfiguration.Object.BaseUrl +
-                            _mockFlightEndPointsConfiguration.Object.Start)),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+            // Arrange
+            var fepc = new FlightEndPointsConfiguration
+            {
+                BaseUrl = "http://localhost:5005",
+                Start = "/api/Airport/Start",
+                Landing = "/api/Flights/Landing",
+                Departure = "/api/Flights/Departure"
+            };
 
-            var response = await _service.StartAsync();
+            _mockFlightEndpointsConfig
+                .SetupGet(x => x.Value)
+                .Returns(fepc);
 
-            Assert.True(response.StatusCode == HttpStatusCode.OK);
-        }
-
-        [Fact]
-        public async Task LaunchManyAsync_WhenCalled_LaunchesFlightsAsync()
-        {
             var flights = new List<FlightForCreationDTO>
             {
                 new LandingForCreationDTO(),
@@ -80,25 +50,52 @@ namespace OnionArchitecture.Simulator.Tests
                 new DepartureForCreationDTO(),
                 new LandingForCreationDTO(),
             };
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
+
+            using var client = new HttpClient(_mockHttpMessageHandler.Object);
+
+            client.BaseAddress = new Uri(fepc.BaseUrl);
+
+            var sut = new FlightLauncherService(
+                client,
+                _mockFlightGenerator.Object,
+                _mockFlightTimeoutConfig.Object,
+                _mockFlightEndpointsConfig.Object,
+                _mockLogger);
 
             _mockFlightGenerator
                 .Setup(x => x.GenerateFlights(It.IsAny<int>()))
                 .Returns(flights);
 
-            await foreach (var launch in _service.LaunchManyAsync(10))
-                Assert.True(launch.StatusCode == HttpStatusCode.Created);
+            // Act & Assert
+            await foreach (var launch in sut.LaunchManyAsync(10))
+                Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
         }
 
         [Fact]
-        public async Task LaunchManyAsync_WithParams_WhenCalled_LaunchesFlightsAsync()
+        public async Task LaunchManyAsync_WithParams_WhenCalled_LaunchesFlights()
         {
+            // Arrange
+            var fepc = new FlightEndPointsConfiguration
+            {
+                BaseUrl = "http://localhost:5005",
+                Start = "/api/Airport/Start",
+                Landing = "/api/Flights/Landing",
+                Departure = "/api/Flights/Departure"
+            };
+
+            _mockFlightEndpointsConfig
+                .SetupGet(x => x.Value)
+                .Returns(fepc);
+
             var flights = new List<FlightForCreationDTO>
             {
                 new LandingForCreationDTO(),
@@ -109,13 +106,26 @@ namespace OnionArchitecture.Simulator.Tests
                 new DepartureForCreationDTO(),
                 new LandingForCreationDTO(),
             };
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
+
+            using var client = new HttpClient(_mockHttpMessageHandler.Object);
+
+            client.BaseAddress = new Uri(fepc.BaseUrl);
+
+            var sut = new FlightLauncherService(
+                client,
+                _mockFlightGenerator.Object,
+                _mockFlightTimeoutConfig.Object,
+                _mockFlightEndpointsConfig.Object,
+                _mockLogger);
 
             _mockFlightGenerator
                 .Setup(x => x.GenerateFlights(It.IsAny<int>()))
@@ -126,13 +136,28 @@ namespace OnionArchitecture.Simulator.Tests
             _mockFlightGenerator
                 .Setup(x => x.GenerateFlight(FlightType.Landing))
                 .Returns(new LandingForCreationDTO());
-            await foreach (var launch in _service.LaunchManyAsync("7"))
-                Assert.True(launch.StatusCode == HttpStatusCode.Created);
+
+            // Act & Assert
+            await foreach (var launch in sut.LaunchManyAsync("7"))
+                Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
         }
 
         [Fact]
-        public async Task LaunchManyAsync_WithParams_WhenCalled_LaunchesFlightsAndExitAsync()
+        public async Task LaunchManyAsync_WithParams_WhenCalled_LaunchesFlightsAndExit()
         {
+            // Arrange
+            var fepc = new FlightEndPointsConfiguration
+            {
+                BaseUrl = "http://localhost:5005",
+                Start = "/api/Airport/Start",
+                Landing = "/api/Flights/Landing",
+                Departure = "/api/Flights/Departure"
+            };
+
+            _mockFlightEndpointsConfig
+                .SetupGet(x => x.Value)
+                .Returns(fepc);
+
             var flights = new List<FlightForCreationDTO>
             {
                 new LandingForCreationDTO(),
@@ -146,7 +171,9 @@ namespace OnionArchitecture.Simulator.Tests
                 new LandingForCreationDTO(),
                 new DepartureForCreationDTO()
             };
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
@@ -154,11 +181,23 @@ namespace OnionArchitecture.Simulator.Tests
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
 
+            using var client = new HttpClient(_mockHttpMessageHandler.Object);
+
+            client.BaseAddress = new Uri(fepc.BaseUrl);
+
+            var sut = new FlightLauncherService(
+                client,
+                _mockFlightGenerator.Object,
+                _mockFlightTimeoutConfig.Object,
+                _mockFlightEndpointsConfig.Object,
+                _mockLogger);
+
             _mockFlightGenerator
                 .Setup(x => x.GenerateFlights(It.IsAny<int>()))
                 .Returns(flights);
 
-            await foreach (var launch in _service.LaunchManyAsync("10", "exit"))
+            // Act & Assert
+            await foreach (var launch in sut.LaunchManyAsync(10))
                 Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
         }
     }

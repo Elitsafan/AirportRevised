@@ -1,9 +1,8 @@
 ﻿using Microsoft.VisualStudio.Threading;
-using MongoDB.Bson;
 
 namespace Airport.Contracts.Logics
 {
-    public interface IRouteLogic
+    public interface IRouteLogic : IDisposable
     {
         ObjectId RouteId { get; }
         string RouteName { get; }
@@ -25,7 +24,8 @@ namespace Airport.Contracts.Logics
             IEnumerable<IStationLogic> nextLeg,
             CancellationToken ct = default);
         /// <summary>
-        /// Gets the stations collection whose source station is <paramref name="stationLogic"/>
+        /// Get the next stations collection whose source station is <paramref name="stationLogic"/>.
+        /// If no source provided, return the first leg.
         /// </summary>
         /// <param name="stationLogic"></param>
         /// <returns></returns>

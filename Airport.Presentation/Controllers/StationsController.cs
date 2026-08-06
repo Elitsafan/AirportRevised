@@ -37,10 +37,10 @@ namespace Airport.Presentation.Controllers
         // POST: api/Stations
         [HttpPost("[action]")]
         public async Task<IActionResult> AddStationAsync(
-            [FromBody] StationForCreationDTO stationForCreationDTO,
+            [FromBody] StationForCreationDTO stationToCreate,
             CancellationToken ct = default)
         {
-            var stationDto = await _stationSvc.AddStationAsync(stationForCreationDTO, ct);
+            var stationDto = await _stationSvc.AddStationAsync(stationToCreate, ct);
             return CreatedAtRoute("StationById", new { id = stationDto.StationId }, stationDto);
         }
 
@@ -48,14 +48,14 @@ namespace Airport.Presentation.Controllers
         [HttpPut("[action]/{id}")]
         public async Task<IActionResult> UpdateStationAsync(
             ObjectId id,
-            [FromBody] StationForUpdateDTO stationForUpdate,
+            [FromBody] StationForUpdateDTO stationToUpdate,
             CancellationToken ct = default) => await _stationSvc.UpdateStationAsync(
                 id,
-                stationForUpdate,
+                stationToUpdate,
                 ct) switch
             {
                 Models.Enums.UpdateResult.Failed => NotFound(),
-                Models.Enums.UpdateResult.Matched => BadRequest("Invalid station"),
+                Models.Enums.UpdateResult.Matched => Ok("Station not changed."),
                 Models.Enums.UpdateResult.Modified => NoContent(),
                 _ => new StatusCodeResult(StatusCodes.Status500InternalServerError),
             };

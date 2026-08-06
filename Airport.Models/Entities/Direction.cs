@@ -7,6 +7,7 @@ namespace Airport.Models.Entities
     {
         [BsonElement("from")]
         public ObjectId From { get; set; }
+
         [BsonElement("to")]
         public ObjectId To { get; set; }
     }

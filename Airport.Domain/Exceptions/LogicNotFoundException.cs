@@ -2,7 +2,11 @@
 {
     public class LogicNotFoundException : Exception
     {
-        public LogicNotFoundException(string? message = null, Exception? inner = null)
+        public LogicNotFoundException()
+            : base() { }
+        public LogicNotFoundException(string? message)
+            : base(message) { }
+        public LogicNotFoundException(string? message, Exception? inner)
             : base(message, inner) { }
     }
 }

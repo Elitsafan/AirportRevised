@@ -7,6 +7,7 @@ namespace Airport.Models.Entities
     {
         [BsonId]
         public ObjectId StationId { get; set; }
+
         [BsonElement("estimated_waiting_time")]
         public TimeSpan EstimatedWaitingTime { get; set; }
     }

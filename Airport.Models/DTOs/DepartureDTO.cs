@@ -1,5 +1,5 @@
-﻿using MongoDB.Bson;
-using Airport.Models.Enums;
+﻿using Airport.Models.Enums;
+using MongoDB.Bson;
 
 namespace Airport.Models.DTOs
 {

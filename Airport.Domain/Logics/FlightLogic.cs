@@ -1,7 +1,4 @@
-﻿using Airport.Domain.EventArgs;
-using Airport.Domain.Extensions;
-using Airport.Domain.Helpers;
-using Airport.Models.Enums;
+﻿using Airport.Domain.EventArgs.FlightEventArgs;
 
 namespace Airport.Domain.Logics
 {
@@ -12,11 +9,12 @@ namespace Airport.Domain.Logics
         private readonly ILogger<IFlightLogic> _logger;
         private readonly Flight _flight;
         private readonly AsyncSemaphore _syncEntrance;
-        private IEnumerable<IStationLogic> _nextLeg;
+        private readonly IDomainEvents _domainEvents;
+        private List<IStationLogic> _nextLeg;
         private AsyncSemaphore.Releaser _releaser;
         #endregion
 
-        public FlightLogic(Flight flight, IRouteLogic routeLogic, ILogger<FlightLogic> logger)
+        public FlightLogic(Flight flight, IRouteLogic routeLogic, IDomainEvents domainEvents, ILogger<FlightLogic> logger)
         {
             _routeLogic = routeLogic;
             _logger = logger;
@@ -26,41 +24,38 @@ namespace Airport.Domain.Logics
             RouteId = _routeLogic.RouteId;
             _nextLeg = _routeLogic
                 .GetNextLeg()
-                .ToArray();
-            // Register a handler to each station on the first leg
-            RegisterStationOccupiedAsyncEvent();
+                .ToList();
+            _domainEvents = domainEvents;
         }
 
         #region Properties
-        public event AsyncEventHandler<IFlightRunStartedEventArgs>? FlightRunStarted;
-        public event AsyncEventHandler<IFlightRunDoneEventArgs>? FlightRunDone;
         public ObjectId RouteId { get; }
         public ObjectId FlightId => _flight.FlightId;
-        public IStationLogic? CurrentStation { get; private set; } = null;
+        public IStationLogic? CurrentStation { get; private set; }
         public FlightType FlightType { get; private set; }
         #endregion
 
         public async Task RunAsync(CancellationToken ct = default)
         {
-            _releaser = await _routeLogic.StartRunAsync(ct);
-            try
+            using var routeCts = new CancellationTokenSource();
+
+            using (_releaser = await _routeLogic.StartRunAsync(ct))
             {
                 // Gets the next leg till the end of the route
-                while (_nextLeg.Any())
+                while (_nextLeg.Count > 0)
                 {
-                    CurrentStation = await _routeLogic.EnterLegAsync(this, _nextLeg, ct);
-                    await Task.Delay(CurrentStation.EstimatedWaitingTime, ct);
-                    _nextLeg = _routeLogic.GetNextLeg(CurrentStation);
+                    CurrentStation = await _routeLogic.EnterLegAsync(this, _nextLeg, routeCts.Token);
+
+                    await Task.Delay(CurrentStation.EstimatedWaitingTime, routeCts.Token);
+
+                    _nextLeg = _routeLogic.GetNextLeg(CurrentStation).ToList();
                 }
+
                 if (CurrentStation is null)
                     throw new InvalidOperationException("Flight did not visit any station.");
-                await CurrentStation!.ClearAsync(ct);
+
+                await CurrentStation!.ClearAsync(null, routeCts.Token);
             }
-            catch (LogicNotFoundException)
-            {
-                throw new InvalidOperationException($"Unable to keep running flight id {FlightId}");
-            }
-            finally { _releaser.Dispose(); }
         }
 
         public OccupationDetails RegisterStationOccupiedDetails(ObjectId stationId, DateTime entranceTime)
@@ -70,57 +65,48 @@ namespace Airport.Domain.Logics
                 StationId = stationId,
                 Entrance = entranceTime
             };
+
             _flight.OccupationDetails.Add(details);
+
             return details;
         }
 
         public OccupationDetails RegisterStationClearedDetails(ObjectId stationId, DateTime exitTime)
         {
             var stationOccupationDetails = _flight.OccupationDetails.First(wd => wd.StationId == stationId);
+
             stationOccupationDetails.Exit = exitTime;
+
             return stationOccupationDetails;
         }
 
         public async Task ThrowIfCancellationRequestedAsync(CancellationTokenSource? cts) =>
             await _syncEntrance.ThrowIfCancellationRequestedAsync(cts);
 
+        public async Task RaiseFlightRunStartedAsync(ObjectId stationId)
+        {
+            _releaser.Dispose();
+
+            await _domainEvents.RaiseFlightRunStartedAsync(new FlightRunStartedEventArgs
+            {
+                Flight = _flight,
+                RouteId = RouteId,
+                StationId = stationId
+            });
+        }
+
         public async Task RaiseFlightRunDoneAsync(CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            if (FlightRunDone is not null)
-                await FlightRunDone.InvokeAsync(this, new FlightRunDoneEventArgs(this));
+
+            await _domainEvents.RaiseFlightRunDoneAsync(new FlightRunDoneEventArgs { Flight = this });
         }
 
-        public ValueTask DisposeAsync()
+        public void Dispose()
         {
-            _releaser.Dispose();
             _syncEntrance.Dispose();
+
             GC.SuppressFinalize(this);
-            return ValueTask.CompletedTask;
-        }
-
-        // This handler invokes only the first time the StationOccupiedAsync event occured.
-        private async Task OnStationOccupiedAsync(object? sender, IStationOccupiedEventArgs args)
-        {
-            if (args.FlightId != _flight.FlightId)
-                return;
-            UnregisterStationOccupiedAsyncEvent();
-            _releaser.Dispose();
-            if (FlightRunStarted is not null)
-                await FlightRunStarted.InvokeAsync(this, new FlightRunStartedEventArgs(_flight, RouteId));
-        }
-
-        private void RegisterStationOccupiedAsyncEvent()
-        {
-            foreach (var station in _nextLeg)
-                station.StationOccupiedAsync += OnStationOccupiedAsync;
-        }
-
-        // Unregister the handler from each station on the first leg
-        private void UnregisterStationOccupiedAsyncEvent()
-        {
-            foreach (var station in _routeLogic.GetNextLeg())
-                station.StationOccupiedAsync -= OnStationOccupiedAsync;
         }
     }
 }

@@ -89,8 +89,8 @@ export class FlightSummaryListComponent implements OnInit, OnDestroy {
     this.errorMessage = null;
     const params = this.route.snapshot.queryParams;
     const newParams = new HttpParams()
-          .set("pageNumber", params['pageNumber'] ?? 1)
-          .set("pageSize", params['pageSize'] ?? 10)
+      .set("pageNumber", params['pageNumber'] ?? 1)
+      .set("pageSize", params['pageSize'] ?? 10)
     this.flightSummarySvc.update(newParams);
   }
 
@@ -118,9 +118,12 @@ export class FlightSummaryListComponent implements OnInit, OnDestroy {
   }
 
   private updateDisplayFlightByType() {
-    const isFirstPage = this.pagination?.currentPage === 1;
-    const deltaDepartures = isFirstPage ? 1 : this.pagination?.departuresCount! - this.departuresCount!;
-    const deltaLandings = isFirstPage ? 1 : this.pagination?.landingsCount! - this.landingsCount!;
+    const deltaDepartures = this.pagination?.departuresCount && this.pagination?.departuresCount > 0
+      ? 1
+      : this.pagination?.departuresCount! - this.departuresCount! + 1;
+    const deltaLandings = this.pagination?.landingsCount && this.pagination?.landingsCount > 0
+      ? 1
+      : this.pagination?.landingsCount! - this.landingsCount! + 1;
     this.displayingDepartures = `${deltaDepartures} - ${this.pagination?.departuresCount}`;
     this.displayingLandings = `${deltaLandings} - ${this.pagination?.landingsCount}`;
   }
