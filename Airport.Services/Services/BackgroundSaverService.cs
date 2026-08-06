@@ -48,7 +48,7 @@ namespace Airport.Services.Services
 
         protected override async Task ExecuteAsync(CancellationToken ct)
         {
-            var periodicTimer = new PeriodicTimer(_dbConfiguration.Value.FlushInterval);
+            using var periodicTimer = new PeriodicTimer(_dbConfiguration.Value.FlushInterval);
             try
             {
                 while (await periodicTimer.WaitForNextTickAsync(ct))
