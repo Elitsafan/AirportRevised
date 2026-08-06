@@ -25,47 +25,6 @@
         }
 
         [Fact]
-        public async Task StartAsync_WhenCalled_StartsLauncher()
-        {
-            // Arrange
-            var fepc = new FlightEndPointsConfiguration
-            {
-                BaseUrl = BASE_URL,
-                Start = "/api/Airport/Start",
-                Landing = "/api/Flights/AddLanding",
-                Departure = "/api/Flights/AddDeparture"
-            };
-            _mockFlightEndpointsConfig
-                .SetupGet(x => x.Value)
-                .Returns(fepc);
-            using var client = new HttpClient(_mockHttpMessageHandler.Object);
-            client.BaseAddress = new Uri(fepc.BaseUrl);
-            var mockedProtected = _mockHttpMessageHandler.Protected();
-            mockedProtected
-                .Setup<Task<HttpResponseMessage>>(
-                    nameof(HttpClient.SendAsync),
-                    ItExpr.Is<HttpRequestMessage>(m => m.Method == HttpMethod.Get &&
-                    m.RequestUri == new Uri(fepc.BaseUrl + fepc.Start)),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("OK")
-                });
-            var sut = new FlightLauncherService(
-                client,
-                _mockFlightGenerator.Object,
-                _mockFlightTimeoutConfig.Object,
-                _mockFlightEndpointsConfig.Object,
-                _mockLogger);
-
-            // Act
-            var response = await sut.StartAsync();
-
-            // Assert
-            Assert.True(response.StatusCode == HttpStatusCode.OK);
-        }
-
-        [Fact]
         public async Task LaunchManyAsync_WhenCalled_LaunchesFlights()
         {
             // Arrange
@@ -76,9 +35,11 @@
                 Landing = "/api/Flights/Landing",
                 Departure = "/api/Flights/Departure"
             };
+
             _mockFlightEndpointsConfig
                 .SetupGet(x => x.Value)
                 .Returns(fepc);
+
             var flights = new List<FlightForCreationDTO>
             {
                 new LandingForCreationDTO(),
@@ -89,15 +50,20 @@
                 new DepartureForCreationDTO(),
                 new LandingForCreationDTO(),
             };
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
+
             using var client = new HttpClient(_mockHttpMessageHandler.Object);
+
             client.BaseAddress = new Uri(fepc.BaseUrl);
+
             var sut = new FlightLauncherService(
                 client,
                 _mockFlightGenerator.Object,
@@ -111,7 +77,7 @@
 
             // Act & Assert
             await foreach (var launch in sut.LaunchManyAsync(10))
-                Assert.True(launch.StatusCode == HttpStatusCode.Created);
+                Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
         }
 
         [Fact]
@@ -125,9 +91,11 @@
                 Landing = "/api/Flights/Landing",
                 Departure = "/api/Flights/Departure"
             };
+
             _mockFlightEndpointsConfig
                 .SetupGet(x => x.Value)
                 .Returns(fepc);
+
             var flights = new List<FlightForCreationDTO>
             {
                 new LandingForCreationDTO(),
@@ -138,7 +106,9 @@
                 new DepartureForCreationDTO(),
                 new LandingForCreationDTO(),
             };
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
@@ -147,6 +117,7 @@
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
 
             using var client = new HttpClient(_mockHttpMessageHandler.Object);
+
             client.BaseAddress = new Uri(fepc.BaseUrl);
 
             var sut = new FlightLauncherService(
@@ -168,7 +139,7 @@
 
             // Act & Assert
             await foreach (var launch in sut.LaunchManyAsync("7"))
-                Assert.True(launch.StatusCode == HttpStatusCode.Created);
+                Assert.Equal(HttpStatusCode.Created, launch.StatusCode);
         }
 
         [Fact]
@@ -182,9 +153,11 @@
                 Landing = "/api/Flights/Landing",
                 Departure = "/api/Flights/Departure"
             };
+
             _mockFlightEndpointsConfig
                 .SetupGet(x => x.Value)
                 .Returns(fepc);
+
             var flights = new List<FlightForCreationDTO>
             {
                 new LandingForCreationDTO(),
@@ -198,7 +171,9 @@
                 new LandingForCreationDTO(),
                 new DepartureForCreationDTO()
             };
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
@@ -207,7 +182,9 @@
                 .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Created));
 
             using var client = new HttpClient(_mockHttpMessageHandler.Object);
+
             client.BaseAddress = new Uri(fepc.BaseUrl);
+
             var sut = new FlightLauncherService(
                 client,
                 _mockFlightGenerator.Object,

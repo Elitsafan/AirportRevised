@@ -28,17 +28,21 @@
                 BaseUrl = "http://localhost:5005",
                 Start = "/api/Airport/Start"
             };
+
             var ftc = new FlightTimeoutConfiguration
             {
                 KeepAliveInterval = TimeSpan.FromMilliseconds(50),
             };
+
             _mockFlightEndpointsConfig
                 .SetupGet(x => x.Value)
                 .Returns(fepc);
             _mockFlightTimeoutConfig
                 .SetupGet(x => x.Value)
                 .Returns(ftc);
+
             var mockedProtected = _mockHttpMessageHandler.Protected();
+
             mockedProtected
                 .Setup<Task<HttpResponseMessage>>(
                     nameof(HttpClient.SendAsync),
@@ -49,16 +53,21 @@
                 {
                     Content = new StringContent("OK")
                 });
+
             using var httpClient = new HttpClient(_mockHttpMessageHandler.Object);
+
             httpClient.BaseAddress = new Uri(fepc.BaseUrl);
+
             _mockHttpClientFactory
                 .Setup(x => x.CreateClient(It.IsAny<string>()))
                 .Returns(httpClient);
+
             using var sut = new KeepAliveService(
                 _mockHttpClientFactory.Object,
                 _mockFlightTimeoutConfig.Object,
                 _mockFlightEndpointsConfig.Object,
                 _mockLogger);
+
             using var cts = new CancellationTokenSource();
 
             // Act
@@ -69,6 +78,7 @@
 
             // Assert
             _mockHttpClientFactory.Verify(x => x.CreateClient(It.IsAny<string>()));
+
             mockedProtected.Verify(
                 nameof(HttpClient.SendAsync),
                 Times.AtLeastOnce(),

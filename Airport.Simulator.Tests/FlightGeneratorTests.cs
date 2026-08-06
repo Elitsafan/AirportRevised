@@ -13,8 +13,8 @@ namespace Airport.Simulator.Tests
             var landingForCreationDto = generator.GenerateFlight(FlightType.Landing);
 
             // Assert
-            Assert.IsAssignableFrom<FlightForCreationDTO>(departureForCreationDto);
-            Assert.IsAssignableFrom<FlightForCreationDTO>(landingForCreationDto);
+            Assert.IsType<FlightForCreationDTO>(departureForCreationDto, exactMatch: false);
+            Assert.IsType<FlightForCreationDTO>(landingForCreationDto, exactMatch: false);
             Assert.NotNull(departureForCreationDto);
             Assert.NotNull(landingForCreationDto);
         }
@@ -26,17 +26,18 @@ namespace Airport.Simulator.Tests
         public void GenerateFlights_WhenCalled_ReturnsCollection(int n)
         {
             // Arrange
-            IFlightGenerator generator = new FlightGenerator();
+            var generator = new FlightGenerator();
 
             // Act
             var flights = generator.GenerateFlights(n);
 
             // Assert
             Assert.True(flights.Count() == n);
+
             foreach (var flight in flights)
             {
                 Assert.NotNull(flight);
-                Assert.IsAssignableFrom<FlightForCreationDTO>(flight);
+                Assert.IsType<FlightForCreationDTO>(flight, exactMatch: false);
             }
         }
     }
