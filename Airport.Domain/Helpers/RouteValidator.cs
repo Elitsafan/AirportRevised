@@ -72,7 +72,7 @@ namespace Airport.Domain.Helpers
                         $"between two traffic lights:\n{direction.From}\n{direction.To}");
         }
 
-        public IGraph<ObjectId> CreateGraph(List<DirectionDTO> directions, IEnumerable<ObjectId> ids)
+        private IGraph<ObjectId> CreateGraph(List<DirectionDTO> directions, IEnumerable<ObjectId> ids)
         {
             var graph = new Graph<ObjectId>(ids);
 

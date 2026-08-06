@@ -4,7 +4,6 @@ namespace Airport.Contracts.Helpers
 {
     public interface IRouteValidator
     {
-        IGraph<ObjectId> CreateGraph(List<DirectionDTO> directions, IEnumerable<ObjectId> ids);
         Task<HashSet<SectionDTO<ObjectId>>> ValidateRouteAsync(
             List<DirectionDTO> directions,
             Dictionary<ObjectId, int>? comStationIds,
