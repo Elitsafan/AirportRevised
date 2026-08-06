@@ -1,7 +1,6 @@
 ﻿using Airport.Domain.Exceptions;
 using Airport.Domain.Repositories;
 using Airport.Models;
-using Airport.Models.Entities;
 using MongoDB.Driver.Linq;
 using System.Collections.Concurrent;
 
@@ -30,7 +29,9 @@ namespace Airport.Persistence.Repositories
 
         public async Task<IEnumerable<Flight>> GetAllAsync(CancellationToken ct = default)
         {
-            var dbFlights = await _flightsCollection.AsQueryable().ToListAsync(ct);
+            var dbFlights = await _flightsCollection
+                .AsQueryable(new AggregateOptions { AllowDiskUse = true })
+                .ToListAsync(ct);
 
             return _activeFlights.Values.Concat(
                 _completedFlights.Concat(
@@ -48,7 +49,7 @@ namespace Airport.Persistence.Repositories
             if (_activeFlights.TryGetValue(id, out flight))
                 return flight;
 
-            return await _flightsCollection.AsQueryable()
+            return await _flightsCollection.AsQueryable(new AggregateOptions { AllowDiskUse = true })
                 .FirstOrDefaultAsync(f => f.FlightId == id, ct)
                 ?? throw new EntityNotFoundException($"Flight Id: {id} not found.");
         }
@@ -82,7 +83,7 @@ namespace Airport.Persistence.Repositories
 
             var dbresult = await _flightsCollection
                 .Find(new FilterDefinitionBuilder<Flight>()
-                .Gt(f => f.OccupationDetails[0].Entrance, DateTime.Now - timePassed))
+                .Gt(f => f.OccupationDetails[0].Entrance, DateTime.Now - timePassed), new FindOptions { AllowDiskUse = true })
                 .SortBy(f => f.OccupationDetails[0].Entrance)
                 .ToListAsync(ct);
 
@@ -101,7 +102,9 @@ namespace Airport.Persistence.Repositories
             CancellationToken ct = default)
             where TResult : class
         {
-            var dbCount = await _flightsCollection.AsQueryable().CountAsync(ct);
+            var dbCount = await _flightsCollection
+                .AsQueryable(new AggregateOptions { AllowDiskUse = true })
+                .CountAsync(ct);
 
             var totalCount = dbCount +
                 _activeFlights.Count +
@@ -112,7 +115,8 @@ namespace Airport.Persistence.Repositories
             var result = new List<Flight>(pageSize);
 
             if (skipCount < dbCount)
-                result.AddRange(await _flightsCollection.AsQueryable()
+                result.AddRange(await _flightsCollection
+                    .AsQueryable(new AggregateOptions { AllowDiskUse = true })
                     .OrderBy(f => f.OccupationDetails[0].Entrance)
                     .Skip(skipCount)
                     .Take(pageSize)
@@ -156,8 +160,7 @@ namespace Airport.Persistence.Repositories
         {
             var writeList = new List<WriteModel<Flight>>(_dbConfiguration.FlightSaveBatchSize);
 
-            while (writeList.Count < _dbConfiguration.FlightSaveBatchSize &&
-                 _completedFlights.TryDequeue(out var flight))
+            while (writeList.Count < _dbConfiguration.FlightSaveBatchSize && _completedFlights.TryDequeue(out var flight))
                 writeList.Add(new InsertOneModel<Flight>(flight));
 
             if (writeList.Count == 0)
@@ -172,13 +175,15 @@ namespace Airport.Persistence.Repositories
 
         public async Task<long> EnforceStorageLimitAsync(IClientSessionHandle? session = null, CancellationToken ct = default)
         {
-            var totalCount = await _flightsCollection.AsQueryable().CountAsync(ct);
+            var totalCount = await _flightsCollection
+                .AsQueryable(new AggregateOptions { AllowDiskUse = true })
+                .CountAsync(ct);
 
             if (totalCount <= _dbConfiguration.MaxFlightDocuments)
                 return 0;
 
             var lastToDelete = await _flightsCollection
-                .AsQueryable()
+                .AsQueryable(new AggregateOptions { AllowDiskUse = true })
                 .OrderBy(f => f.OccupationDetails[0].Entrance)
                 .Skip(totalCount - _dbConfiguration.MaxFlightDocuments)
                 .FirstAsync(ct);
