@@ -1,6 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import * as signalR from "@microsoft/signalr"
-import { BehaviorSubject, Observable, ReplaySubject } from 'rxjs';
+import { BehaviorSubject, Observable, ReplaySubject, firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -17,7 +18,7 @@ export class SignalrService {
   #flightRunDoneData$: Observable<any>;
   #connectionError$: Observable<any>;
 
-  constructor() {
+  constructor(private http: HttpClient) {
     this.flightRunStartedSubject = new BehaviorSubject<any>(null!);
     this.stationClearedSubject = new BehaviorSubject<any>(null!);
     this.flightRunDoneSubject = new BehaviorSubject<any>(null!);
@@ -45,7 +46,10 @@ export class SignalrService {
 
   startConnection = async () => {
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl(`${environment.remoteUrl}${environment.airportHubEP}`)
+      .withUrl(
+        `${environment.remoteUrl}${environment.airportHubEP}`, {
+        accessTokenFactory: () => this.getAuthToken()
+      })
       .build();
 
     // Handle connection close/disconnect
@@ -86,5 +90,23 @@ export class SignalrService {
     if (!this.hubConnection)
       throw new Error("Connection didn't start yet")
     this.hubConnection?.on(environment.flightRunDone, listener);
+  }
+
+  private async getAuthToken(): Promise<string> {
+    const loginCredentials = {
+      username: environment.loginCredentials.username,
+      password: environment.loginCredentials.password
+    };
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ token: string }>(
+          `${environment.remoteUrl}${environment.loginEP}`,
+          loginCredentials));
+      return response.token;
+    } catch (error) {
+      console.error('Failed to get SignalR Auth Token', error);
+      return '';
+    }
   }
 }

@@ -1,5 +1,6 @@
 export const environment = {
   remoteUrl: 'https://airport.api.elitzafan.com',
+  loginEP: '/api/Auth/Login',
   airportHubEP: '/airporthub',
   startEP: '/api/Airport/Start',
   statusEP: '/api/Airport/Status',
@@ -15,6 +16,10 @@ export const environment = {
   http: {
     retryCount: 5,
     retryDelayMs: 5000
+  },
+  loginCredentials: {
+    username: "admin",
+    password: "password123"
   },
   minutesPassedArg: "minutesPassed",
   flightRefreshMinutes: 7,
