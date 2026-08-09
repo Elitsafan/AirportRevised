@@ -1,23 +1,66 @@
 using Airport.Contracts.Helpers;
+using Airport.Models.DTOs;
 using Airport.Persistence;
 using Airport.Presentation.Converters;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text;
 
 namespace Airport.Web
 {
     public class Program
     {
+        private static readonly string _scheme = "Bearer";
+
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.Configure<AirportDbConfiguration>(builder.Configuration.GetSection(nameof(AirportDbConfiguration)));
+            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(nameof(JwtSettings)));
+            builder.Services.Configure<LoginCredentials>(builder.Configuration.GetSection(nameof(LoginCredentials)));
+
+            var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
+                ?? throw new InvalidOperationException("Auth settings is missing");
+
+            builder.Services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtSettings.Issuer,
+                        ValidAudience = jwtSettings.Audience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
+                    };
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            var accessToken = context.Request.Query["access_token"];
+                            var path = context.HttpContext.Request.Path;
+
+                            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/airporthub"))
+                                context.Token = accessToken;
+
+                            return Task.CompletedTask;
+                        }
+                    };
+                });
+
+            builder.Services.AddAuthorization();
 
             builder.Services.AddEndpointsApiExplorer();
 
@@ -29,6 +72,31 @@ namespace Airport.Web
                     Type = "string",
                     Format = "hex",
                     Example = new OpenApiString("6962bc27216b2f3897a15ad0")
+                });
+
+                options.AddSecurityDefinition(_scheme, new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = _scheme,
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter your JWT token."
+                });
+
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = _scheme
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
                 });
             });
 
@@ -121,6 +189,7 @@ namespace Airport.Web
             }
 
             app.UseCors();
+            app.UseAuthentication();
             app.UseAuthorization();
             app.MapHub<AirportHub>("/airporthub");
             app.MapControllers();

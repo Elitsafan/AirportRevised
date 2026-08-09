@@ -41,21 +41,34 @@ namespace Airport.Simulator
                 })
                 .ConfigureServices((hostingContext, config) =>
                 {
+                    config.AddTransient<AuthTokenHandler>();
+
                     // Background sevice to keep target alive
                     config.AddHostedService<KeepAliveService>();
 
                     config.AddHttpClient(nameof(KeepAliveService)).AddPolicyHandler(GetRetryPolicy());
 
-                    // Http client
-                    config.AddHttpClient<IFlightLauncherService, FlightLauncherService>().AddPolicyHandler(GetRetryPolicy());
+                    config.AddHttpClient<IFlightLauncherService, FlightLauncherService>()
+                        .AddHttpMessageHandler<AuthTokenHandler>()
+                        .AddPolicyHandler(GetRetryPolicy());
+
+                    config.AddHttpClient<IAuthService, AuthService>().AddPolicyHandler(GetRetryPolicy());
 
                     config.AddScoped<IFlightGenerator, FlightGenerator>();
+
+                    config.AddScoped<IAuthService, AuthService>();
 
                     config.Configure<FlightEndPointsConfiguration>(
                         hostingContext.Configuration.GetSection(nameof(FlightEndPointsConfiguration)));
 
                     config.Configure<FlightTimeoutConfiguration>(
                         hostingContext.Configuration.GetSection(nameof(FlightTimeoutConfiguration)));
+
+                    config.Configure<LoginCredentials>(
+                        hostingContext.Configuration.GetSection(nameof(LoginCredentials)));
+
+                    config.Configure<AuthEndpoints>(
+                        hostingContext.Configuration.GetSection(nameof(AuthEndpoints)));
                 })
                 .Build();
 

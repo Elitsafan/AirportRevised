@@ -18,13 +18,14 @@ namespace Airport.Services.Services
         #endregion
 
         public AirportHubService(
-            IStationLogicProvider stationProvider,
             IDomainEvents domainEvents,
-            ILogger<AirportHubService> logger,
-            IHubContext<AirportHub> hub)
+            IStationLogicProvider stationProvider,
+            IHubContext<AirportHub> hub,
+            ILogger<AirportHubService> logger)
         {
-            _hub = hub;
             _domainEvents = domainEvents;
+            _stationProvider = stationProvider;
+            _hub = hub;
             _logger = logger;
             _jsonSerializerSettings = new()
             {
@@ -32,7 +33,6 @@ namespace Airport.Services.Services
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
             };
-            _stationProvider = stationProvider;
         }
 
         public async Task StartAsync(CancellationToken ct)
