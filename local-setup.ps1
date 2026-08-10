@@ -34,7 +34,7 @@ if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
     wt.exe `
       -w 0 nt --title "Backend API" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Web --launch-profile localScript" `; `
       nt --title "Simulator" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Simulator --launch-profile localScript" `; `
-      nt --title "Angular Client" -d "$PSScriptRoot/AirportClient" powershell -NoExit -Command "npm start"
+      nt --title "Angular Client" -d "$PSScriptRoot/AirportClient" powershell -NoExit -Command "npm start -- --configuration local"
 } else {
     Write-Warning "Windows Terminal (wt.exe) not found. Falling back to separate windows."
 
