@@ -1,6 +1,7 @@
-export const environment = {
+import { IEnvironment } from "../app/interfaces/ienvironment.interface";
+
+export const environment: IEnvironment = {
   remoteUrl: 'http://localhost:5005',
-  loginEP: '/api/Auth/Login',
   airportHubEP: '/airporthub',
   startEP: '/api/Airport/Start',
   statusEP: '/api/Airport/Status',
@@ -19,7 +20,7 @@ export const environment = {
   },
   loginCredentials: {
     username: "admin",
-    password: "password123"
+    password: "pass123word456"
   },
   minutesPassedArg: "minutesPassed",
   flightRefreshMinutes: 7,

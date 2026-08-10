@@ -1,6 +1,7 @@
-export const environment = {
+import { IEnvironment } from "../app/interfaces/ienvironment.interface";
+
+export const environment: IEnvironment = {
   remoteUrl: 'https://airport.api.elitzafan.com',
-  loginEP: '/api/Auth/Login',
   airportHubEP: '/airporthub',
   startEP: '/api/Airport/Start',
   statusEP: '/api/Airport/Status',
@@ -18,8 +19,8 @@ export const environment = {
     retryDelayMs: 5000
   },
   loginCredentials: {
-    username: "admin",
-    password: "password123"
+    username: "",
+    password: ""
   },
   minutesPassedArg: "minutesPassed",
   flightRefreshMinutes: 7,
