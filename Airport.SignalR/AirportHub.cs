@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿//using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Airport.SignalR
 {
-    [Authorize]
+    //[Authorize]
     public class AirportHub : Hub
     {
     }

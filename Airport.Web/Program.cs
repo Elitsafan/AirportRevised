@@ -45,19 +45,20 @@ namespace Airport.Web
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
                     };
 
-                    options.Events = new JwtBearerEvents
-                    {
-                        OnMessageReceived = context =>
-                        {
-                            var accessToken = context.Request.Query["access_token"];
-                            var path = context.HttpContext.Request.Path;
+                    // For SignalR auth
+                    //options.Events = new JwtBearerEvents
+                    //{
+                    //    OnMessageReceived = context =>
+                    //    {
+                    //        var accessToken = context.Request.Query["access_token"];
+                    //        var path = context.HttpContext.Request.Path;
 
-                            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/airporthub"))
-                                context.Token = accessToken;
+                    //        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/airporthub"))
+                    //            context.Token = accessToken;
 
-                            return Task.CompletedTask;
-                        }
-                    };
+                    //        return Task.CompletedTask;
+                    //    }
+                    //};
                 });
 
             builder.Services.AddAuthorization();
@@ -112,6 +113,7 @@ namespace Airport.Web
                             .GetChildren()
                             .Select(cs => cs.Value)!
                             .ToArray()!;
+
                         corsBuilder.WithOrigins(clientOrigins!)
                             .AllowAnyHeader()
                             .WithMethods("GET", "POST")

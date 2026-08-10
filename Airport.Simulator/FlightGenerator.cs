@@ -4,7 +4,7 @@ using Airport.Simulator.Abstractions;
 
 namespace Airport.Simulator
 {
-    internal class FlightGenerator : IFlightGenerator
+    public class FlightGenerator : IFlightGenerator
     {
         public IEnumerable<FlightForCreationDTO> GenerateFlights(int n)
         {

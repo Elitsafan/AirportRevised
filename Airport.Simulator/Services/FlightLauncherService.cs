@@ -11,7 +11,7 @@ using System.Runtime.CompilerServices;
 
 namespace Airport.Simulator.Services
 {
-    internal class FlightLauncherService : IFlightLauncherService
+    public class FlightLauncherService : IFlightLauncherService
     {
         #region Fields
         private readonly Random _random;

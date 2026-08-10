@@ -49,6 +49,8 @@ jobs:
           ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
           ORACLE_VM_SIMULATOR_SSH_KEY: ${{ secrets.ORACLE_VM_SIMULATOR_SSH_KEY }}
           SIMULATOR_IMAGE: ${{ env.SIMULATOR_SERVICE_NAME }}:${{ github.sha }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           # Create SSH key file
           mkdir -p ~/.ssh
@@ -77,6 +79,8 @@ jobs:
             --restart unless-stopped \
             --network host \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
+            -e "LoginCredentials__Username=${ADMIN_USERNAME}" \
+            -e "LoginCredentials__Password=${ADMIN_PASSWORD}" \
             ${SIMULATOR_IMAGE}
 
           # Wait for container startup
