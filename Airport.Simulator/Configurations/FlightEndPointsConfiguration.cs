@@ -2,10 +2,10 @@
 {
     public class FlightEndPointsConfiguration
     {
-        public string BaseUrl { get; set; } = null!;
-        public string Start { get; set; } = null!;
-        public string Departure { get; set; } = null!;
-        public string Landing { get; set; } = null!;
-        public string Flights { get; set; } = null!;
+        public string BaseUrl { get; set; } = string.Empty;
+        public string Start { get; set; } = string.Empty;
+        public string Departure { get; set; } = string.Empty;
+        public string Landing { get; set; } = string.Empty;
+        public string Flights { get; set; } = string.Empty;
     }
 }

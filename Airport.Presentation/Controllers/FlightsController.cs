@@ -1,13 +1,15 @@
 ﻿using Airport.Models.DTOs;
 using Airport.Services.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Runtime.CompilerServices;
 
 namespace Airport.Presentation.Controllers
 {
-    [Route("api/[controller]")]
+    [Authorize]
     [ApiController]
+    [Route("api/[controller]")]
     public class FlightsController : ControllerBase
     {
         private readonly IFlightService _flightSvc;
@@ -16,6 +18,7 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Flights
         [HttpGet]
+        [AllowAnonymous]
         public async IAsyncEnumerable<FlightDTO> GetAllFlightsAsync(
             int? minutesPassed,
             [EnumeratorCancellation] CancellationToken ct = default)
@@ -25,6 +28,7 @@ namespace Airport.Presentation.Controllers
         }
 
         // GET: api/Flights/{id}
+        [AllowAnonymous]
         [HttpGet("{id}", Name = "FlightById")]
         public async Task<IActionResult> GetFlightByIdAsync(ObjectId id, CancellationToken ct = default)
         {
@@ -35,6 +39,7 @@ namespace Airport.Presentation.Controllers
         }
 
         // POST: api/Flights/AddLanding
+
         [HttpPost("[action]")]
         public async Task<IActionResult> AddLandingAsync(
             [FromBody] LandingForCreationDTO flightToCreate,

@@ -52,6 +52,13 @@ jobs:
           ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
           ORACLE_VM_SSH_KEY: ${{ secrets.ORACLE_VM_SSH_KEY }}
           MONGODB_CONN: ${{ secrets.MONGODB_CONNECTION_STRING }}
+          # Pull in new secrets
+          JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+          JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          JWT_EXPIRY: ${{ secrets.JWT_EXPIRY }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           # Create SSH key file
           mkdir -p ~/.ssh
@@ -80,6 +87,12 @@ jobs:
             -e "AirportDbConfiguration__ConnectionString=${MONGODB_CONN}" \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
             -e "ASPNETCORE_URLS=http://0.0.0.0:8080" \
+            -e "JwtSettings__Issuer=${JWT_ISSUER}" \
+            -e "JwtSettings__Audience=${JWT_AUDIENCE}" \
+            -e "JwtSettings__Key=${JWT_KEY}" \
+            -e "JwtSettings__ExpiryMinutes=${JWT_EXPIRY}" \
+            -e "LoginCredentials__Username=${ADMIN_USERNAME}" \
+            -e "LoginCredentials__Password=${ADMIN_PASSWORD}" \
             ${{ env.API_SERVICE_NAME }}:${{ github.sha }}
 
           # Wait for container startup

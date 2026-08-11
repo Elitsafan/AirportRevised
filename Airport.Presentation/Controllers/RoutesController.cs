@@ -1,5 +1,6 @@
 ﻿using Airport.Models.DTOs;
 using Airport.Services.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
@@ -7,8 +8,9 @@ using System.Runtime.CompilerServices;
 
 namespace Airport.Presentation.Controllers
 {
-    [Route("api/[controller]")]
+    [Authorize]
     [ApiController]
+    [Route("api/[controller]")]
     public class RoutesController : ControllerBase
     {
         private readonly IRouteService _routeSvc;
@@ -17,6 +19,7 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Routes
         [HttpGet]
+        [AllowAnonymous]
         public async IAsyncEnumerable<RouteDTO> GetAllRoutesAsync(
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -25,6 +28,7 @@ namespace Airport.Presentation.Controllers
         }
 
         // GET: api/Routes/{id}
+        [AllowAnonymous]
         [HttpGet("{id}", Name = "RouteById")]
         public async Task<IActionResult> GetRouteByIdAsync(ObjectId id, CancellationToken ct = default)
         {

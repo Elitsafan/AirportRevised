@@ -11,7 +11,7 @@ using System.Runtime.CompilerServices;
 
 namespace Airport.Simulator.Services
 {
-    internal class FlightLauncherService : IFlightLauncherService
+    public class FlightLauncherService : IFlightLauncherService
     {
         #region Fields
         private readonly Random _random;
@@ -36,7 +36,7 @@ namespace Airport.Simulator.Services
             _flightsConfig = flightsConfiguration.Value;
             _logger = logger;
             ValidateFlightsConfiguration();
-            _client.BaseAddress = new Uri(_flightsConfig.BaseUrl!);
+            _client.BaseAddress = new Uri(_flightsConfig.BaseUrl);
         }
 
         // Launches multiple flights 
@@ -49,7 +49,9 @@ namespace Airport.Simulator.Services
             Func<FlightForCreationDTO, Task<HttpResponseMessage>> task = async flight =>
             {
                 ct.ThrowIfCancellationRequested();
+
                 _logger.LogInformation("Launching {FlightType}...", flight.FlightType);
+
                 return flight.FlightType == FlightType.Landing
                     ? await _client.PostAsJsonAsync(
                         _flightsConfig.Landing,
@@ -60,9 +62,10 @@ namespace Airport.Simulator.Services
                         flight,
                         ct);
             };
-            foreach (var flight in flights
-                .Select(flight => Task.Run(() => task(flight), ct)))
+
+            foreach (var flight in flights.Select(flight => Task.Run(() => task(flight), ct)))
                 yield return await flight;
+
             yield break;
         }
 
@@ -73,17 +76,20 @@ namespace Airport.Simulator.Services
             // Input validation
             if (args?.Length == 0)
                 yield break;
-            if (!int.TryParse(args?[0], out int numOfFlights) ||
-                numOfFlights <= 0)
+
+            if (!int.TryParse(args?[0], out int numOfFlights) || numOfFlights <= 0)
                 throw new ArgumentException("First argument is invalid. Only non-negative numbers are allowed.");
 
             // Getnerates flights
             var flights = _flightGenerator.GenerateFlights(numOfFlights)
                 .Select(f => Task.Run(async () => await LaunchOneAsync(f)))
                 .ToArray();
+
             _logger.LogInformation("Launching many flights...");
+
             foreach (var flight in flights)
                 yield return await flight;
+
             yield break;
         }
 
@@ -119,7 +125,8 @@ namespace Airport.Simulator.Services
 
         public async Task StartStandbyModeAsync(CancellationToken ct = default)
         {
-            var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.StandbyTimeout);
+            using var periodicTimer = new PeriodicTimer(_flightTimeoutConfiguration.StandbyTimeout);
+
             while (await periodicTimer.WaitForNextTickAsync(ct))
                 await foreach (var result in LaunchManyAsync(_flightTimeoutConfiguration.AutoFlightCount, ct))
                     _logger.LogInformation("{result}", await result.Content.ReadAsStringAsync(ct));

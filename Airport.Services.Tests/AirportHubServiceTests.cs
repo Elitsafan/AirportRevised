@@ -32,10 +32,10 @@ namespace Airport.Services.Tests
             _mockLogger = new Mock<ILogger<AirportHubService>>();
 
             _sut = new AirportHubService(
-                _mockStationProvider.Object,
                 _mockDomainEvents.Object,
-                _mockLogger.Object,
-                _mockHubContext.Object);
+                _mockStationProvider.Object,
+                _mockHubContext.Object,
+                _mockLogger.Object);
         }
 
         [Fact]

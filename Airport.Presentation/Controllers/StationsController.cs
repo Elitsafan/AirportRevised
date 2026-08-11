@@ -1,5 +1,6 @@
 ﻿using Airport.Models.DTOs;
 using Airport.Services.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
@@ -7,8 +8,9 @@ using System.Runtime.CompilerServices;
 
 namespace Airport.Presentation.Controllers
 {
-    [Route("api/[controller]")]
+    [Authorize]
     [ApiController]
+    [Route("api/[controller]")]
     public class StationsController : ControllerBase
     {
         private readonly IStationService _stationSvc;
@@ -17,6 +19,7 @@ namespace Airport.Presentation.Controllers
 
         // GET: api/Stations
         [HttpGet]
+        [AllowAnonymous]
         public async IAsyncEnumerable<StationDTO> GetAllStationsAsync(
             [EnumeratorCancellation] CancellationToken ct = default)
         {
@@ -25,6 +28,7 @@ namespace Airport.Presentation.Controllers
         }
 
         // GET: api/Stations/{id}
+        [AllowAnonymous]
         [HttpGet("{id}", Name = "StationById")]
         public async Task<IActionResult> GetStationByIdAsync(ObjectId id, CancellationToken ct = default)
         {

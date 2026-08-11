@@ -22,6 +22,7 @@ namespace Airport.Web
             services.AddHostedService<FlightEventHandlers>();
             services.AddHostedService<FlightProcessingService>();
 
+            services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IFlightService, FlightService>();
             services.AddScoped<IStationService, StationService>();
             services.AddScoped<IRouteService, RouteService>();
