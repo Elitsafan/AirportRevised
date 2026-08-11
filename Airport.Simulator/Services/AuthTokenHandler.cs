@@ -28,14 +28,7 @@ namespace Airport.Simulator.Services
             var response = await base.SendAsync(request, ct);
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                _token = await _authService.LoginAsync(ct);
-
-                if (!string.IsNullOrEmpty(_token))
-                    request.Headers.Authorization = new AuthenticationHeaderValue(_scheme, _token);
-
-                response = await base.SendAsync(request, ct);
-            }
+                _token = null;
 
             return response;
         }

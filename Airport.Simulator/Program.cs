@@ -49,8 +49,8 @@ namespace Airport.Simulator
                     config.AddHttpClient(nameof(KeepAliveService)).AddPolicyHandler(GetRetryPolicy());
 
                     config.AddHttpClient<IFlightLauncherService, FlightLauncherService>()
-                        .AddHttpMessageHandler<AuthTokenHandler>()
-                        .AddPolicyHandler(GetRetryPolicy());
+                        .AddPolicyHandler(GetRetryPolicy())
+                        .AddHttpMessageHandler<AuthTokenHandler>();
 
                     config.AddHttpClient<IAuthService, AuthService>().AddPolicyHandler(GetRetryPolicy());
 
