@@ -4,6 +4,7 @@ using Airport.Persistence;
 using Airport.Presentation.Converters;
 using Airport.Services.MappingConfigurations;
 using Airport.SignalR;
+using AutoMapper.Internal;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -146,7 +147,12 @@ namespace Airport.Web
             builder.Services.AddAutoMapper(cfg =>
             {
                 var autoMapperKey = builder.Configuration.GetSection(nameof(AutoMapper))["Key"];
+                
                 cfg.LicenseKey = autoMapperKey;
+                
+                // Mitigate DoS / StackOverflow vulnerability by setting a recursion limit
+                cfg.Internal().ForAllMaps((typeMap, map) => map.MaxDepth(32));
+                
                 cfg.AddProfile<FlightProfile>();
                 cfg.AddProfile<StationProfile>();
                 cfg.AddProfile<RouteProfile>();
