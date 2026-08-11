@@ -42,7 +42,7 @@ namespace Airport.IntegrationTests
 
             // Note: Since CustomWebApplicationFactory spins up a fresh Testcontainer, 
             // the database is clean at the start of every test run.
-            var baseTime = DateTime.UtcNow.AddHours(-1);
+            var baseTime = new DateTime(2025, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
             // Insert 8 flights (Our limit is 5)
             // They are inserted with incrementally later Entrance times
