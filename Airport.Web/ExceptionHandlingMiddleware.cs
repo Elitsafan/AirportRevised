@@ -44,7 +44,6 @@ namespace Airport.Web
                 LogicProvisionFailedException => StatusCodes.Status404NotFound,
                 OperationCanceledException => 444,
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
-                // TODO: fix invalidoperationexception
                 InvalidOperationException => StatusCodes.Status500InternalServerError,
                 _ => StatusCodes.Status500InternalServerError
             };

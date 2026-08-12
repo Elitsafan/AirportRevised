@@ -6,7 +6,6 @@ using Airport.Domain.Helpers;
 using Airport.Domain.Providers;
 using Airport.Domain.Repositories;
 using Airport.Persistence.Repositories;
-using Airport.Services;
 using Airport.Services.Abstractions;
 using Airport.Services.Channels;
 using Airport.Services.Services;
@@ -31,7 +30,6 @@ namespace Airport.Web
             services.AddSingleton<IRepositoryManager, RepositoryManager>();
 
             services.AddSingleton<IDomainEvents, DomainEvents>();
-            services.AddSingleton<IAirportHubService, AirportHubService>();
 
             services.AddSingleton<IRouteValidator, RouteValidator>();
 
