@@ -1,10 +1,8 @@
 ﻿using Airport.Models;
-using Airport.Presentation.Filters;
+using Airport.Presentation.Extensions;
 using Airport.Services.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 
 namespace Airport.Presentation.Controllers
 {
