@@ -47,6 +47,7 @@ export class SignalrService {
   startConnection = async () => {
     this.hubConnection = new signalR.HubConnectionBuilder()
       .withUrl(`${environment.remoteUrl}${environment.airportHubEP}`)
+      .withAutomaticReconnect()
       .build();
 
     // Handle connection close/disconnect
