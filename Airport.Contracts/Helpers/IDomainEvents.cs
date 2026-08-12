@@ -10,9 +10,6 @@ namespace Airport.Contracts.Helpers
 {
     public interface IDomainEvents
     {
-        event AsyncEventHandler<IStationUpdatedEventArgs>? StationUpdated;
-        event AsyncEventHandler<IStationDeletedEventArgs>? StationDeleted;
-        event AsyncEventHandler<IStationCreatedEventArgs>? StationCreated;
         event Func<Task>? DataRefreshed;
         event Func<Task>? SystemResetRequested;
         event Func<Task>? StationProviderReset;
