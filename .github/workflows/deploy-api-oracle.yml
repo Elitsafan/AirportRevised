@@ -3,7 +3,7 @@ name: Deploy Airport API to Oracle Compute VM
 on:
   push:
     branches:
-      - development
+      - master
     paths:
       - 'Airport.Web/**'
       - 'Airport.Domain/**'
