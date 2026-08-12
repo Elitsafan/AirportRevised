@@ -1,6 +1,5 @@
 ﻿using Airport.Domain.Helpers;
 using Airport.Models.Enums;
-using AutoMapper;
 
 namespace Airport.Services.MappingConfigurations
 {
