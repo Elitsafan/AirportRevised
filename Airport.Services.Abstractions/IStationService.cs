@@ -1,5 +1,4 @@
 ﻿using Airport.Models.DTOs;
-using Airport.Models.Enums;
 using MongoDB.Bson;
 
 namespace Airport.Services.Abstractions
@@ -13,7 +12,6 @@ namespace Airport.Services.Abstractions
             ObjectId id,
             StationForUpdateDTO stationToUpdate,
             CancellationToken ct = default);
-        Task<StationDTO> AddStationAsync(StationForCreationDTO stationForCreationDTO, CancellationToken ct = default);
         Task<bool> DeleteStationAsync(ObjectId id, CancellationToken ct = default);
     }
 }
