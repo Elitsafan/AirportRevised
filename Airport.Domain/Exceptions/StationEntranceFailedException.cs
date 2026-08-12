@@ -6,7 +6,6 @@
             : base() { }
         public StationEntranceFailedException(string message)
             : base(message) { }
-
         public StationEntranceFailedException(string message, Exception inner)
             : base(message, inner) { }
     }

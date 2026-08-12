@@ -1,6 +1,4 @@
-﻿using Airport.Models.Enums;
-
-namespace Airport.Domain.Repositories
+﻿namespace Airport.Domain.Repositories
 {
     public interface IRouteRepository : IRepository<Route>
     {

@@ -1,6 +1,4 @@
-﻿using Airport.Domain.Helpers;
-
-namespace Airport.Domain.Extensions
+﻿namespace Airport.Domain.Helpers
 {
     internal static class SyncExtensions
     {

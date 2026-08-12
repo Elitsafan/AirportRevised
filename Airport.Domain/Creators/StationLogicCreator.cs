@@ -1,6 +1,6 @@
 ﻿namespace Airport.Domain.Creators
 {
-    public class StationLogicCreator : IStationLogicCreator
+    internal class StationLogicCreator : IStationLogicCreator
     {
         #region Fields
         private readonly Station _station;

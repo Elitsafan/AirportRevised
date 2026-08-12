@@ -1,6 +1,4 @@
-﻿using Airport.Models.Enums;
-
-namespace Airport.Domain.Factories
+﻿namespace Airport.Domain.Factories
 {
     public class FlightLogicFactory : IFlightLogicFactory
     {
