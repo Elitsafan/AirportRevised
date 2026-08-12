@@ -16,7 +16,7 @@ An interactive airport management system demonstrating real-time flight control 
   	- [Automated Script](#automated-script)
     - [Manual Commands](#manual-commands)
   - [Docker Installation](#docker-installation)
-  - [Cloud Demo](#cloud-demo)
+  - [Cloud Deployment](#cloud-deployment)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Testing](#testing)
@@ -46,6 +46,7 @@ Airport.Models/        # Shared models and DTOs
 Airport.Services/      # Application services (business logic)
 Airport.Persistence/   # Data access (MongoDB repositories)
 Airport.Simulator/     # Flight and airport simulation
+docs/                  # Documentation
 scripts/               # Setup and utility scripts
 docker-compose.yml     # Multi-container orchestration
 Dockerfile             # Backend Docker build
@@ -66,8 +67,7 @@ For local installation you can either run the automated script or manually:
 - Open PowerShell and navigate to the cloned directoey.
 - Run:
 ```sh
-cd scripts
-local-setup.ps1
+.\local-setup.ps1
 ```
 - The script will:
   - Install frontend dependencies
@@ -120,11 +120,12 @@ docker-compose up --build
 - Frontend: [http://localhost:4200](http://localhost:4200)
 - Backend API: [https://localhost:7029](https://localhost:7029), [http://localhost:5005](http://localhost:5005)
 
-### Cloud Demo
+### Cloud Deployment
 
-- **Frontend:** [https://airport.view.elitzafan.com](https://airport.view.elitzafan.com) (deployed from [AirportClient repository](https://github.com/Elitsafan/AirportClient))
-- **API:** [https://airport.api.elitzafan.com](https://airport.api.elitzafan.com)
-- **Simulator:** [https://airport.simulator.elitzafan.com](https://airport.simulator.elitzafan.com)
+- Deploy backend to Azure App Service or AWS Elastic Beanstalk.
+- Deploy frontend to Azure Static Web Apps, AWS S3, or Netlify.
+- Use managed MongoDB (e.g., MongoDB Atlas).
+- See `.github/workflows/azure-deploy.yml` for CI/CD example.
 
 ---
 
@@ -171,7 +172,7 @@ dotnet test
 - Test projects: `Airport.Services.Tests`, `Airport.Presentation.Tests`
 
 - **Frontend:**
-- Unit and integration tests:
+- Unit tests:
 ```sh
 npm test
 ```
