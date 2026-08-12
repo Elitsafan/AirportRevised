@@ -372,6 +372,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Private documentation
-private-docs/
-*.private.md
+# Postman
+postman/
+.postman/
