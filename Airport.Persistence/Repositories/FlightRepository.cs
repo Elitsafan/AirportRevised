@@ -200,22 +200,5 @@ namespace Airport.Persistence.Repositories
 
             return result.DeletedCount;
         }
-
-        public async Task<bool> DeleteOneAsync(ObjectId id, CancellationToken ct = default) =>
-            (await _flightsCollection.DeleteOneAsync(f => f.FlightId == id, ct)).DeletedCount > 0;
-
-        public async Task<IEnumerable<Flight>> OrderByEntranceAsync(CancellationToken ct = default) =>
-            await _flightsCollection
-                .Find(FilterDefinition<Flight>.Empty)
-                .SortBy(f => f.OccupationDetails[0].Entrance)
-                .ToListAsync(ct);
-
-        public async Task<IEnumerable<Flight>> FilterByTimePassedAsync(
-            TimeSpan timePassed,
-            CancellationToken ct = default) => await _flightsCollection
-            .Find(new FilterDefinitionBuilder<Flight>()
-                .Gt(f => f.OccupationDetails[0].Entrance, DateTime.Now - timePassed))
-            .SortBy(f => f.OccupationDetails[0].Entrance)
-            .ToListAsync(ct);
     }
 }

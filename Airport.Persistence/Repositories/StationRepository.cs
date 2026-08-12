@@ -7,6 +7,7 @@ namespace Airport.Persistence.Repositories
 {
     internal sealed class StationRepository : IStationRepository
     {
+        #region Fields
         private readonly IMongoCollection<Station> _stationsCollection;
         private readonly IMongoCollection<Route> _routesCollection;
         #endregion
@@ -136,12 +137,5 @@ namespace Airport.Persistence.Repositories
                 .Where(g => ids.Contains(g.Key) && g.Count() > count)
                 .ToDictionary(g => g.Key, g => g.Count());
         }
-
-        public async Task<IEnumerable<ObjectId>> GetExistingStationIdsAsync(
-            IEnumerable<ObjectId> ids,
-            CancellationToken ct = default) => await _stationsCollection
-                .Find(s => ids.Contains(s.StationId))
-                .Project(s => s.StationId)
-                .ToListAsync(ct);
     }
 }

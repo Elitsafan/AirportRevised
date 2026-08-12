@@ -128,31 +128,5 @@ namespace Airport.Persistence.Repositories
                             d => stationIds.Contains(d.From) || stationIds.Contains(d.To))))
                 .ToListAsync(ct);
         }
-
-        private bool FindPath(
-            List<Direction> allDirections,
-            List<Direction> currentLeg,
-            ObjectId target,
-            HashSet<ObjectId> pathIds)
-        {
-            if (currentLeg.Count == 0)
-                return false;
-            if (currentLeg.Any(d => d.To == target))
-                return true;
-
-            bool pathFound = false;
-            foreach (var direction in currentLeg)
-            {
-                var nextLeg = allDirections
-                    .Where(d => d.From == direction.To)
-                    .ToList();
-                if (FindPath(allDirections, nextLeg, target, pathIds))
-                {
-                    pathIds.Add(direction.To);
-                    pathFound = true;
-                }
-            }
-            return pathFound;
-        }
     }
 }
