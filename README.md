@@ -19,6 +19,10 @@ An interactive airport management system demonstrating real-time flight control 
   - [Cloud Deployment](#cloud-deployment)
 - [Usage](#usage)
 - [Configuration](#configuration)
+  - [Local Authentication & Credentials](#local-authentication--credentials)
+  - [Backend](#backend)
+  - [Frontend](#frontend)
+  - [Docker](#docker)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 
@@ -150,7 +154,8 @@ dotnet run --project Airport.Simulator
 
 ## Configuration
 
-* **Local Authentication & Credentials:**
+### Local Authentication & Credentials
+
 * To run the application locally, you must configure valid credentials for both the backend API and the simulator.
 * Create an `appsettings.Local.json` file in both the `Airport.Web/` and `Airport.Simulator/` directories.
 * Add your credentials using this exact format (these files are ignored by git to protect your secrets):
@@ -165,16 +170,16 @@ dotnet run --project Airport.Simulator
 
 *Note: The `.gitignore` file is configured to ignore `appsettings.*.json` to prevent accidentally committing your local secrets.*
 
-* **Backend:**
+### Backend
 * **File:** `Airport.Web/appsettings.json`
 * **Purpose:** Configure general API behaviors and database settings.
 * **Database:** Update `AirportDbConfiguration:ConnectionString` if you are not using the default local MongoDB container.
 
-* **Frontend:**
+### Frontend
 * **File:** `AirportClient/src/environments/environment.ts`
 * **Purpose:** Update the `remoteUrl` if your backend is hosted on a different port or domain.
 
-* **Docker:**
+### Docker
 * **File:** `docker-compose.yml`
 * **Purpose:** Modify port mappings or inject environment variables (like MongoDB connection strings or JWT secrets) directly into the containers.
 
