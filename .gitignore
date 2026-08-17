@@ -378,4 +378,3 @@ postman/
 
 # Environment Settings
 [Aa]pp[Ss]ettings.*.json
-/Airport.Web/appsettings.Local.json
