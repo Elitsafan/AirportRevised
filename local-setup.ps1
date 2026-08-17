@@ -23,6 +23,39 @@ if (!(docker ps -a --filter "name=airport-mongo" --format '{{.Names}}')) {
     docker start airport-mongo
 }
 
+# Wait until MongoDB actively responds to a ping
+Write-Host "Waiting for MongoDB port (27017) to become available to Windows..."
+$maxRetries = 30
+$retryCount = 0
+$isReady = $false
+
+while ($retryCount -lt $maxRetries) {
+    try {
+        # Attempt to open a raw TCP connection to the port exactly like the API does
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $tcpClient.Connect("127.0.0.1", 27017)
+        
+        if ($tcpClient.Connected) {
+            $isReady = $true
+            $tcpClient.Close()
+            
+            # Add a microscopic 1-second buffer just in case the DB engine is still warming up
+            Start-Sleep -Seconds 1
+            Write-Host "MongoDB is fully accessible from the host network!"
+            break
+        }
+    } catch {
+        # Port is still closed by Docker, swallow the error and wait
+    }
+    
+    Start-Sleep -Seconds 1
+    $retryCount++
+}
+
+if (-not $isReady) {
+    Write-Warning "Docker failed to map port 27017 in time. The API might crash."
+}
+
 # Build the solution
 Write-Host "Building the solution..."
 dotnet build
@@ -32,8 +65,8 @@ if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
     Write-Host "Opening Backend, Simulator, and Client in Windows Terminal tabs..."
 
     wt.exe `
-      -w 0 nt --title "Backend API" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Web --launch-profile localScript" `; `
-      nt --title "Simulator" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Simulator --launch-profile localScript" `; `
+      -w 0 nt --title "Backend API" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Web --launch-profile localScript" ';' `
+      nt --title "Simulator" -d "$PSScriptRoot" powershell -NoExit -Command "dotnet run --project Airport.Simulator --launch-profile localScript" ';' `
       nt --title "Angular Client" -d "$PSScriptRoot/AirportClient" powershell -NoExit -Command "npm start"
 } else {
     Write-Warning "Windows Terminal (wt.exe) not found. Falling back to separate windows."
