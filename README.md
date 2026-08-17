@@ -150,15 +150,33 @@ dotnet run --project Airport.Simulator
 
 ## Configuration
 
-- **Backend:**
-- `Airport.Web/appsettings.json` for API and database settings
-- Set `ConnectionStrings:Default` for MongoDB connection
+* **Local Authentication & Credentials:**
+* To run the application locally, you must configure valid credentials for both the backend API and the simulator.
+* Create an `appsettings.Local.json` file in both the `Airport.Web/` and `Airport.Simulator/` directories.
+* Add your credentials using this exact format (these files are ignored by git to protect your secrets):
+```sh
+{
+  "LoginCredentials": {
+    "Username": "your_username",
+    "Password": "your_secure_password"
+  }
+}
+```
 
-- **Frontend:**
-- `AirportClient/src/environments/environment.ts` for API base URL
+*Note: The `.gitignore` file is configured to ignore `appsettings.*.json` to prevent accidentally committing your local secrets.*
 
-- **Docker:**
-- Edit `docker-compose.yml` for port and environment variable overrides
+* **Backend:**
+* **File:** `Airport.Web/appsettings.json`
+* **Purpose:** Configure general API behaviors and database settings.
+* **Database:** Update `AirportDbConfiguration:ConnectionString` if you are not using the default local MongoDB container.
+
+* **Frontend:**
+* **File:** `AirportClient/src/environments/environment.ts`
+* **Purpose:** Update the `remoteUrl` if your backend is hosted on a different port or domain.
+
+* **Docker:**
+* **File:** `docker-compose.yml`
+* **Purpose:** Modify port mappings or inject environment variables (like MongoDB connection strings or JWT secrets) directly into the containers.
 
 ---
 
