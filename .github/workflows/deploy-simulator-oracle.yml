@@ -79,8 +79,8 @@ jobs:
             --restart unless-stopped \
             --network host \
             -e "ASPNETCORE_ENVIRONMENT=Production" \
-            -e "LoginCredentials__Username=${ADMIN_USERNAME}" \
-            -e "LoginCredentials__Password=${ADMIN_PASSWORD}" \
+            -e 'LoginCredentials__Username=${ADMIN_USERNAME}' \
+            -e 'LoginCredentials__Password=${ADMIN_PASSWORD}' \
             ${SIMULATOR_IMAGE}
 
           # Wait for container startup
