@@ -375,3 +375,6 @@ FodyWeavers.xsd
 # Postman
 postman/
 .postman/
+
+# Environment Settings
+[Aa]pp[Ss]ettings.*.json

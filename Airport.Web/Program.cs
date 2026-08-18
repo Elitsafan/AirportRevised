@@ -106,20 +106,19 @@ namespace Airport.Web
 
             builder.Services.AddCors(options =>
             {
-                options.AddDefaultPolicy(
-                    corsBuilder =>
-                    {
-                        var clientOrigins = builder.Configuration
-                            .GetSection("ClientOrigins")
-                            .GetChildren()
-                            .Select(cs => cs.Value)!
-                            .ToArray()!;
+                options.AddDefaultPolicy(corsBuilder =>
+                {
+                    var clientOrigins = builder.Configuration
+                        .GetSection("ClientOrigins")
+                        .GetChildren()
+                        .Select(cs => cs.Value)!
+                        .ToArray();
 
-                        corsBuilder.WithOrigins(clientOrigins!)
-                            .AllowAnyHeader()
-                            .WithMethods("GET", "POST")
-                            .AllowCredentials();
-                    });
+                    corsBuilder.WithOrigins(clientOrigins!)
+                        .AllowAnyHeader()
+                        .WithMethods("GET", "POST")
+                        .AllowCredentials();
+                });
             });
 
             builder.Services.AddControllers()
@@ -147,12 +146,12 @@ namespace Airport.Web
             builder.Services.AddAutoMapper(cfg =>
             {
                 var autoMapperKey = builder.Configuration.GetSection(nameof(AutoMapper))["Key"];
-                
+
                 cfg.LicenseKey = autoMapperKey;
-                
+
                 // Mitigate DoS / StackOverflow vulnerability by setting a recursion limit
                 cfg.Internal().ForAllMaps((typeMap, map) => map.MaxDepth(32));
-                
+
                 cfg.AddProfile<FlightProfile>();
                 cfg.AddProfile<StationProfile>();
                 cfg.AddProfile<RouteProfile>();

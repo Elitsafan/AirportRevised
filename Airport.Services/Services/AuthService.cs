@@ -9,12 +9,12 @@ namespace Airport.Services.Services
 {
     public class AuthService : IAuthService
     {
+        #region Fields
         private readonly JwtSettings _jwtSettings;
         private readonly LoginCredentials _loginCredentials;
+        #endregion
 
-        public AuthService(
-            IOptions<JwtSettings> jwtSettings,
-            IOptions<LoginCredentials> loginCredentials)
+        public AuthService(IOptions<JwtSettings> jwtSettings, IOptions<LoginCredentials> loginCredentials)
         {
             _jwtSettings = jwtSettings.Value;
             _loginCredentials = loginCredentials.Value;
