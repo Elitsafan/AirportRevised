@@ -1,7 +1,6 @@
 ﻿using Airport.Web;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using Testcontainers.MongoDb;
@@ -12,38 +11,34 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 {
     private readonly MongoDbContainer _mongoContainer;
 
-    public CustomWebApplicationFactory() => _mongoContainer = new MongoDbBuilder("mongo:latest").Build();
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    public CustomWebApplicationFactory()
     {
-        builder.ConfigureAppConfiguration((ctx, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["JwtSettings:Issuer"] = "TestIssuer",
-                ["JwtSettings:Audience"] = "TestAudience",
-                ["JwtSettings:Key"] = "SuperSecretTestKeyThatIsAtLeast32BytesLong!",
-                ["JwtSettings:ExpiryMinutes"] = "60",
-                ["LoginCredentials:Username"] = "admin",
-                ["LoginCredentials:Password"] = "password123"
-            });
-        });
+        // Inject variables early as environment variables so Program.cs 
+        // can read them instantly during CreateBuilder()
+        Environment.SetEnvironmentVariable("JwtSettings__Issuer", "TestIssuer");
+        Environment.SetEnvironmentVariable("JwtSettings__Audience", "TestAudience");
+        Environment.SetEnvironmentVariable("JwtSettings__Key", "SuperSecretTestKeyThatIsAtLeast32BytesLong!");
+        Environment.SetEnvironmentVariable("JwtSettings__ExpiryMinutes", "60");
+        Environment.SetEnvironmentVariable("LoginCredentials__Username", "admin");
+        Environment.SetEnvironmentVariable("LoginCredentials__Password", "password123");
 
-        builder.ConfigureServices(services =>
-        {
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IMongoClient));
-
-            if (descriptor != null)
-                services.Remove(descriptor);
-
-            services.AddSingleton<IMongoClient>(sp =>
-            {
-                var settings = MongoClientSettings.FromConnectionString(_mongoContainer.GetConnectionString());
-
-                return new MongoClient(settings);
-            });
-        });
+        _mongoContainer = new MongoDbBuilder("mongo:latest").Build();
     }
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.ConfigureServices(services =>
+    {
+        var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IMongoClient));
+
+        if (descriptor != null)
+            services.Remove(descriptor);
+
+        services.AddSingleton<IMongoClient>(sp =>
+        {
+            var settings = MongoClientSettings.FromConnectionString(_mongoContainer.GetConnectionString());
+
+            return new MongoClient(settings);
+        });
+    });
 
     public async Task InitializeAsync() => await _mongoContainer.StartAsync();
 
