@@ -3,7 +3,7 @@ name: Deploy Airport Simulator to Oracle Compute VM
 on:
   push:
     branches:
-      - development
+      - master
     paths:
       - 'Airport.Simulator/**'
       - 'Airport.Models/**'
